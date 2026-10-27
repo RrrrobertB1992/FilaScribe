@@ -56,8 +56,11 @@ jobs:
 
       - name: Name the APK
         id: apk
+        env:
+          # The branch's own commit, not the temporary PR merge commit
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          name="SpoolScribe-test-pr${{ github.event.pull_request.number || 'manual' }}-${GITHUB_SHA::7}.apk"
+          name="SpoolScribe-test-pr${{ github.event.pull_request.number || 'manual' }}-${HEAD_SHA::7}.apk"
           cp android/app/build/outputs/apk/debug/app-debug.apk "$name"
           echo "name=$name" >> "$GITHUB_OUTPUT"
 
