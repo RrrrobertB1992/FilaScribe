@@ -1,0 +1,114 @@
+@import '@fontsource/barlow-semi-condensed/latin-500.css';
+@import '@fontsource/barlow-semi-condensed/latin-600.css';
+@import '@fontsource/barlow-semi-condensed/latin-700.css';
+@import '@fontsource/atkinson-hyperlegible/latin-400.css';
+@import '@fontsource/atkinson-hyperlegible/latin-700.css';
+
+:root {
+  /* Machined aluminum, slate ink, cobalt actions, brass for the tag moment */
+  --bg: #e6e9ed;
+  --surface: #f6f7f9;
+  --ink: #1d2733;
+  --muted: #5a6676;
+  --line: #c9cfd7;
+  --action: #2a49c7;
+  --action-ink: #ffffff;
+  --brass: #b5852a;
+  --danger: #b3261e;
+  --ok: #1f7a4a;
+  --focus: #2a49c7;
+  --chip: #dde1e7;
+
+  --font-label: 'Barlow Semi Condensed', 'Arial Narrow', sans-serif;
+  --font-body: 'Atkinson Hyperlegible', system-ui, sans-serif;
+
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 36px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161a20;
+    --surface: #1f252d;
+    --ink: #e4e8ed;
+    --muted: #9aa5b3;
+    --line: #333c47;
+    --action: #6f8cff;
+    --action-ink: #0c1230;
+    --brass: #d9aa4c;
+    --danger: #ff8a80;
+    --ok: #6fd49b;
+    --focus: #8fa6ff;
+    --chip: #2a313b;
+    color-scheme: dark;
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+h1, h2, h3 { font-family: var(--font-label); line-height: 1.15; margin: 0; }
+
+button, input, select { font: inherit; color: inherit; }
+
+button { cursor: pointer; }
+
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* Shared field styles */
+.field { display: grid; gap: var(--s2); }
+.field > .label, .label {
+  font-family: var(--font-label); font-weight: 600; font-size: 1rem; letter-spacing: 0.01em;
+}
+.hint { color: var(--muted); font-size: 0.875rem; margin: 0; }
+.error-text { color: var(--danger); font-size: 0.875rem; margin: 0; }
+
+input[type='text'], input[type='number'], input:not([type]) {
+  width: 100%;
+  min-height: 44px;
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+}
+input[aria-invalid='true'] { border-color: var(--danger); }
+
+.btn {
+  min-height: 44px;
+  padding: var(--s2) var(--s4);
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-family: var(--font-label);
+  font-weight: 600;
+  font-size: 1rem;
+}
+.btn.primary { background: var(--action); border-color: var(--action); color: var(--action-ink); }
+.btn.small { min-height: 36px; padding: var(--s1) var(--s3); font-size: 0.9375rem; }
+.btn.quiet { background: transparent; border-color: transparent; color: var(--action); padding-inline: var(--s2); }
+.btn.danger { color: var(--danger); }
+.btn:disabled { opacity: 0.5; cursor: default; }
