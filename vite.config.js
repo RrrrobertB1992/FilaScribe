@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 
 // Relative base so the same build works at
-// https://<user>.github.io/SpoolScribe/ and inside the Android app.
+// https://<user>.github.io/FilaScribe/ and inside the Android app.
 export default defineConfig({
   base: './',
   plugins: [svelte()],

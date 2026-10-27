@@ -9,7 +9,7 @@
 // instead of becoming a new row. The same colors as a gradient and as
 // segments are two different entries.
 
-export const STORAGE_KEY = 'spoolscribe-saved-colors';
+export const STORAGE_KEY = 'filascribe-saved-colors';
 export const PAGE_SIZE = 15;
 
 const HEX = /^[0-9A-F]{6}$/;

@@ -1,5 +1,5 @@
 # Every pull request: run the tests, build the website, and build a test APK
-# ("SpoolScribe Test", installs next to the release app) that can be
+# ("FilaScribe Test", installs next to the release app) that can be
 # downloaded from the PR.
 name: PR test build
 
@@ -60,7 +60,7 @@ jobs:
           # The branch's own commit, not the temporary PR merge commit
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          name="SpoolScribe-test-pr${{ github.event.pull_request.number || 'manual' }}-${HEAD_SHA::7}.apk"
+          name="FilaScribe-test-pr${{ github.event.pull_request.number || 'manual' }}-${HEAD_SHA::7}.apk"
           cp android/app/build/outputs/apk/debug/app-debug.apk "$name"
           echo "name=$name" >> "$GITHUB_OUTPUT"
 
@@ -80,13 +80,13 @@ jobs:
           APK_URL: ${{ steps.upload.outputs.artifact-url }}
         with:
           script: |
-            const marker = '<!-- spoolscribe-test-apk -->';
+            const marker = '<!-- filascribe-test-apk -->';
             const body = [
               marker,
               `**Test APK:** [${process.env.APK_NAME}](${process.env.APK_URL})`,
               '',
               `Built from ${context.payload.pull_request.head.sha.slice(0, 7)}. GitHub downloads it as a .zip: open the zip on the phone and tap the APK inside.`,
-              'It installs as "SpoolScribe Test", next to the release app, and updates over earlier test APKs.',
+              'It installs as "FilaScribe Test", next to the release app, and updates over earlier test APKs.',
             ].join('\n');
             const { owner, repo } = context.repo;
             const issue_number = context.issue.number;

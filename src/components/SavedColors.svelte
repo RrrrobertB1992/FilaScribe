@@ -183,7 +183,7 @@
     const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'spoolscribe-saved-colors.json';
+    a.download = 'filascribe-saved-colors.json';
     a.click();
     URL.revokeObjectURL(url);
   }

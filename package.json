@@ -1,5 +1,5 @@
 {
-  "name": "spoolscribe",
+  "name": "filascribe",
   "private": true,
   "version": "0.1.0",
   "description": "NFC filament tag writer: create, read and update filament spool tags from a web page or an Android app.",
