@@ -19,7 +19,7 @@ Tags hold one NDEF record of type `application/json`. SpoolScribe writes only do
 
 Value formats follow the spec examples: colors are 6 hex digits without `#`, and temperatures are strings. When reading, SpoolScribe also accepts `#RRGGBB` colors and numeric values. If a tag has fields outside this list, SpoolScribe lists them and doesn't write them back.
 
-The multi-color fields and `color_type` match PrintTag-Web-Rrrrobert. Saved colors work the same way too, and a saved-colors export from there can be imported here: in the app, open Saved colors, then choose Import.
+The multi-color fields and `color_type` match PrintTag-Web-Rrrrobert. Saved colors work the same way and use the same data shape. To bring yours over, save the value of the `printtag-saved-colors` localStorage key from that site (for example from Chrome DevTools, under Application, then Local storage) as a `.json` file. Then, in SpoolScribe, open Saved colors and choose Import.
 
 ## Project layout
 
