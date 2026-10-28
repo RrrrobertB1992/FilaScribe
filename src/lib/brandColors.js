@@ -5,6 +5,8 @@
 // Every filament line belongs to one group, and the groups are the variant
 // chips (Basic, Matte, Silk, HF, ... Wood, Galaxy, Glow, Multi-color ...):
 //  - a variant chip shows its group; no variant shows Basic
+//  - each brand only gets chips for the groups it has, named with its own
+//    word where it uses one ("Metal", "Luminous", "Transparent")
 //  - within a group, look-alike colors (same name, nearly the same shade)
 //    from different lines are shown once
 //  - a Custom variant shows the lines whose name contains it
@@ -39,9 +41,9 @@ const GROUP_RULES = [
   ['Metallic', /\bmetal|metallic/],
   ['Silk', /silk|satin/],
   ['Matte', /matte/],
+  ['Color change', /temperature|colou?r.?chang|chameleon|thermo/],
   ['Fluorescent', /fluor|neon|\buv\b/],
   ['Translucent', /translucent|transparent|\bclear\b|crystal/],
-  ['Color change', /temperature|colou?r.?chang|chameleon|thermo/],
   ['Basic', /\bbasic\b/],
   ['HF', /\bhf\b|high.?speed|rapid|hyper|\bspeed\b/],
   ['Multi-color', /rainbow|gradient|multi.?colou?r|dual|tri.?colou?r|triple|\btri\b|four.?colou?r|quadruple|coextru/],
@@ -59,6 +61,62 @@ export function groupOf(line) {
   const t = traitSet(line.traits);
   for (const [code, group] of TRAIT_GROUPS) if (t.has(code)) return group;
   return 'Basic';
+}
+
+// The words brands use for each group, most specific first. A brand whose
+// lines in a group all use one of these words gets that word as its chip
+// (Bambu "PLA Metal" -> "Metal"); otherwise the chip is the group name.
+const SYNONYMS = {
+  Metallic: ['Metallic', 'Metal'],
+  Galaxy: ['Galaxy', 'Sparkle', 'Twinkling', 'Glitter', 'Starry', 'Stars'],
+  Glow: ['Glow', 'Luminous'],
+  Translucent: ['Translucent', 'Transparent', 'Clear', 'Crystal'],
+  Fluorescent: ['Fluorescent', 'Neon', 'UV'],
+  Marble: ['Marble', 'Stone', 'Granite', 'Rock'],
+  Silk: ['Silk', 'Satin'],
+  HF: ['HF', 'High Speed', 'Rapid', 'Hyper'],
+  'Multi-color': ['Rainbow', 'Gradient', 'Dual-Color', 'Tri-Color', 'Multi-Color'],
+  'Color change': ['Chameleon', 'Color Change'],
+};
+const plain = (s) => ` ${String(s).toLowerCase().replace(/[^a-z0-9+]+/g, ' ').trim()} `;
+const SYNONYM_GROUP = new Map(
+  Object.entries(SYNONYMS).flatMap(([g, ws]) => ws.map((w) => [norm(w), g])),
+);
+
+/** The brand's own word for a line's group, or null if its name uses none. */
+function wordFor(line, group) {
+  const name = plain(line.name);
+  return (SYNONYMS[group] || []).find((w) => name.includes(plain(w))) || null;
+}
+
+/** The group a variant (chip, synonym or Custom text) stands for, or null. */
+function groupKey(v) {
+  const n = norm(v);
+  if (!n) return null;
+  return GROUPS.find((g) => norm(g) === n) || SYNONYM_GROUP.get(n) || null;
+}
+
+/**
+ * The variant chips for a brand + material: '' (None), then one chip per
+ * group the brand has, in the usual order, named with the brand's own word
+ * where it has one. Brands or materials not in the database get the full
+ * default list.
+ */
+export function variantChoices(db, brand, type) {
+  const lines = db ? linesForMaterial(db, brand, type) : [];
+  if (!lines.length) return VARIANTS;
+  const byGroup = new Map();
+  for (const l of lines) {
+    const g = groupOf(l);
+    if (!byGroup.has(g)) byGroup.set(g, new Set());
+    const w = wordFor(l, g);
+    byGroup.get(g).add(w ?? g);
+  }
+  const labels = GROUPS.filter((g) => byGroup.has(g)).map((g) => {
+    const words = [...byGroup.get(g)];
+    return words.length === 1 ? words[0] : g;
+  });
+  return ['', ...labels];
 }
 
 /** The database brand for a FilaScribe brand name, or null. */
@@ -89,8 +147,6 @@ export function lineMatchesVariant(line, variant) {
   const name = new Set(words(line.name.replace(/\+/g, ' plus ')));
   return want.every((w) => name.has(w));
 }
-
-const groupKey = (v) => GROUPS.find((g) => norm(g) === norm(v)) || null;
 
 /**
  * Lines to show for the form. Returns { lines, filter, group, total }:
@@ -161,8 +217,15 @@ export function tilesFor(lines, { merge = true } = {}) {
   return tiles;
 }
 
-/** The variant chip for a line: its group. */
-export const suggestedVariant = (line) => groupOf(line);
+/**
+ * The variant chip for a line: its group, named the way variantChoices
+ * names it for this brand + material (e.g. "Metal" for Bambu Lab PLA).
+ */
+export function suggestedVariant(line, db = null, brand = '', type = '') {
+  const group = groupOf(line);
+  if (!db) return group;
+  return variantChoices(db, brand, type).find((c) => c && groupKey(c) === group) || group;
+}
 
 /**
  * Find a color matching these hex values among a brand + material's lines,

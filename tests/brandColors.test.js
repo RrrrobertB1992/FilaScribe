@@ -126,6 +126,55 @@ describe('brand colors: groups', () => {
   });
 });
 
+describe('brand colors: variant chips per brand', () => {
+  const brandDb = (lines) => ({ source: {}, brands: [{ name: 'Acme', keys: ['acme'], materials: { PLA: lines } }] });
+
+  it('only lists the groups the brand has, in the usual order, with None first', () => {
+    expect(BC.variantChoices(DB, 'Acme', 'PLA')).toEqual(['', 'Basic', 'Matte', 'Silk', 'High Speed', 'Galaxy']); // its HF line is "High Speed PLA"
+    expect(BC.variantChoices(DB, 'Acme', 'TPU')).toEqual(['', '95A', '95A HF']);
+  });
+
+  it('falls back to the full default list for unknown brands, materials, or no data', () => {
+    expect(BC.variantChoices(DB, 'Generic', 'PLA')).toBe(VARIANTS);
+    expect(BC.variantChoices(DB, 'Acme', 'ASA')).toBe(VARIANTS);
+    expect(BC.variantChoices(null, 'Acme', 'PLA')).toBe(VARIANTS);
+  });
+
+  it('uses the brand’s own word when its lines in a group agree on one', () => {
+    const db = brandDb([line('PLA Metal'), line('PLA Luminous'), line('Transparent Clear PLA'), line('Neon PLA')]);
+    expect(BC.variantChoices(db, 'Acme', 'PLA')).toEqual(['', 'Luminous', 'Metal', 'Neon', 'Transparent']);
+  });
+
+  it('keeps the group name when lines use different words, or none', () => {
+    const db = brandDb([line('PLA Galaxy'), line('PLA Sparkle'), line('Velvet PLA', 'm')]);
+    expect(BC.variantChoices(db, 'Acme', 'PLA')).toEqual(['', 'Matte', 'Galaxy']);
+  });
+
+  it('a brand word picks its group, as a chip or typed as Custom', () => {
+    const db = brandDb([line('PLA Metal'), line('PLA Basic')]);
+    expect(names(BC.linesFor(db, { brand: 'Acme', type: 'PLA', variant: 'Metal' }))).toEqual(['PLA Metal']);
+    expect(names(BC.linesFor(db, { brand: 'Acme', type: 'PLA', variant: 'metallic' }))).toEqual(['PLA Metal']);
+    expect(BC.suggestedVariant(db.brands[0].materials.PLA[0], db, 'Acme', 'PLA')).toBe('Metal');
+    expect(BC.suggestedVariant(db.brands[0].materials.PLA[0])).toBe('Metallic'); // without data: the group name
+  });
+
+  it('real brands', () => {
+    const chips = (b, m) => BC.variantChoices(snapshot, b, m);
+    expect(chips('Bambu Lab', 'PLA')).toContain('Metal');
+    expect(chips('Bambu Lab', 'PLA')).not.toContain('SnapSpeed');
+    expect(chips('Bambu Lab', 'PLA')).not.toContain('Metallic');
+    expect(chips('Snapmaker', 'PLA')).toContain('SnapSpeed');
+    expect(chips('Bambu Lab', 'PETG')).toEqual(['', 'Basic', 'Matte', 'HF', 'Translucent']);
+    expect(chips('SUNLU', 'PLA')).toContain('Transparent');
+    // every chip shown has colors
+    for (const [b, m] of [['Bambu Lab', 'PLA'], ['SUNLU', 'PLA'], ['eSun', 'PLA'], ['Polymaker', 'PLA']]) {
+      for (const v of chips(b, m).filter(Boolean)) {
+        expect(BC.linesFor(snapshot, { brand: b, type: m, variant: v }).lines.length, `${b} ${m} ${v}`).toBeGreaterThan(0);
+      }
+    }
+  });
+});
+
 describe('brand colors: merging look-alikes', () => {
   const lineA = line('PLA Wood', '', [['Walnut', '5C4033', '', ''], ['Pine', 'E3C08D', '', '']]);
   const lineB = line('Real Wood Fiber PLA', '', [['walnut', '604236', '', ''], ['Pine', '3A5F0B', '', ''], ['Oak', 'B5835A', '', '']]);

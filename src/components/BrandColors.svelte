@@ -6,6 +6,7 @@
   // there. "Edit colors" copies it into the pickers to adjust.
   import { onMount } from 'svelte';
   import * as BC from '../lib/brandColors.js';
+  import { loadBrandColors } from '../lib/brandColorsData.js';
 
   let {
     brand = '',
@@ -37,11 +38,7 @@
   let matchWhenLoaded = false; // a tag was loaded before the data arrived
 
   onMount(async () => {
-    try {
-      db = (await import('../data/brand-colors.json')).default;
-    } catch {
-      db = { brands: [], source: {} };
-    }
+    db = await loadBrandColors();
     if (matchWhenLoaded) {
       matchWhenLoaded = false;
       selectMatching();
@@ -60,13 +57,14 @@
     return allTiles.filter((t) => t.entry[0].toLowerCase().includes(q) || t.line.name.toLowerCase().includes(q));
   });
   const colorCount = $derived(BC.tilesFor(result.lines, { merge: !showAll }).length);
-  const groupName = $derived(result.group || variant || 'Basic');
+  // The chip's own wording ("Metal") when there is one
+  const groupName = $derived(variant || result.group || 'Basic');
   const label = $derived([BC.findBrand(db, brand)?.name ? brand : '', type].filter(Boolean).join(' '));
   const pickedTile = $derived(picked ? findTile(picked.id) : null);
   // Offer the picked line's group as the variant (not "Basic" when there's no variant)
   const suggestion = $derived.by(() => {
     if (!canSetVariant || !pickedTile) return '';
-    const g = BC.suggestedVariant(pickedTile.line);
+    const g = BC.suggestedVariant(pickedTile.line, db, brand, type);
     return g === variant || (g === 'Basic' && !variant) ? '' : g;
   });
 
@@ -172,7 +170,7 @@
 
   function filterNote() {
     const lines = `${result.lines.length} ${result.lines.length === 1 ? 'line' : 'lines'}`;
-    if (result.filter === 'group') return `${result.group}: ${colorCount} colors from ${lines}`;
+    if (result.filter === 'group') return `${groupName}: ${colorCount} colors from ${lines}`;
     if (result.filter === 'basic') return `Basic (no variant): ${colorCount} colors from ${lines}`;
     if (result.filter === 'name') return `lines named “${variant}”: ${colorCount} colors from ${lines}`;
     return `every line (${result.total}), nothing merged`;

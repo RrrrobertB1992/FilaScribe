@@ -1,4 +1,4 @@
-import { test, expect, placeTag, lastWrite, chip, writeTag, status } from './nfc.js';
+import { test, expect, colorStyle, placeTag, lastWrite, chip, writeTag, status } from './nfc.js';
 
 const panel = (page) => page.locator('.saved');
 const tiles = (page) => panel(page).getByRole('button', { pressed: undefined }).filter({ has: page.locator('.hex') });
@@ -40,7 +40,7 @@ test.describe('Saved colors', () => {
 
   test('picking a saved color fills the colors; unpicking puts them back', async ({ page }) => {
     await setColors(page, 'AA0000', '00AA00');
-    await chip(page, 'Gradient').click();
+    await colorStyle(page, 'Gradient').click();
     await panel(page).getByRole('button', { name: 'Save current colors' }).click();
     await page.getByRole('button', { name: 'Start over' }).click(); // back to white, brand Generic
     await chip(page, 'Polymaker').click();
@@ -60,9 +60,9 @@ test.describe('Saved colors', () => {
 
   test('gradient and segments of the same colors are separate rows', async ({ page }) => {
     await setColors(page, 'AA0000', '00AA00');
-    await chip(page, 'Gradient').click();
+    await colorStyle(page, 'Gradient').click();
     await panel(page).getByRole('button', { name: 'Save current colors' }).click();
-    await chip(page, 'Segments').click();
+    await colorStyle(page, 'Segments').click();
     await panel(page).getByRole('button', { name: 'Save current colors' }).click();
     await expect(panel(page)).toContainText('(2)');
   });
