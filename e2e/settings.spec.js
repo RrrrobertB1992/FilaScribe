@@ -1,4 +1,4 @@
-import { test, expect, chip, writeTag, lastWrite, status, temps } from './nfc.js';
+import { test, expect, chip, writeTag, lastWrite, status, temps, placeTag } from './nfc.js';
 
 const settings = (page) => page.getByRole('tab', { name: 'Settings' }).click();
 const card = (page, name) => page.locator('section.card', { has: page.getByRole('heading', { name }) });
@@ -43,17 +43,77 @@ test.describe('Settings', () => {
     await expect(chip(page, 'Generic')).toHaveAttribute('aria-pressed', 'true');
   });
 
+  test('brands: turn brands on and off, add your own, reset', async ({ page }) => {
+    const brandRow = page.getByRole('group', { name: 'Brand', exact: true });
+    await settings(page);
+    const brands = card(page, 'Brands');
+    const onForm = brands.getByRole('group', { name: 'Brands on the form' });
+    await expect(onForm).toContainText('Generic');
+    await expect(onForm).toContainText('SUNLU');
+
+    // hide one
+    await onForm.getByRole('button', { name: 'Hide SUNLU' }).click();
+    await expect(onForm).not.toContainText('SUNLU');
+    // find and turn one on
+    await brands.getByLabel('Find a brand').fill('elegoo');
+    const elegoo = brands.getByRole('switch', { name: /^Elegoo/ });
+    await expect(elegoo).toHaveAttribute('aria-checked', 'false');
+    await elegoo.click();
+    await expect(elegoo).toHaveAttribute('aria-checked', 'true');
+    await expect(onForm).toContainText('Elegoo');
+    // a name nobody lists
+    await brands.getByLabel('Find a brand').fill('Zephyr');
+    await brands.getByRole('button', { name: 'Add “Zephyr” as your own brand' }).click();
+    await expect(onForm).toContainText('Zephyr');
+
+    await page.getByRole('tab', { name: 'Create' }).click();
+    await expect(brandRow.getByRole('button', { name: 'SUNLU', exact: true })).toHaveCount(0);
+    await expect(brandRow.getByRole('button', { name: 'Elegoo', exact: true })).toBeVisible();
+    await expect(brandRow.getByRole('button', { name: 'Zephyr', exact: true })).toHaveClass(/saved/);
+
+    // it sticks
+    await page.reload();
+    await expect(brandRow.getByRole('button', { name: 'Elegoo', exact: true })).toBeVisible();
+    await expect(brandRow.getByRole('button', { name: 'SUNLU', exact: true })).toHaveCount(0);
+
+    // reset
+    await settings(page);
+    await card(page, 'Brands').getByRole('button', { name: 'Show the default brands' }).click();
+    await page.getByRole('tab', { name: 'Create' }).click();
+    await expect(brandRow.getByRole('button', { name: 'SUNLU', exact: true })).toBeVisible();
+    await expect(brandRow.getByRole('button', { name: 'Elegoo', exact: true })).toHaveCount(0);
+  });
+
+  test('a read tag with a hidden brand shows it under Other…', async ({ page }) => {
+    await settings(page);
+    await card(page, 'Brands').getByRole('group', { name: 'Brands on the form' }).getByRole('button', { name: 'Hide SUNLU' }).click();
+    await page.getByRole('tab', { name: 'Read & update' }).click();
+    await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'PLA', brand: 'SUNLU', color_hex: 'FFFFFF' });
+    await page.getByRole('button', { name: 'Read tag' }).click();
+    await expect(page.getByRole('dialog')).toBeHidden();
+    await expect(page.getByLabel('Other brand')).toHaveValue('SUNLU');
+  });
+
+  test('brands saved as chips before move into the brand list', async ({ page }) => {
+    await page.evaluate(() => localStorage.setItem('filascribe-custom-chips', JSON.stringify({ brands: ['Zephyr'], materials: [], variants: {} })));
+    await page.reload();
+    await expect(chip(page, 'Zephyr')).toBeVisible();
+    await expect(chip(page, 'SUNLU')).toBeVisible();
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('filascribe-brands')).shown)).toContain('Zephyr');
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('filascribe-custom-chips')).brands)).toEqual([]);
+  });
+
   test('your chips: listed and removable', async ({ page }) => {
-    await page.getByRole('group', { name: 'Brand', exact: true }).getByRole('button', { name: 'Custom' }).click();
-    await page.getByLabel('Custom brand').fill('Zephyr');
-    await page.getByRole('button', { name: 'Save brand as a chip' }).click();
+    await page.getByRole('group', { name: 'Material', exact: true }).getByRole('button', { name: 'Custom' }).click();
+    await page.getByLabel('Custom material').fill('PLA+');
+    await page.getByRole('button', { name: 'Save material as a chip' }).click();
     await settings(page);
     const chips = card(page, 'Your chips');
-    await expect(chips.getByRole('group', { name: 'Your brands' })).toContainText('Zephyr');
-    await chips.getByRole('button', { name: 'Remove Zephyr' }).click();
+    await expect(chips.getByRole('group', { name: 'Your materials' })).toContainText('PLA+');
+    await chips.getByRole('button', { name: 'Remove PLA+' }).click();
     await expect(chips).toContainText('None yet');
     await page.getByRole('tab', { name: 'Create' }).click();
-    await expect(chip(page, 'Zephyr')).toHaveCount(0);
+    await expect(chip(page, 'PLA+')).toHaveCount(0);
   });
 
   test('saved colors: listed per brand + material, cleared, imported and exported', async ({ page }) => {

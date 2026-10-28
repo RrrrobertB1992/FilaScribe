@@ -20,8 +20,12 @@
     onsave = null, // (value) => keep it as a chip
     removable = [], // saved chips that can be removed
     onremove = () => {},
+    outlined = null, // chips with a dashed outline (default: `removable`)
+    customLabel = 'Custom', // "Other…" makes it a smaller, quieter chip
   } = $props();
 
+  const dashed = $derived(outlined ?? removable);
+  const boxLabel = $derived(`${customLabel.replace(/…$/, '')} ${label.toLowerCase()}`);
   const options = $derived(items.map((i) => (typeof i === 'string' ? { value: i, label: i || 'None' } : i)));
   const known = $derived(options.some((o) => o.value === value));
   let customOpen = $state(false);
@@ -131,12 +135,12 @@
   <span class="label" {id}>{label}</span>
   <div class="chips">
     {#each options as o (o.value)}
-      <button type="button" class="chip" class:saved={removable.includes(o.value)} aria-pressed={!custom && value === o.value} onclick={() => pick(o.value)}>
+      <button type="button" class="chip" class:saved={dashed.includes(o.value)} aria-pressed={!custom && value === o.value} onclick={() => pick(o.value)}>
         {o.label}
       </button>
     {/each}
     {#if allowCustom}
-      <button type="button" class="chip" aria-pressed={custom} onclick={pickCustom}>Custom</button>
+      <button type="button" class="chip" class:other={customLabel !== 'Custom'} aria-pressed={custom} onclick={pickCustom}>{customLabel}</button>
     {/if}
   </div>
   {#if custom}
@@ -147,7 +151,7 @@
         type="text"
         bind:value={draft}
         placeholder={customPlaceholder}
-        aria-label={`Custom ${label.toLowerCase()}`}
+        aria-label={boxLabel}
         aria-invalid={!!error}
         maxlength="40"
         autocomplete="off"
@@ -173,7 +177,7 @@
         type="text"
         {value}
         placeholder={customPlaceholder}
-        aria-label={`Custom ${label.toLowerCase()}`}
+        aria-label={boxLabel}
         aria-invalid={!!error}
         maxlength="40"
         oninput={typed}
@@ -219,6 +223,13 @@
     background: var(--ink);
     color: var(--bg);
     font-weight: 600;
+  }
+  /* "Other…": a quieter chip for anything not in the row */
+  .chip.other:not([aria-pressed='true']) {
+    background: transparent;
+    border-color: var(--line);
+    color: var(--muted);
+    font-size: 0.9375rem;
   }
   /* Your own chips (saved Custom values): a dashed outline, as in PrintTag-Web-Rrrrobert */
   .chip.saved {

@@ -8,13 +8,14 @@
   import Settings from './components/Settings.svelte';
   import * as Defaults from './lib/defaults.js';
   import * as OpenSpool from './lib/formats/openspool.js';
-  import { MATERIALS, BRANDS, VARIANTS } from './lib/catalog.js';
+  import { MATERIALS, VARIANTS } from './lib/catalog.js';
   import { encodeMessage, mimeRecord, maxMessageSize, NTAG, TNF } from './lib/ndef.js';
   import { getNfc } from './lib/nfc/index.js';
-  import { variantChoices, carryVariant, materialChoices, carryMaterial, canonicalBrand, suggestBrands } from './lib/brandColors.js';
+  import { variantChoices, carryVariant, materialChoices, carryMaterial, canonicalBrand, suggestBrands, findBrand } from './lib/brandColors.js';
   import { loadBrandColors } from './lib/brandColorsData.js';
   import { buildParts } from './lib/buildInfo.js';
   import * as CustomChips from './lib/customChips.js';
+  import * as BrandList from './lib/brandList.js';
 
   const nfc = getNfc();
   const buildLabel = buildParts(__BUILD__);
@@ -40,7 +41,24 @@
   // Your own chips (Custom values you saved), after the built-in ones
   let chips = $state(CustomChips.load());
   const savedVariants = $derived(CustomChips.variantsFor(chips, form.brand, form.type));
-  const brandItems = $derived(CustomChips.withSaved(BRANDS, chips.brands));
+  // The Brand row: the brands chosen in Settings. Brands saved as chips
+  // before that setting existed move into it once.
+  let shownBrands = $state(BrandList.load(undefined, chips.brands));
+  if (chips.brands.length) {
+    BrandList.store(shownBrands);
+    chips = { ...chips, brands: [] };
+    CustomChips.store(chips);
+  }
+  const brandItems = $derived(BrandList.chipsFor(shownBrands));
+  // Brands neither database knows (your own) get the dashed outline
+  const ownBrands = $derived(brandData ? shownBrands.filter((b) => !findBrand(brandData, b)) : []);
+
+  function showBrand(brand) {
+    const next = BrandList.add(shownBrands, brand);
+    if (next === shownBrands) return;
+    shownBrands = next;
+    BrandList.store(shownBrands);
+  }
   const materialItems = $derived(CustomChips.withSaved(builtInMaterials, chips.materials));
   const variantItems = $derived(CustomChips.withSaved(builtInVariants, savedVariants));
 
@@ -58,7 +76,7 @@
 
   // After a write: Custom values on the tag become chips too
   function saveCustomsFromForm() {
-    saveChip('brand', form.brand, BRANDS);
+    showBrand(form.brand);
     saveChip('material', form.type, builtInMaterials);
     if (u1) saveChip('variant', form.subtype, builtInVariants);
   }
@@ -259,7 +277,7 @@
   {/if}
 
   {#if mode === 'settings'}
-    <Settings {form} bind:defaults bind:chips {brandData} onstatus={(t, isError) => say(t, isError ? 'error' : 'ok')} />
+    <Settings {form} bind:defaults bind:chips bind:shownBrands {brandData} onstatus={(t, isError) => say(t, isError ? 'error' : 'ok')} />
   {:else if mode === 'update' && (!loaded || loaded.empty)}
     <section class="empty">
       <h2>Read a tag to change it</h2>
@@ -298,9 +316,9 @@
         onpick={pickBrand}
         suggest={(t) => suggestBrands(brandData, t)}
         commit={(t) => canonicalBrand(brandData, t)}
-        onsave={(v) => saveChip('brand', v, BRANDS)}
-        removable={chips.brands}
-        onremove={(v) => removeChip('brand', v)}
+        customLabel="Other…"
+        onsave={showBrand}
+        outlined={ownBrands}
       />
       <Palette
         label="Material"
