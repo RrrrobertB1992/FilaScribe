@@ -8,7 +8,14 @@ export default defineConfig({
   plugins: [svelte()],
   define: {
     __APP_VERSION__: JSON.stringify(process.env.npm_package_version || '0.0.0'),
-    __BUILD_ID__: JSON.stringify(process.env.BUILD_ID || 'dev'),
+    // Where this build came from (set by the workflows; empty for local builds)
+    __BUILD__: JSON.stringify({
+      repo: process.env.GITHUB_REPOSITORY || '',
+      pr: process.env.BUILD_PR || '',
+      run: process.env.BUILD_RUN || '',
+      commit: process.env.BUILD_COMMIT || '',
+      tag: process.env.BUILD_TAG || '',
+    }),
   },
   build: {
     outDir: 'dist',

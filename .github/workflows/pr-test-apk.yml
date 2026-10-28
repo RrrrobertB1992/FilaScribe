@@ -41,7 +41,10 @@ jobs:
 
       - name: Build web app
         env:
-          BUILD_ID: pr${{ github.event.pull_request.number }}-${{ github.run_number }}
+          # Shown (and linked) in the footer: pr10-18 · f724cb4
+          BUILD_PR: ${{ github.event.pull_request.number }}
+          BUILD_RUN: ${{ github.run_number }}
+          BUILD_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: npm run build
 
       - name: Copy web app into Android

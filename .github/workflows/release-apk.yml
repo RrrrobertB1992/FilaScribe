@@ -52,7 +52,9 @@ jobs:
       - run: npm test
 
       - name: Build web app
-        run: BUILD_ID="$TAG" npm run build
+        env:
+          BUILD_COMMIT: ${{ github.sha }}
+        run: BUILD_TAG="$TAG" npm run build
 
       - run: npx cap sync android
 

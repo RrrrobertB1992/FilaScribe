@@ -11,9 +11,10 @@
   import { getNfc } from './lib/nfc/index.js';
   import { variantChoices, carryVariant, materialChoices, carryMaterial, canonicalBrand, suggestBrands } from './lib/brandColors.js';
   import { loadBrandColors } from './lib/brandColorsData.js';
+  import { buildParts } from './lib/buildInfo.js';
 
   const nfc = getNfc();
-  const version = `${__APP_VERSION__}${__BUILD_ID__ !== 'dev' ? ` (${__BUILD_ID__})` : ''}`;
+  const buildLabel = buildParts(__BUILD__);
 
   let mode = $state('create'); // 'create' | 'update'
   let form = $state(OpenSpool.emptyForm('u1'));
@@ -346,7 +347,9 @@
   {/if}
 
   <footer>
-    <p>FilaScribe {version}. Writes <a href="https://openspool.io/rfid.html">OpenSpool</a> tags{nfc.kind === 'web' ? ' with Web NFC' : ''}.</p>
+    <p>
+      FilaScribe {__APP_VERSION__}{#if buildLabel.length}{' '}(<span class="build">{#each buildLabel as part}{#if part.href}<a href={part.href} target="_blank" rel="noopener">{part.text}</a>{:else}{part.text}{/if}{/each}</span>){/if}. Writes <a href="https://openspool.io/rfid.html">OpenSpool</a> tags{nfc.kind === 'web' ? ' with Web NFC' : ''}.
+    </p>
   </footer>
 </div>
 
