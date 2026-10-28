@@ -6,7 +6,9 @@
 // chips (Basic, Matte, Silk, HF, ... Wood, Galaxy, Glow, Multi-color ...):
 //  - a variant chip shows its group; no variant shows Basic
 //  - each brand only gets chips for the groups it has, named with its own
-//    word where it uses one ("Metal", "Luminous", "Transparent")
+//    word where it uses one ("Metal", "Luminous", "Transparent", "Aero"),
+//    including groups not in the default list (Lightweight, Tough, CF, GF,
+//    FR, ESD, HT, Recycled) and any shore hardness ("85A")
 //  - within a group, look-alike colors (same name, nearly the same shade)
 //    from different lines are shown once
 //  - a Custom variant shows the lines whose name contains it
@@ -26,47 +28,103 @@ const MATERIAL_ALIASES = {
   'PA-CF': { materials: ['PA6', 'PA11', 'PA12'], fiber: 'cf' },
 };
 
-// Line name -> group, first match wins. Finishes come before Multi-color, so
-// "Silk PLA+ Dual-Color" is Silk (the subtype the U1 would use); HF comes
-// after the finishes, so "High Speed Matte PLA" is Matte.
+// Groups beyond the default Variant list. They only appear as chips for
+// brands that make them (Bambu Lab PLA gets "Aero", Generic doesn't).
+export const EXTRA_GROUPS = ['Lightweight', 'Tough', 'CF', 'GF', 'FR', 'ESD', 'HT', 'Recycled'];
+
+// Shore hardness (TPU, PEBA...): "85A", "95A HF". Any value is its own group.
+const SHORE = /\b(\d{2})\s?a\b/;
+const SHORE_LABEL = /^(\d{2})A( HF)?$/;
+
+// Line name -> group, first match wins:
+//  - what changes how a spool prints comes first: support, lightweight
+//    (foaming), carbon/glass fiber (abrasive), then shore hardness
+//  - then finishes, before Multi-color ("Silk PLA+ Dual-Color" is Silk) and
+//    before HF ("High Speed Matte PLA" is Matte)
+// Rules marked 'fiber' are skipped for the PLA-CF / PETG-CF / PA-CF chips,
+// whose lines are all fiber lines.
 const GROUP_RULES = [
-  ['95A HF', /\b95a\b.*\bhf\b|\bhf\b.*\b95a\b/],
-  ['95A', /\b95a\b/],
   ['Support', /\bsupport\b|breakaway|soluble/],
   ['SnapSpeed', /snapspeed/],
+  ['Lightweight', /\baero\b|\blw\b|light\s?weight|\bair\b|foam/],
+  ['CF', /\bcf\d*\b|carbon/, 'fiber'],
+  ['GF', /\bgf\d*\b|glass\s?fib/, 'fiber'],
   ['Wood', /wood/],
   ['Marble', /marble|stone|granite|\brock\b/],
   ['Glow', /glow|luminous|phosphor/],
   ['Galaxy', /galaxy|sparkle|glitter|twinkl|starry|\bstar\b/],
   ['Metallic', /\bmetal|metallic/],
   ['Silk', /silk|satin/],
-  ['Matte', /matte/],
+  ['Matte', /\bmatte?\b/],
   ['Color change', /temperature|colou?r.?chang|chameleon|thermo/],
   ['Fluorescent', /fluor|neon|\buv\b/],
   ['Translucent', /translucent|transparent|\bclear\b|crystal/],
   ['Basic', /\bbasic\b/],
+  ['Tough', /\btough/],
+  ['FR', /\bfr\b|\bv0\b|flame/],
+  ['ESD', /\besd\b|static|conductive|3dxstat/],
+  ['HT', /\bht\b|paht|high.?temp|heat.?resist/],
+  ['Recycled', /recycl/],
   ['HF', /\bhf\b|high.?speed|rapid|hyper|\bspeed\b/],
   ['Multi-color', /rainbow|gradient|multi.?colou?r|dual|tri.?colou?r|triple|\btri\b|four.?colou?r|quadruple|coextru/],
 ];
-// Fallbacks from the database's finish tags when the name says nothing
-const TRAIT_GROUPS = [['w', 'Glow'], ['s', 'Silk'], ['m', 'Matte'], ['t', 'Translucent'], ['h', 'HF'], ['g', 'Multi-color'], ['c', 'Multi-color']];
+// Fallbacks from the database's tags when the name says nothing
+const TRAIT_GROUPS = [['cf', 'CF'], ['gf', 'GF'], ['w', 'Glow'], ['s', 'Silk'], ['m', 'Matte'], ['t', 'Translucent'], ['h', 'HF'], ['g', 'Multi-color'], ['c', 'Multi-color']];
 
 /** The variant chips that are also groups (every chip except "None"). */
 export const GROUPS = VARIANTS.filter(Boolean);
 
-/** The group (a variant chip) a line belongs to. */
-export function groupOf(line) {
+/**
+ * The group a line belongs to: a variant chip, an extra group, or a shore
+ * hardness ("85A"). With skipFiber, carbon/glass fiber doesn't count (for
+ * the -CF material chips).
+ */
+export function groupOf(line, { skipFiber = false } = {}) {
   const name = line.name.toLowerCase().replace(/[-_]/g, ' ');
-  for (const [group, re] of GROUP_RULES) if (re.test(name)) return group;
+  for (const [group, re, kind] of GROUP_RULES.slice(0, 5)) {
+    if (kind === 'fiber' && skipFiber) continue;
+    if (re.test(name)) return group;
+  }
+  const shore = name.match(SHORE);
+  if (shore) return `${shore[1]}A${/\bhf\b|high.?speed|rapid|hyper/.test(name) ? ' HF' : ''}`;
+  for (const [group, re] of GROUP_RULES.slice(5)) if (re.test(name)) return group;
   const t = traitSet(line.traits);
-  for (const [code, group] of TRAIT_GROUPS) if (t.has(code)) return group;
+  for (const [code, group] of TRAIT_GROUPS) {
+    if (skipFiber && (code === 'cf' || code === 'gf')) continue;
+    if (t.has(code)) return group;
+  }
   return 'Basic';
+}
+
+const isFiberType = (type) => !!MATERIAL_ALIASES[String(type ?? '').trim().toUpperCase()]?.fiber;
+const grouper = (type) => {
+  const skipFiber = isFiberType(type);
+  return (line) => groupOf(line, { skipFiber });
+};
+
+/** Where a group sits in the Variant row: default chips, shore values in order, then extras. */
+function orderOf(g) {
+  const shore = g.match(SHORE_LABEL);
+  if (shore) return GROUPS.indexOf('95A') + (Number(shore[1]) + (shore[2] ? 0.5 : 0)) / 1000;
+  const i = GROUPS.indexOf(g);
+  if (i >= 0) return i;
+  const e = EXTRA_GROUPS.indexOf(g);
+  return GROUPS.length + (e >= 0 ? e : EXTRA_GROUPS.length);
 }
 
 // The words brands use for each group, most specific first. A brand whose
 // lines in a group all use one of these words gets that word as its chip
 // (Bambu "PLA Metal" -> "Metal"); otherwise the chip is the group name.
 const SYNONYMS = {
+  Matte: ['Matte', 'Matt'],
+  Lightweight: ['Aero', 'LW', 'Light Weight', 'Light-Weight', 'Lightweight', 'Air'],
+  Tough: ['Tough+', 'Tough'],
+  CF: ['CF', 'Carbon Fiber', 'Carbon'],
+  GF: ['GF', 'Glass Fiber', 'Glass Fibre'],
+  FR: ['FR', 'V0', 'Flame Retardant'],
+  ESD: ['ESD', 'Static Dissipative', 'Conductive'],
+  HT: ['HT', 'High Temp'],
+  Recycled: ['Recycled'],
   Metallic: ['Metallic', 'Metal'],
   Galaxy: ['Galaxy', 'Sparkle', 'Twinkling', 'Glitter', 'Starry', 'Stars'],
   Glow: ['Glow', 'Luminous'],
@@ -89,11 +147,13 @@ function wordFor(line, group) {
   return (SYNONYMS[group] || []).find((w) => name.includes(plain(w))) || null;
 }
 
-/** The group a variant (chip, synonym or Custom text) stands for, or null. */
+/** The group a variant (chip, synonym, hardness or Custom text) stands for, or null. */
 function groupKey(v) {
   const n = norm(v);
   if (!n) return null;
-  return GROUPS.find((g) => norm(g) === n) || SYNONYM_GROUP.get(n) || null;
+  const shore = String(v).trim().match(/^(\d{2})\s?a(\s?hf)?$/i);
+  if (shore) return `${shore[1]}A${shore[2] ? ' HF' : ''}`;
+  return GROUPS.find((g) => norm(g) === n) || EXTRA_GROUPS.find((g) => norm(g) === n) || SYNONYM_GROUP.get(n) || null;
 }
 
 /**
@@ -105,14 +165,15 @@ function groupKey(v) {
 export function variantChoices(db, brand, type) {
   const lines = db ? linesForMaterial(db, brand, type) : [];
   if (!lines.length) return VARIANTS;
+  const group = grouper(type);
   const byGroup = new Map();
   for (const l of lines) {
-    const g = groupOf(l);
+    const g = group(l);
     if (!byGroup.has(g)) byGroup.set(g, new Set());
     const w = wordFor(l, g);
     byGroup.get(g).add(w ?? g);
   }
-  const labels = GROUPS.filter((g) => byGroup.has(g)).map((g) => {
+  const labels = [...byGroup.keys()].sort((a, b) => orderOf(a) - orderOf(b)).map((g) => {
     const words = [...byGroup.get(g)];
     return words.length === 1 ? words[0] : g;
   });
@@ -178,7 +239,8 @@ export function linesFor(db, { brand, type, variant = '', showAll = false }) {
   const v = String(variant ?? '').trim();
   const group = groupKey(v || 'Basic');
   if (group) {
-    const lines = all.filter((l) => groupOf(l) === group);
+    const inGroup = grouper(type);
+    const lines = all.filter((l) => inGroup(l) === group);
     return lines.length ? { lines, filter: v ? 'group' : 'basic', group, total } : { lines: [], filter: 'nomatch', group, total };
   }
   const lines = all.filter((l) => lineMatchesVariant(l, v));
@@ -237,7 +299,7 @@ export function tilesFor(lines, { merge = true } = {}) {
  * names it for this brand + material (e.g. "Metal" for Bambu Lab PLA).
  */
 export function suggestedVariant(line, db = null, brand = '', type = '') {
-  const group = groupOf(line);
+  const group = grouper(type)(line);
   if (!db) return group;
   return variantChoices(db, brand, type).find((c) => c && groupKey(c) === group) || group;
 }

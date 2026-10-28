@@ -201,6 +201,87 @@ describe('brand colors: keeping the variant when the brand changes', () => {
   });
 });
 
+describe('brand colors: edge cases from the database', () => {
+  const g = (name, traits = '', opts) => BC.groupOf({ name, traits }, opts);
+
+  it('lightweight (foaming) lines are their own group, in the brand’s word', () => {
+    for (const n of ['PLA Aero', 'ASA-Aero', 'PLA-LW', 'LW PolyLite PLA', 'PLA Light Weight', 'ASA Light-Weight', 'PLA Air', 'ASA ApolloX Foaming', 'LW-HT PLA']) {
+      expect(g(n), n).toBe('Lightweight');
+    }
+    expect(g('PETG Graphene Light')).toBe('Basic'); // "light" alone isn't lightweight
+    const chips = BC.variantChoices(snapshot, 'Bambu Lab', 'PLA');
+    expect(chips).toContain('Aero');
+    expect(BC.variantChoices(snapshot, 'eSun', 'PLA')).toContain('LW');
+  });
+
+  it('tough, flame retardant, ESD, high-temp and recycled lines', () => {
+    expect(g('PLA Tough+')).toBe('Tough');
+    expect(g('PETG-Tough')).toBe('Tough');
+    expect(g('PC FR')).toBe('FR');
+    expect(g('PETG V0')).toBe('FR');
+    expect(g('Premium PETG Flame Retardant')).toBe('FR');
+    expect(g('ABS 3DXStat ESD')).toBe('ESD');
+    expect(g('Static Dissipative PLA')).toBe('ESD');
+    expect(g('HT-PLA')).toBe('HT');
+    expect(g('LUVOCOM 3F PAHT 9825')).toBe('HT');
+    expect(g('PLA Recycled')).toBe('Recycled');
+    expect(BC.variantChoices(snapshot, 'Bambu Lab', 'PLA')).toContain('Tough+');
+    expect(BC.variantChoices(snapshot, 'Prusament', 'PETG')).toContain('V0');
+  });
+
+  it('carbon and glass fiber lines in materials without a -CF chip', () => {
+    expect(g('ASA CF')).toBe('CF');
+    expect(g('PC-CF10')).toBe('CF');
+    expect(g('PETG Carbon')).toBe('CF');
+    expect(g('ABS GF10')).toBe('GF');
+    expect(g('PA6 NylonPower Glass Fibre')).toBe('GF');
+    expect(g('Rigid X', 'cf')).toBe('CF'); // by tag
+    // the -CF chips are all fiber already, so fiber isn't a group there
+    expect(g('PLA-CF', 'cf', { skipFiber: true })).toBe('Basic');
+    expect(g('Matte PLA-CF', 'cf', { skipFiber: true })).toBe('Matte');
+    expect(BC.variantChoices(snapshot, 'Bambu Lab', 'PLA-CF')).not.toContain('CF');
+  });
+
+  it('every shore hardness is its own chip, in order', () => {
+    expect(g('TPU 85A')).toBe('85A');
+    expect(g('Flex 93A TPU')).toBe('93A');
+    expect(g('TPU 95A HF')).toBe('95A HF');
+    expect(g('Rapid TPU 95A')).toBe('95A HF');
+    expect(g('95A High Speed TPU')).toBe('95A HF');
+    expect(BC.variantChoices(snapshot, 'Bambu Lab', 'TPU')).toEqual(['', 'Basic', '85A', '90A', '95A HF']);
+    expect(names(BC.linesFor(snapshot, { brand: 'Bambu Lab', type: 'TPU', variant: '90A' }))).toEqual(['TPU 90A']);
+  });
+
+  it('"Matt" spelling is Matte', () => {
+    expect(g('PLA MATT')).toBe('Matte');
+    expect(g('PLA NX2 Matt')).toBe('Matte');
+  });
+
+  it('extra groups come after the default chips', () => {
+    const chips = BC.variantChoices(snapshot, 'Bambu Lab', 'PLA');
+    expect(chips.indexOf('Aero')).toBeGreaterThan(chips.indexOf('Translucent'));
+    expect(chips.indexOf('Tough+')).toBeGreaterThan(chips.indexOf('Aero'));
+  });
+
+  it('a brand change carries extra groups across brands’ words', () => {
+    expect(BC.carryVariant(snapshot, 'Aero', 'Polymaker', 'PLA')).toBe('LW');
+    expect(BC.carryVariant(snapshot, 'Aero', 'Snapmaker', 'PLA')).toBe('');
+    expect(BC.carryVariant(snapshot, '85A', 'Bambu Lab', 'TPU')).toBe('85A');
+  });
+
+  it('every chip for every brand and material has colors', () => {
+    for (const b of snapshot.brands) {
+      for (const m of Object.keys(b.materials)) {
+        const chips = BC.variantChoices(snapshot, b.name, m);
+        if (chips === VARIANTS) continue; // no lines for this chip (e.g. only fiber lines): the default list
+        for (const v of chips.filter(Boolean)) {
+          expect(BC.linesFor(snapshot, { brand: b.name, type: m, variant: v }).lines.length, `${b.name} ${m} ${v}`).toBeGreaterThan(0);
+        }
+      }
+    }
+  });
+});
+
 describe('brand colors: merging look-alikes', () => {
   const lineA = line('PLA Wood', '', [['Walnut', '5C4033', '', ''], ['Pine', 'E3C08D', '', '']]);
   const lineB = line('Real Wood Fiber PLA', '', [['walnut', '604236', '', ''], ['Pine', '3A5F0B', '', ''], ['Oak', 'B5835A', '', '']]);

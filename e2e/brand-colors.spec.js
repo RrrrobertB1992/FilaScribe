@@ -51,6 +51,21 @@ test.describe('Brand colors', () => {
     await expect(variants.getByRole('button', { name: 'SnapSpeed', exact: true })).toBeVisible();
   });
 
+  test('functional variants get their own chips: Aero, Tough+, shore hardness', async ({ page }) => {
+    const variants = page.getByRole('group', { name: 'Variant' });
+    await chip(page, 'Bambu Lab').click();
+    await expect(variants.getByRole('button', { name: 'Tough+', exact: true })).toBeVisible();
+    await variants.getByRole('button', { name: 'Aero', exact: true }).click();
+    await brand(page).getByRole('button', { name: 'Show' }).click();
+    await expect(brand(page)).toContainText('Brand colors for Bambu Lab PLA Aero');
+    await brand(page).locator('.tile').first().click();
+    await writeTag(page);
+    expect((await lastWrite(page)).subtype).toBe('Aero'); // not Basic
+    // TPU: each hardness is a chip
+    await chip(page, 'TPU').click();
+    for (const h of ['85A', '90A', '95A HF']) await expect(variants.getByRole('button', { name: h, exact: true })).toBeVisible();
+  });
+
   test('changing brand keeps the variant only if it still fits', async ({ page }) => {
     const variants = page.getByRole('group', { name: 'Variant' });
     const pressed = (name) => variants.getByRole('button', { name, exact: true });
