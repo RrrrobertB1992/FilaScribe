@@ -14,7 +14,7 @@
 //  - a Custom variant shows the lines whose name contains it
 //  - "show all" shows every original line, nothing merged
 
-import { VARIANTS } from './catalog.js';
+import { VARIANTS, MATERIALS } from './catalog.js';
 
 const norm = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const words = (s) => String(s ?? '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
@@ -182,6 +182,21 @@ export function variantChoices(db, brand, type) {
     return words.length === 1 ? words[0] : g;
   });
   return ['', ...labels];
+}
+
+/**
+ * The material chips for a brand: the FilaScribe materials it has colors
+ * for, in the usual order, plus `current` if it's set and not among them
+ * (so a material picked before the brand isn't hidden). Brands not in the
+ * database get every material.
+ */
+export function materialChoices(db, brand, current = '') {
+  const all = Object.keys(MATERIALS);
+  if (!db || !findBrand(db, brand)) return all;
+  const made = all.filter((m) => linesForMaterial(db, brand, m).length);
+  if (!made.length) return all;
+  const cur = String(current ?? '').trim();
+  return cur && all.includes(cur) && !made.includes(cur) ? [...made, cur] : made;
 }
 
 /**

@@ -286,3 +286,42 @@ test.describe('Brand colors', () => {
     await expect(page.locator('#hex-input')).toHaveValue('123457');
   });
 });
+
+test.describe('Brand and material', () => {
+  test('Brand comes before Material', async ({ page }) => {
+    const brandBox = await page.getByRole('group', { name: 'Brand' }).boundingBox();
+    const materialBox = await page.getByRole('group', { name: 'Material' }).boundingBox();
+    expect(brandBox.y).toBeLessThan(materialBox.y);
+  });
+
+  test('the Material row shows what the brand makes', async ({ page }) => {
+    const materials = page.getByRole('group', { name: 'Material' });
+    const m = (name) => materials.getByRole('button', { name, exact: true });
+    // Generic: every material
+    await expect(m('ABS')).toBeVisible();
+    await expect(m('PEEK')).toBeVisible();
+    // Jayo makes PLA, PETG and TPU
+    await chip(page, 'Jayo').click();
+    for (const name of ['PLA', 'PETG', 'TPU']) await expect(m(name)).toBeVisible();
+    await expect(m('ABS')).toHaveCount(0);
+    await expect(materials).toContainText('The materials Jayo makes.');
+    await m('PETG').click();
+    await writeTag(page);
+    expect((await lastWrite(page)).type).toBe('PETG');
+    // Custom still takes anything
+    await materials.getByRole('button', { name: 'Custom' }).click();
+    await page.getByLabel('Custom material').fill('ABS');
+    await writeTag(page);
+    expect((await lastWrite(page)).type).toBe('ABS');
+  });
+
+  test('a material picked first stays when the brand doesn’t list it', async ({ page }) => {
+    const materials = page.getByRole('group', { name: 'Material' });
+    await chip(page, 'ABS').click();
+    await chip(page, 'Jayo').click();
+    await expect(materials.getByRole('button', { name: 'ABS', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByLabel('Custom material')).toHaveCount(0);
+    await materials.getByRole('button', { name: 'PLA', exact: true }).click();
+    await expect(materials.getByRole('button', { name: 'ABS', exact: true })).toHaveCount(0);
+  });
+});

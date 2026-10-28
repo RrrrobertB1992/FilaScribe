@@ -9,7 +9,7 @@
   import { MATERIALS, BRANDS, VARIANTS } from './lib/catalog.js';
   import { encodeMessage, mimeRecord, maxMessageSize, NTAG, TNF } from './lib/ndef.js';
   import { getNfc } from './lib/nfc/index.js';
-  import { variantChoices, carryVariant } from './lib/brandColors.js';
+  import { variantChoices, carryVariant, materialChoices } from './lib/brandColors.js';
   import { loadBrandColors } from './lib/brandColorsData.js';
 
   const nfc = getNfc();
@@ -28,6 +28,9 @@
   // words; the full default list until the data loads or for other brands
   let brandData = $state(null);
   const variantItems = $derived(variantChoices(brandData, form.brand, form.type));
+  // The materials the brand has colors for (every material for Generic or a brand not in the database)
+  const materialItems = $derived(materialChoices(brandData, form.brand, form.type));
+  const materialsFiltered = $derived(materialItems.length < Object.keys(MATERIALS).length);
 
   onMount(async () => {
     nfcState = await nfc.status();
@@ -233,8 +236,16 @@
           : 'Only the fields in the OpenSpool spec. Extra colors, variant and bed temperatures aren’t written.'}
       />
 
-      <Palette label="Material" items={Object.keys(MATERIALS)} bind:value={form.type} onpick={pickMaterial} customPlaceholder="e.g. PLA+" error={errorFor('type')} />
       <Palette label="Brand" items={BRANDS} bind:value={form.brand} customPlaceholder="e.g. Elegoo" onpick={keepVariantFitting} />
+      <Palette
+        label="Material"
+        items={materialItems}
+        bind:value={form.type}
+        onpick={pickMaterial}
+        customPlaceholder="e.g. PLA+"
+        error={errorFor('type')}
+        hint={materialsFiltered ? `The materials ${form.brand} makes. Custom for anything else.` : ''}
+      />
       {#if u1}
         <Palette
           label="Variant"
