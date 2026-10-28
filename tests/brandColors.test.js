@@ -445,6 +445,14 @@ describe('brand colors: brand names', () => {
     expect(BC.suggestBrands(snapshot, '')).toEqual([]);
     expect(BC.suggestBrands(snapshot, 'zzzz')).toEqual([]);
   });
+
+  it('leaves out brands already on the form, still giving up to the limit', () => {
+    expect(BC.suggestBrands(named, 'any', 6, ['Anycubic'])).not.toContain('Anycubic');
+    const all = BC.suggestBrands(named, 'poly', 6);
+    const rest = BC.suggestBrands(named, 'poly', 6, [all[0]]);
+    expect(rest).not.toContain(all[0]);
+    expect(rest).toHaveLength(Math.min(6, BC.suggestBrands(named, 'poly', 50).length - 1));
+  });
 });
 
 describe('brand colors: finding brands in Settings', () => {

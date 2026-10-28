@@ -314,7 +314,7 @@
         bind:value={form.brand}
         customPlaceholder="e.g. Elegoo"
         onpick={pickBrand}
-        suggest={(t) => suggestBrands(brandData, t)}
+        suggest={(t) => suggestBrands(brandData, t, 6, shownBrands)}
         commit={(t) => canonicalBrand(brandData, t)}
         customLabel="Other…"
         onsave={showBrand}

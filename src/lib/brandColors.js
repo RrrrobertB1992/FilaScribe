@@ -271,13 +271,16 @@ export function canonicalBrand(db, brand) {
 
 /**
  * Database brands for a typed name, best first: names or keys that start
- * with it, then ones that contain it. Up to `limit`.
+ * with it, then ones that contain it. Up to `limit`, leaving out `exclude`
+ * (the brands already on the form).
  */
-export function suggestBrands(db, text, limit = 6) {
+export function suggestBrands(db, text, limit = 6, exclude = []) {
   const q = norm(text);
   if (!q || !db) return [];
+  const skip = new Set(exclude);
   const scored = [];
   for (const b of db.brands) {
+    if (skip.has(b.name)) continue;
     const all = [norm(b.name), ...b.keys];
     const rank = all.some((k) => k === q) ? 0 : all.some((k) => k.startsWith(q)) ? 1 : all.some((k) => k.includes(q)) ? 2 : -1;
     if (rank >= 0) scored.push({ rank, name: b.name });

@@ -51,13 +51,19 @@ test.describe('Create', () => {
     const matches = page.getByRole('group', { name: 'Suggestions' });
     await brand.getByRole('button', { name: 'Other…' }).click();
     // part of a name: suggestions, and the rows wait until the name is done
-    await page.getByLabel('Other brand').fill('Bambu');
-    await expect(matches.getByRole('button', { name: 'Bambu Lab' })).toBeVisible();
+    await page.getByLabel('Other brand').fill('Anycu');
+    await expect(matches.getByRole('button', { name: 'Anycubic' })).toBeVisible();
     await expect(materials.getByRole('button', { name: 'PEEK', exact: true })).toBeVisible(); // still every material
-    await matches.getByRole('button', { name: 'Bambu Lab' }).click();
-    await expect(chip(page, 'Bambu Lab')).toHaveAttribute('aria-pressed', 'true'); // the chip, not Custom
-    await expect(page.getByLabel('Other brand')).toHaveCount(0);
-    await expect(materials.getByRole('button', { name: 'PEEK', exact: true })).toHaveCount(0);
+    await matches.getByRole('button', { name: 'Anycubic' }).click();
+    await expect(page.getByLabel('Other brand')).toHaveValue('Anycubic');
+    await expect(materials.getByRole('button', { name: 'PEEK', exact: true })).toHaveCount(0); // Anycubic's materials
+    // brands already on the form aren't suggested
+    await page.getByLabel('Other brand').fill('Bambu');
+    await expect(page.getByLabel('Other brand')).toBeFocused();
+    await expect(matches).toHaveCount(0);
+    await page.getByLabel('Other brand').fill('');
+    await page.getByLabel('Other brand').blur();
+    await chip(page, 'Bambu Lab').click();
 
     // a full name in any spelling becomes OrcaSlicer's, on Enter or leaving the box
     await brand.getByRole('button', { name: 'Other…' }).click();
