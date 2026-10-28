@@ -131,7 +131,7 @@
   <span class="label" {id}>{label}</span>
   <div class="chips">
     {#each options as o (o.value)}
-      <button type="button" class="chip" aria-pressed={!custom && value === o.value} onclick={() => pick(o.value)}>
+      <button type="button" class="chip" class:saved={removable.includes(o.value)} aria-pressed={!custom && value === o.value} onclick={() => pick(o.value)}>
         {o.label}
       </button>
     {/each}
@@ -220,4 +220,10 @@
     color: var(--bg);
     font-weight: 600;
   }
+  /* Your own chips (saved Custom values): a dashed outline, as in PrintTag-Web-Rrrrobert */
+  .chip.saved {
+    border: 2px dashed var(--muted);
+    padding: 0 calc(var(--s3) - 1px);
+  }
+  .chip.saved[aria-pressed='true'] { border-color: var(--bg); box-shadow: 0 0 0 2px var(--ink); }
 </style>
