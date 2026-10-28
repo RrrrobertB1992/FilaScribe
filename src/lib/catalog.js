@@ -23,11 +23,12 @@ export const BRANDS = ['Generic', 'Bambu Lab', 'Hatchbox', 'eSun', 'Overture', '
 
 /**
  * Variants (the U1 "subtype"). '' means none: the field is left out. The
- * first ones match Snapmaker's filament names; the rest are common finishes.
+ * first ones match Snapmaker's filament names (plus "Plus" for PLA+ and the
+ * like); the rest are common finishes.
  * Each one is also a Brand colors group (lib/brandColors.js).
  */
 export const VARIANTS = [
-  '', 'Basic', 'Matte', 'SnapSpeed', 'Silk', 'Support', 'HF', '95A', '95A HF',
+  '', 'Basic', 'Plus', 'Matte', 'SnapSpeed', 'Silk', 'Support', 'HF', '95A', '95A HF',
   'Wood', 'Marble', 'Galaxy', 'Glow', 'Metallic', 'Multi-color', 'Fluorescent', 'Translucent', 'Color change',
 ];
 

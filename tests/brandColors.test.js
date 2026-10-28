@@ -42,7 +42,7 @@ describe('brand colors: groups', () => {
     const g = (name, traits = '') => BC.groupOf({ name, traits });
     expect(g('PLA Basic')).toBe('Basic');
     expect(g('PLA Basic Gradient')).toBe('Basic');
-    expect(g('PLA+ 2.0')).toBe('Basic');
+    expect(g('PLA+ 2.0')).toBe('Plus');
     expect(g('PLA Wood')).toBe('Wood');
     expect(g('Real Wood Fiber PLA')).toBe('Wood');
     expect(g('Silk PLA+ Dual-Color')).toBe('Silk');
@@ -250,6 +250,21 @@ describe('brand colors: edge cases from the database', () => {
     expect(g('95A High Speed TPU')).toBe('95A HF');
     expect(BC.variantChoices(snapshot, 'Bambu Lab', 'TPU')).toEqual(['', 'Basic', '85A', '90A', '95A HF']);
     expect(names(BC.linesFor(snapshot, { brand: 'Bambu Lab', type: 'TPU', variant: '90A' }))).toEqual(['TPU 90A']);
+  });
+
+  it('PLA+ / Plus lines are Plus, unless something else matters more', () => {
+    const g = (name) => BC.groupOf({ name, traits: '' });
+    for (const n of ['PLA+', 'PLA Plus', 'Ender PLA+', 'PLA+ 2.0', 'ABS+', 'PETG+', 'Plus PLA']) expect(g(n), n).toBe('Plus');
+    expect(g('Silk PLA+')).toBe('Silk');
+    expect(g('Matte PLA+')).toBe('Matte');
+    expect(g('PLA+ High-Speed')).toBe('HF');
+    expect(g('ePLA+HS')).toBe('HF');
+    expect(g('Tough Pro PLA+')).toBe('Tough');
+    expect(g('ABS+CF')).toBe('CF');
+    for (const b of ['Elegoo', 'Creality', 'eSun', 'SUNLU']) expect(BC.variantChoices(snapshot, b, 'PLA'), b).toContain('Plus');
+    expect(names(BC.linesFor(snapshot, { brand: 'SUNLU', type: 'PLA', variant: 'Plus' }))).toEqual(['PLA+', 'PLA+ 2.0']);
+    expect(names(BC.linesFor(snapshot, { brand: 'SUNLU', type: 'PLA', variant: '' }))).not.toContain('PLA+');
+    expect(VARIANTS).toContain('Plus'); // in Generic's default list too
   });
 
   it('"Matt" spelling is Matte', () => {

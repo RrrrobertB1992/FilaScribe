@@ -25,7 +25,7 @@ The multi-color fields and `color_type` match PrintTag-Web-Rrrrobert. Saved colo
 
 Pick a brand and material, and optionally a variant, then open **Brand colors** to choose a named color from that brand's real lineup, like Bambu Lab PLA Basic "Jade White". It works like Saved colors, but read-only:
 - **Variant chips follow the brand.** For a brand in the database, the Variant row only shows the variants that brand makes in that material, in the brand's own words. Bambu Lab PLA shows Basic, Matte, Silk, Wood, Marble, Galaxy, Glow, **Metal** and Translucent, with no SnapSpeed or HF. Snapmaker PLA includes SnapSpeed and Support. Sunlu says **High Speed** and **Transparent**, and eSun says **Luminous**. Generic, a Custom brand not in the database, or a material the brand doesn't make shows the full default list:
-  - Basic, Matte, SnapSpeed, Silk, Support, HF, 95A, 95A HF;
+  - Basic, Plus, Matte, SnapSpeed, Silk, Support, HF, 95A, 95A HF;
   - Wood, Marble, Galaxy, Glow, Metallic, Multi-color, Fluorescent, Translucent, Color change.
 
   None and Custom are always there. When you change the brand or material, the variant stays only if it still fits:
@@ -43,6 +43,7 @@ Pick a brand and material, and optionally a variant, then open **Brand colors** 
   - **ESD:** ESD / static dissipative / conductive;
   - **HT:** high temp;
   - **Recycled**;
+  - **Plus** (PLA+, PLA Plus, ABS+, PETG+…). This one is also in Generic's default list;
   - **every shore hardness:** 85A, 90A, 98A…, with an HF version for high-flow TPU.
 
   So Bambu Lab PLA Aero writes `"subtype": "Aero"` instead of being lumped in with Basic.

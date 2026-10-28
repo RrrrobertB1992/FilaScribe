@@ -65,7 +65,10 @@ const GROUP_RULES = [
   ['ESD', /\besd\b|static|conductive|3dxstat/],
   ['HT', /\bht\b|paht|high.?temp|heat.?resist/],
   ['Recycled', /recycl/],
-  ['HF', /\bhf\b|high.?speed|rapid|hyper|\bspeed\b/],
+  ['HF', /\bhf\b|\bhs\b|high.?speed|rapid|hyper|\bspeed\b/],
+  // "PLA+", "PLA Plus", "ABS+", "PETG+": after the finishes, HF and fiber,
+  // so "Silk PLA+" is Silk and "PLA+ High-Speed" is HF
+  ['Plus', /\+|\bplus\b/],
   ['Multi-color', /rainbow|gradient|multi.?colou?r|dual|tri.?colou?r|triple|\btri\b|four.?colou?r|quadruple|coextru/],
 ];
 // Fallbacks from the database's tags when the name says nothing
@@ -86,7 +89,7 @@ export function groupOf(line, { skipFiber = false } = {}) {
     if (re.test(name)) return group;
   }
   const shore = name.match(SHORE);
-  if (shore) return `${shore[1]}A${/\bhf\b|high.?speed|rapid|hyper/.test(name) ? ' HF' : ''}`;
+  if (shore) return `${shore[1]}A${/\bhf\b|\bhs\b|high.?speed|rapid|hyper/.test(name) ? ' HF' : ''}`;
   for (const [group, re] of GROUP_RULES.slice(5)) if (re.test(name)) return group;
   const t = traitSet(line.traits);
   for (const [code, group] of TRAIT_GROUPS) {
@@ -125,6 +128,7 @@ const SYNONYMS = {
   ESD: ['ESD', 'Static Dissipative', 'Conductive'],
   HT: ['HT', 'High Temp'],
   Recycled: ['Recycled'],
+  Plus: ['Plus'],
   Metallic: ['Metallic', 'Metal'],
   Galaxy: ['Galaxy', 'Sparkle', 'Twinkling', 'Glitter', 'Starry', 'Stars'],
   Glow: ['Glow', 'Luminous'],
@@ -132,7 +136,7 @@ const SYNONYMS = {
   Fluorescent: ['Fluorescent', 'Neon', 'UV'],
   Marble: ['Marble', 'Stone', 'Granite', 'Rock'],
   Silk: ['Silk', 'Satin'],
-  HF: ['HF', 'High Speed', 'Rapid', 'Hyper'],
+  HF: ['HF', 'HS', 'High Speed', 'Rapid', 'Hyper'],
   'Multi-color': ['Rainbow', 'Gradient', 'Dual-Color', 'Tri-Color', 'Multi-Color'],
   'Color change': ['Chameleon', 'Color Change'],
 };
