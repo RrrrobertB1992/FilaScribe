@@ -445,4 +445,35 @@ describe('brand colors: brand names', () => {
     expect(BC.suggestBrands(snapshot, '')).toEqual([]);
     expect(BC.suggestBrands(snapshot, 'zzzz')).toEqual([]);
   });
+
+  it('leaves out brands already on the form, still giving up to the limit', () => {
+    expect(BC.suggestBrands(named, 'any', 6, ['Anycubic'])).not.toContain('Anycubic');
+    const all = BC.suggestBrands(named, 'poly', 6);
+    const rest = BC.suggestBrands(named, 'poly', 6, [all[0]]);
+    expect(rest).not.toContain(all[0]);
+    expect(rest).toHaveLength(Math.min(6, BC.suggestBrands(named, 'poly', 50).length - 1));
+  });
+});
+
+describe('brand colors: finding brands in Settings', () => {
+  it('only brands that start with what was typed, nothing for empty text', () => {
+    expect(BC.findBrands(named, '')).toEqual([]);
+    const a = BC.findBrands(named, 'a', { limit: 50 });
+    expect(a.length).toBeGreaterThan(0);
+    for (const n of a) expect(n.toLowerCase().replace(/[^a-z0-9]/g, '').startsWith('a') || BC.findBrand(named, n).keys.some((k) => k.startsWith('a'))).toBe(true);
+    expect(a).not.toContain('Bambu Lab'); // contains an a, doesn't start with one
+  });
+
+  it('at most 12 by default, best-known first, an exact name on top', () => {
+    expect(BC.findBrands(named, 'p')).toHaveLength(12);
+    const p = BC.findBrands(named, 'p', { limit: 40 });
+    expect(p.indexOf('Polymaker')).toBeLessThan(p.indexOf('PolySonic'));
+    expect(BC.findBrands(named, 'a').slice(0, 3)).toEqual(expect.arrayContaining(['Anycubic'])); // OrcaSlicer's vendors first
+    expect(BC.findBrands(named, 'prusament')[0]).toBe('Prusa Polymers'); // its other name
+    expect(BC.findBrands(named, 'elegoo')[0]).toBe('Elegoo');
+  });
+
+  it('leaves out brands already on the form', () => {
+    expect(BC.findBrands(named, 'poly', { exclude: ['Polymaker'] })).not.toContain('Polymaker');
+  });
 });

@@ -10,7 +10,7 @@
   import { exportJson, readJsonFile } from '../lib/backup.js';
   import { buildParts } from '../lib/buildInfo.js';
   import * as BrandList from '../lib/brandList.js';
-  import { suggestBrands, canonicalBrand, findBrand } from '../lib/brandColors.js';
+  import { findBrands, canonicalBrand, findBrand } from '../lib/brandColors.js';
   import orca from '../data/orca-vendors.json';
 
   let {
@@ -59,26 +59,17 @@
 
   // --- Brands ---
 
-  const PAGE = 30;
   let find = $state('');
-  let listed = $state(PAGE);
   const known = (b) => !!(brandData && findBrand(brandData, b));
   const hasColors = (b) => Object.keys(findBrand(brandData, b)?.materials || {}).length > 0;
-  const allBrands = $derived(
-    brandData ? [...brandData.brands.map((b) => b.name)].sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' })) : [],
-  );
-  const results = $derived.by(() => {
-    const q = find.trim();
-    if (!q) return allBrands;
-    const own = shownBrands.filter((b) => !known(b) && b.toLowerCase().includes(q.toLowerCase()));
-    return [...new Set([...suggestBrands(brandData, q, 40), ...own])];
-  });
-  // A typed name nobody lists can be added as your own
+  // Brands starting with what's typed (nothing until something is), not
+  // the ones already on the form
+  const results = $derived(findBrands(brandData, find, { limit: 12, exclude: shownBrands }));
+  // A typed name nobody lists (nothing starts with it) can be added as your own
   const addOwn = $derived.by(() => {
     const q = find.trim();
-    if (!q || q.length > 40 || q.toLowerCase() === 'generic') return '';
-    const name = canonicalBrand(brandData, q);
-    return results.includes(name) || shownBrands.includes(name) ? '' : name;
+    if (q.length < 2 || q.length > 40 || q.toLowerCase() === 'generic' || known(q) || results.length) return '';
+    return shownBrands.includes(q) ? '' : q;
   });
 
   function setBrands(next) {
@@ -87,9 +78,36 @@
     BrandList.store(shownBrands);
   }
 
+  function addBrand(name) {
+    setBrands(BrandList.add(shownBrands, name));
+  }
+
   function addOwnBrand() {
-    setBrands(BrandList.add(shownBrands, addOwn));
+    addBrand(addOwn);
     find = '';
+  }
+
+  // --- Collapsible cards (closed to start; which are open is remembered) ---
+
+  const OPEN_KEY = 'filascribe-settings-open';
+  let open = $state(loadOpen());
+  function loadOpen() {
+    try {
+      const v = JSON.parse(localStorage.getItem(OPEN_KEY) || '[]');
+      return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : [];
+    } catch {
+      return [];
+    }
+  }
+  function toggled(id, e) {
+    const isOpen = e.currentTarget.open;
+    if (isOpen === open.includes(id)) return;
+    open = isOpen ? [...open, id] : open.filter((x) => x !== id);
+    try {
+      localStorage.setItem(OPEN_KEY, JSON.stringify(open));
+    } catch {
+      // not remembered
+    }
   }
 
   function resetBrands() {
@@ -184,8 +202,9 @@
 </script>
 
 <div class="settings">
-  <section class="card" aria-labelledby="set-defaults">
-    <h2 id="set-defaults">Defaults for new tags</h2>
+  <details class="card" open={open.includes('defaults')} ontoggle={(e) => toggled('defaults', e)}>
+    <summary><h2 id="set-defaults">Defaults for new tags</h2></summary>
+    <div class="body">
     <p class="hint">What Create starts with, and what Start over goes back to. Colors aren’t included; they start white.</p>
     <dl class="rows">
       {#each rows as [k, v]}
@@ -197,11 +216,13 @@
       <button type="button" class="btn small" onclick={useForm}>Use the form as it is now</button>
       <button type="button" class="btn small quiet" onclick={resetDefaults} disabled={!hasDefaults}>Reset to built-in</button>
     </div>
-  </section>
+    </div>
+  </details>
 
-  <section class="card" aria-labelledby="set-brands">
-    <h2 id="set-brands">Brands</h2>
-    <p class="hint">The brands on the Brand row. Anything else can be typed with Other… on the form.</p>
+  <details class="card" open={open.includes('brands')} ontoggle={(e) => toggled('brands', e)}>
+    <summary><h2 id="set-brands">Brands</h2></summary>
+    <div class="body">
+    <p class="hint">The brands on the Brand row: × removes one, and Find a brand adds more. Anything else can be typed with Other… on the form.</p>
     <div class="group" role="group" aria-label="Brands on the form">
       <div class="chips">
         <span class="mine fixed">Generic</span>
@@ -210,39 +231,39 @@
         {/each}
       </div>
     </div>
-    <input type="search" bind:value={find} placeholder="Find a brand" aria-label="Find a brand" autocomplete="off" oninput={() => (listed = PAGE)} />
-    {#if !brandData}
-      <p class="hint">Loading the brand list…</p>
-    {:else if results.length}
-      <ul class="brand-list" aria-label="All brands">
-        {#each results.slice(0, listed) as b (b)}
-          {@const on = shownBrands.includes(b)}
-          <li>
-            <button type="button" class="brand-row" role="switch" aria-checked={on} onclick={() => setBrands(BrandList.toggle(shownBrands, b))}>
-              <span class="switch" aria-hidden="true"></span>
-              <span class="bname">{b}</span>
-              {#if known(b) && hasColors(b)}<span class="tagline">colors</span>{:else if !known(b)}<span class="tagline">yours</span>{/if}
-            </button>
-          </li>
-        {/each}
-      </ul>
-      {#if results.length > listed}
-        <button type="button" class="btn small quiet" onclick={() => (listed += PAGE)}>Show {Math.min(PAGE, results.length - listed)} more ({results.length - listed} left)</button>
+    <input type="search" bind:value={find} placeholder="Find a brand to add" aria-label="Find a brand" autocomplete="off" />
+    {#if find.trim()}
+      {#if !brandData}
+        <p class="hint">Loading the brand list…</p>
+      {:else if results.length}
+        <ul class="brand-list" aria-label="Brands to add">
+          {#each results as b (b)}
+            <li>
+              <button type="button" class="brand-row" aria-label={`Add ${b}`} onclick={() => addBrand(b)}>
+                <span class="plus" aria-hidden="true">+</span>
+                <span class="bname">{b}</span>
+                {#if hasColors(b)}<span class="tagline">colors</span>{/if}
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {:else}
+        <p class="hint">No other brands start with “{find.trim()}”.</p>
       {/if}
-    {:else}
-      <p class="hint">No brands match “{find}”.</p>
-    {/if}
-    {#if addOwn}
-      <button type="button" class="btn small" onclick={addOwnBrand}>Add “{addOwn}” as your own brand</button>
+      {#if addOwn}
+        <button type="button" class="btn small" onclick={addOwnBrand}>Add “{addOwn}” as your own brand</button>
+      {/if}
     {/if}
     <p class="hint small">“colors” brands have colors under Brand in the color card.</p>
     <div class="actions">
       <button type="button" class="btn small quiet" onclick={resetBrands}>Show the default brands</button>
     </div>
-  </section>
+    </div>
+  </details>
 
-  <section class="card" aria-labelledby="set-chips">
-    <h2 id="set-chips">Your chips</h2>
+  <details class="card" open={open.includes('chips')} ontoggle={(e) => toggled('chips', e)}>
+    <summary><h2 id="set-chips">Your chips</h2></summary>
+    <div class="body">
     {#if chipCount}
       <p class="hint">Custom values you saved. Tap × to remove one.</p>
       {#each [['Materials', 'material', chips.materials]] as [title, kind, list]}
@@ -273,10 +294,12 @@
     {:else}
       <p class="hint">None yet. Tap Save next to a Custom material or variant, or write a tag with one. Brands are above.</p>
     {/if}
-  </section>
+    </div>
+  </details>
 
-  <section class="card" aria-labelledby="set-saved">
-    <h2 id="set-saved">Saved colors</h2>
+  <details class="card" open={open.includes('saved')} ontoggle={(e) => toggled('saved', e)}>
+    <summary><h2 id="set-saved">Saved colors</h2></summary>
+    <div class="body">
     {#if savedCount}
       <p class="hint">{savedCount} saved {savedCount === 1 ? 'color' : 'colors'}, kept per brand and material.</p>
       <ul class="saved-list">
@@ -300,15 +323,19 @@
       <input bind:this={importInput} type="file" accept="application/json,.json" class="visually-hidden" tabindex="-1" aria-label="Saved colors file" onchange={importSaved} />
     </div>
     <p class="hint small">Import also takes a list exported from PrintTag-Web-Rrrrobert.</p>
-  </section>
+    </div>
+  </details>
 
-  <section class="card" aria-labelledby="set-look">
-    <h2 id="set-look">Appearance</h2>
+  <details class="card" open={open.includes('look')} ontoggle={(e) => toggled('look', e)}>
+    <summary><h2 id="set-look">Appearance</h2></summary>
+    <div class="body">
     <Palette label="Theme" items={THEME_ITEMS} bind:value={theme} allowCustom={false} onpick={pickTheme} />
-  </section>
+    </div>
+  </details>
 
-  <section class="card about" aria-labelledby="set-about">
-    <h2 id="set-about">About</h2>
+  <details class="card about" open={open.includes('about')} ontoggle={(e) => toggled('about', e)}>
+    <summary><h2 id="set-about">About</h2></summary>
+    <div class="body">
     <p>
       <strong>FilaScribe {__APP_VERSION__}</strong>{#if build.length}{' '}(<span>{#each build as part}{#if part.href}<a href={part.href} target="_blank" rel="noopener">{part.text}</a>{:else}{part.text}{/if}{/each}</span>){/if}
     </p>
@@ -324,21 +351,40 @@
       </li>
       <li>Source code: <a href={`https://github.com/${repo}`} target="_blank" rel="noopener">{repo}</a></li>
     </ul>
-  </section>
+    </div>
+  </details>
 </div>
 
 <style>
-  .settings { display: grid; gap: var(--s4); margin-top: var(--s4); }
+  .settings { display: grid; gap: var(--s3); margin-top: var(--s4); }
   .card {
-    display: grid;
-    gap: var(--s3);
-    padding: var(--s4);
+    padding: 0 var(--s4);
     border: 1px solid var(--line);
     border-radius: 14px;
     background: var(--surface);
   }
+  summary {
+    display: flex;
+    align-items: center;
+    min-height: 56px;
+    cursor: pointer;
+    list-style: none;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::after {
+    content: '';
+    margin-left: auto;
+    width: 9px;
+    height: 9px;
+    border-right: 2px solid var(--muted);
+    border-bottom: 2px solid var(--muted);
+    transform: rotate(45deg) translate(-2px, -2px);
+    transition: transform 0.15s ease;
+  }
+  details[open] > summary::after { transform: rotate(-135deg) translate(-2px, -2px); }
+  .body { display: grid; gap: var(--s3); padding-bottom: var(--s4); }
   h2 { margin: 0; font-family: var(--font-label); font-size: 1.25rem; }
-  .card > .hint, .card > p { margin: 0; }
+  .body > .hint, .body > p { margin: 0; }
   .small { font-size: 0.8125rem; }
   .actions { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
 
@@ -389,29 +435,19 @@
     font: inherit;
     color: var(--ink);
   }
-  .switch {
-    position: relative;
+  .plus {
+    display: grid;
+    place-items: center;
     flex: none;
-    width: 38px;
-    height: 22px;
-    border-radius: 999px;
-    background: var(--chip);
-    box-shadow: inset 0 0 0 1px var(--line);
-    transition: background 0.15s ease;
-  }
-  .switch::after {
-    content: '';
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 16px;
-    height: 16px;
+    width: 26px;
+    height: 26px;
     border-radius: 50%;
-    background: var(--muted);
-    transition: transform 0.15s ease, background 0.15s ease;
+    background: var(--chip);
+    color: var(--action);
+    font-size: 1.125rem;
+    font-weight: 700;
+    line-height: 1;
   }
-  .brand-row[aria-checked='true'] .switch { background: var(--action); box-shadow: none; }
-  .brand-row[aria-checked='true'] .switch::after { transform: translateX(16px); background: var(--action-ink); }
   .bname { flex: 1; min-width: 0; font-family: var(--font-label); font-weight: 600; overflow-wrap: anywhere; }
   .tagline { font-size: 0.75rem; color: var(--muted); }
 

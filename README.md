@@ -23,9 +23,9 @@ The multi-color fields and `color_type` match PrintTag-Web-Rrrrobert. Saved colo
 
 ## Settings
 
-The **Settings** tab sits next to Create and Read & update:
+The **Settings** tab sits next to Create and Read & update. Each section starts closed (just its heading); tap one to open it, and it stays open next time:
 - **Defaults for new tags:** what Create starts with and Start over goes back to. **Use the form as it is now** saves the fields, brand, material, variant, temperatures and spool details on screen (not the colors); **Reset to built-in** goes back to Generic PLA. Kept under `filascribe-defaults`.
-- **Brands:** which brands the Brand row shows. Generic is always there; the rest start as the built-in list. Tap × to hide one, or find any of the ~200 brands OrcaSlicer and the Open Filament Database know and switch it on ("colors" marks brands with brand colors). A name neither lists can be added as your own (it gets the dashed outline). **Show the default brands** puts the built-in list back. Kept under `filascribe-brands`. On the form, the small **Other…** chip types any other brand for one tag; its Save button (or writing a tag) switches that brand on.
+- **Brands:** which brands the Brand row shows. Generic is always there; the rest start as the built-in list. Tap × to remove one. To add one, type in **Find a brand**: it lists up to 12 brands that start with what you typed (nothing until you type), best known first (OrcaSlicer's vendors, then the most colors), leaving out the ones already on the row; tap one to add it. "colors" marks brands with brand colors. A name nobody lists can be added as your own (it gets the dashed outline). **Show the default brands** puts the built-in list back. Kept under `filascribe-brands`. On the form, the small **Other…** chip types any other brand for one tag; its Save button (or writing a tag) adds that brand.
 - **Your chips:** every Custom material and variant you saved, with × to remove one, or all of them.
 - **Saved colors:** how many are saved for each brand and material, with Clear for one or all, plus Export and Import (Import also takes a PrintTag-Web-Rrrrobert export).
 - **Appearance:** follow the system, or always Light or Dark (`filascribe-theme`).

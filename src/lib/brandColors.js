@@ -251,9 +251,10 @@ export function withOrcaNames(db, vendors = []) {
     const b = brands.find((x) => want.some((k) => x.keys.includes(k)));
     if (b) {
       b.name = vendor;
+      b.orca = true;
       if (!b.keys.includes(key)) b.keys.push(key);
     } else {
-      brands.push({ name: vendor, keys: [key], materials: {} });
+      brands.push({ name: vendor, keys: [key], materials: {}, orca: true });
     }
   }
   return { ...db, brands };
@@ -270,19 +271,51 @@ export function canonicalBrand(db, brand) {
 
 /**
  * Database brands for a typed name, best first: names or keys that start
- * with it, then ones that contain it. Up to `limit`.
+ * with it, then ones that contain it. Up to `limit`, leaving out `exclude`
+ * (the brands already on the form).
  */
-export function suggestBrands(db, text, limit = 6) {
+export function suggestBrands(db, text, limit = 6, exclude = []) {
   const q = norm(text);
   if (!q || !db) return [];
+  const skip = new Set(exclude);
   const scored = [];
   for (const b of db.brands) {
+    if (skip.has(b.name)) continue;
     const all = [norm(b.name), ...b.keys];
     const rank = all.some((k) => k === q) ? 0 : all.some((k) => k.startsWith(q)) ? 1 : all.some((k) => k.includes(q)) ? 2 : -1;
     if (rank >= 0) scored.push({ rank, name: b.name });
   }
   scored.sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
   return scored.slice(0, limit).map((s) => s.name);
+}
+
+/** How many colors the database has for a brand (0 for Orca-only vendors). */
+function colorCount(b) {
+  let n = 0;
+  for (const lines of Object.values(b.materials || {})) for (const l of lines) n += l.colors.length;
+  return n;
+}
+
+/**
+ * Brands whose name (or another name for it, like "Prusament") starts with
+ * the typed text, for Settings, best known first: an exact name, then
+ * brands OrcaSlicer has profiles for, then the most colors in the database,
+ * then A–Z. Brands in `exclude` are left out. Nothing until something is
+ * typed.
+ */
+export function findBrands(db, text, { limit = 12, exclude = [] } = {}) {
+  const q = norm(text);
+  if (!q || !db) return [];
+  const skip = new Set(exclude);
+  const hits = [];
+  for (const b of db.brands) {
+    if (skip.has(b.name)) continue;
+    const names = [norm(b.name), ...b.keys];
+    if (!names.some((k) => k.startsWith(q))) continue;
+    hits.push({ name: b.name, exact: names.includes(q), orca: !!b.orca, size: colorCount(b) });
+  }
+  hits.sort((a, b) => b.exact - a.exact || b.orca - a.orca || b.size - a.size || a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
+  return hits.slice(0, limit).map((h) => h.name);
 }
 
 /** Every line for a brand + material (FilaScribe names), before grouping. */
