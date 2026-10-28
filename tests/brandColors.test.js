@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as BC from '../src/lib/brandColors.js';
+import { VARIANTS } from '../src/lib/catalog.js';
 import snapshot from '../src/data/brand-colors.json' with { type: 'json' };
 
 const line = (name, traits = '', colors = [['White', 'FFFFFF', '', '']], temps = [200, 220, 55, 60]) => ({ name, temps, traits, colors });
@@ -28,7 +29,7 @@ const DB = {
 };
 const names = (r) => r.lines.map((l) => l.name);
 
-describe('brand colors: finding lines', () => {
+describe('brand colors: groups', () => {
   it('matches brands loosely and not at all for Generic or unknown brands', () => {
     expect(BC.findBrand(DB, 'ACME').name).toBe('Acme 3D');
     expect(BC.findBrand(DB, 'Acme-3D').name).toBe('Acme 3D');
@@ -37,25 +38,60 @@ describe('brand colors: finding lines', () => {
     expect(BC.linesFor(DB, { brand: 'Nobody', type: 'PLA' })).toMatchObject({ lines: [], total: 0 });
   });
 
-  it('narrows lines by the variant: name, finish trait, and more specific variants', () => {
+  it('puts each line in one group: name first, finish before multi-color, HF after finishes', () => {
+    const g = (name, traits = '') => BC.groupOf({ name, traits });
+    expect(g('PLA Basic')).toBe('Basic');
+    expect(g('PLA Basic Gradient')).toBe('Basic');
+    expect(g('PLA+ 2.0')).toBe('Basic');
+    expect(g('PLA Wood')).toBe('Wood');
+    expect(g('Real Wood Fiber PLA')).toBe('Wood');
+    expect(g('Silk PLA+ Dual-Color')).toBe('Silk');
+    expect(g('High Speed Matte PLA')).toBe('Matte');
+    expect(g('High Speed PLA')).toBe('HF');
+    expect(g('PLA Rainbow')).toBe('Multi-color');
+    expect(g('PLA Burnt Titanium Triple Color')).toBe('Multi-color');
+    expect(g('PLA Luminous')).toBe('Glow');
+    expect(g('PLA Twinkling')).toBe('Galaxy');
+    expect(g('PLA Metal')).toBe('Metallic');
+    expect(g('Neon Panchroma PLA')).toBe('Fluorescent');
+    expect(g('Transparent Clear PLA')).toBe('Translucent');
+    expect(g('Temperature Color Change PLA')).toBe('Color change');
+    expect(g('Breakaway Support for PLA')).toBe('Support');
+    expect(g('TPU 95A HF')).toBe('95A HF');
+    expect(g('TPU 95A')).toBe('95A');
+    expect(g('Velvet PLA', 'm')).toBe('Matte'); // finish tag when the name says nothing
+    expect(g('Plain Thing')).toBe('Basic');
+  });
+
+  it('every group is a variant chip', () => {
+    expect(BC.GROUPS).toEqual(VARIANTS.filter(Boolean));
+    for (const name of ['PLA Wood', 'PLA Silk', 'PLA Rainbow', 'High Speed PLA', 'PLA Galaxy', 'x']) {
+      expect(VARIANTS).toContain(BC.groupOf({ name, traits: '' }));
+    }
+  });
+
+  it('a variant chip shows its group; no variant shows Basic', () => {
     expect(names(BC.linesFor(DB, { brand: 'Acme', type: 'PLA', variant: 'Basic' }))).toEqual(['PLA Basic', 'PLA Basic Gradient']);
     expect(names(BC.linesFor(DB, { brand: 'Acme', type: 'PLA', variant: 'Matte' }))).toEqual(['PLA Matte', 'Velvet PLA']);
     expect(names(BC.linesFor(DB, { brand: 'Acme', type: 'PLA', variant: 'Silk' }))).toEqual(['PLA Silk+']);
     expect(names(BC.linesFor(DB, { brand: 'Acme', type: 'PLA', variant: 'HF' }))).toEqual(['High Speed PLA']);
+    expect(names(BC.linesFor(DB, { brand: 'Acme', type: 'PLA', variant: 'Galaxy' }))).toEqual(['PLA Galaxy']);
     expect(names(BC.linesFor(DB, { brand: 'Acme', type: 'TPU', variant: '95A' }))).toEqual(['TPU 95A']);
     expect(names(BC.linesFor(DB, { brand: 'Acme', type: 'TPU', variant: '95A HF' }))).toEqual(['TPU 95A HF']);
+    const none = BC.linesFor(DB, { brand: 'Acme', type: 'PLA', variant: '' });
+    expect(none).toMatchObject({ filter: 'basic', group: 'Basic' });
+    expect(names(none)).toEqual(['PLA Basic', 'PLA Basic Gradient']);
   });
 
-  it('no variant shows the lines that fit no variant chip', () => {
-    const r = BC.linesFor(DB, { brand: 'Acme', type: 'PLA', variant: '' });
-    expect(r.filter).toBe('none');
-    expect(names(r)).toEqual(['PLA Galaxy']);
+  it('a Custom variant matches line names', () => {
+    expect(BC.linesFor(DB, { brand: 'Acme', type: 'PLA', variant: 'Velvet' })).toMatchObject({ filter: 'name' });
+    expect(names(BC.linesFor(DB, { brand: 'Acme', type: 'PLA', variant: 'velvet' }))).toEqual(['Velvet PLA']);
   });
 
-  it('a variant that fits nothing says so, and Show all lists every line', () => {
-    const r = BC.linesFor(DB, { brand: 'Acme', type: 'PLA', variant: 'SnapSpeed' });
-    expect(r).toMatchObject({ lines: [], filter: 'nomatch', total: 7 });
-    expect(BC.linesFor(DB, { brand: 'Acme', type: 'PLA', variant: 'SnapSpeed', showAll: true }).lines).toHaveLength(7);
+  it('a group with no lines says so, and Show all lists every line', () => {
+    const r = BC.linesFor(DB, { brand: 'Acme', type: 'PLA', variant: 'Wood' });
+    expect(r).toMatchObject({ lines: [], filter: 'nomatch', group: 'Wood', total: 7 });
+    expect(BC.linesFor(DB, { brand: 'Acme', type: 'PLA', variant: 'Wood', showAll: true }).lines).toHaveLength(7);
   });
 
   it('fiber materials use the base material’s fiber lines, and the base leaves them out', () => {
@@ -71,10 +107,10 @@ describe('brand colors: finding lines', () => {
     expect(BC.colorInfo(['Duo', 'FF0000,0000FF', 'c', '']).gradient).toBe(false);
   });
 
-  it('suggests the most specific variant for a line', () => {
+  it('suggests the line’s group as the variant', () => {
     const pla = DB.brands[0].materials.PLA;
     expect(BC.suggestedVariant(pla[2])).toBe('Matte');
-    expect(BC.suggestedVariant(pla[5])).toBe('');
+    expect(BC.suggestedVariant(pla[5])).toBe('Galaxy');
     expect(BC.suggestedVariant(DB.brands[0].materials.TPU[1])).toBe('95A HF');
   });
 
@@ -83,9 +119,34 @@ describe('brand colors: finding lines', () => {
     expect(BC.findColor(DB, { brand: 'Acme', type: 'PLA' }, ['fefefe']).entry[0]).toBe('Jade White');
     expect(BC.findColor(DB, { brand: 'Acme', type: 'PLA' }, ['FF0000', 'FFFF00']).entry[0]).toBe('Sunset');
     expect(BC.findColor(DB, { brand: 'Acme', type: 'PLA' }, ['123456'])).toBeNull();
-    // the same white in two lines: the variant's line wins
+    // the same white in two lines: the variant's group wins
     expect(BC.findColor(DB, { brand: 'Acme', type: 'PLA', variant: 'Matte' }, ['FFFFFF']).line.name).toBe('PLA Matte');
     expect(BC.findColor(DB, { brand: 'Acme', type: 'PLA', variant: 'Basic' }, ['FFFFFF']).line.name).toBe('PLA Basic');
+    expect(BC.findColor(snapshot, { brand: 'Bambu Lab', type: 'PLA', variant: 'Basic' }, ['FFFFFF']).entry[0]).toBe('Jade White'); // not Aero's White
+  });
+});
+
+describe('brand colors: merging look-alikes', () => {
+  const lineA = line('PLA Wood', '', [['Walnut', '5C4033', '', ''], ['Pine', 'E3C08D', '', '']]);
+  const lineB = line('Real Wood Fiber PLA', '', [['walnut', '604236', '', ''], ['Pine', '3A5F0B', '', ''], ['Oak', 'B5835A', '', '']]);
+
+  it('folds same-name, near-same-shade colors from another line into one tile', () => {
+    const tiles = BC.tilesFor([lineA, lineB]);
+    expect(tiles.map((t) => t.entry[0])).toEqual(['Walnut', 'Pine', 'Pine', 'Oak']); // the second Pine is a different shade
+    expect(tiles[0].alsoIn).toEqual(['Real Wood Fiber PLA']);
+    expect(tiles[1].alsoIn).toEqual([]);
+  });
+
+  it('keeps everything with merge off (Show all), and never merges within one line', () => {
+    expect(BC.tilesFor([lineA, lineB], { merge: false })).toHaveLength(5);
+    const same = line('X', '', [['Red', 'FF0000', '', ''], ['Red', 'FE0000', '', '']]);
+    expect(BC.tilesFor([same])).toHaveLength(2);
+  });
+
+  it('compares every color of multi-color spools', () => {
+    expect(BC.lookAlike('FF0000,0000FF', 'FA0505,0505FA')).toBe(true);
+    expect(BC.lookAlike('FF0000,0000FF', 'FF0000,00FF00')).toBe(false);
+    expect(BC.lookAlike('FF0000', 'FF0000,0000FF')).toBe(false);
   });
 });
 
@@ -124,6 +185,8 @@ describe('the bundled snapshot', () => {
     expect(q('Bambu Lab', 'PLA', 'Matte')).toEqual(['PLA Matte']);
     expect(q('Bambu Lab', 'PETG', 'HF')).toEqual(['PETG HF']);
     expect(q('Snapmaker', 'PLA', 'SnapSpeed')).toEqual(['SnapSpeed PLA']);
-    expect(q('Bambu Lab', 'PLA', '')).not.toContain('PLA Basic');
+    expect(q('Bambu Lab', 'PLA', '')).toContain('PLA Basic'); // no variant = Basic
+    expect(q('SUNLU', 'PLA', 'Wood')).toEqual(['PLA Wood', 'Real Wood Fiber PLA']);
+    expect(q('SUNLU', 'PLA', 'Silk')).toContain('Silk PLA+ Dual-Color');
   });
 });

@@ -27,7 +27,7 @@
   let db = $state(null);
   let expanded = $state(false);
   let showAll = $state(false);
-  let lineFilter = $state(''); // a line name, or '' for every line shown
+  let lineFilter = $state(''); // Show all: a line name, or '' for every line
   let search = $state('');
   let shown = $state(PAGE);
   let picked = $state(null); // { id, lineName }
@@ -51,22 +51,24 @@
   const key = $derived(`${brand}|${type}|${variant}`);
   const result = $derived(db ? BC.linesFor(db, { brand, type, variant, showAll }) : { lines: [], filter: 'all', total: 0 });
   const allLines = $derived(db ? BC.linesForMaterial(db, brand, type) : []);
-  const visibleLines = $derived(lineFilter ? result.lines.filter((l) => l.name === lineFilter) : result.lines);
+  const visibleLines = $derived(showAll && lineFilter ? result.lines.filter((l) => l.name === lineFilter) : result.lines);
+  // Grouped view: look-alikes from different lines merged; Show all: every color
+  const allTiles = $derived(BC.tilesFor(visibleLines, { merge: !showAll }));
   const tiles = $derived.by(() => {
     const q = search.trim().toLowerCase();
-    const out = [];
-    for (const line of visibleLines) {
-      for (const entry of line.colors) {
-        if (q && !entry[0].toLowerCase().includes(q) && !line.name.toLowerCase().includes(q)) continue;
-        out.push({ line, entry, id: BC.colorId(line, entry), info: BC.colorInfo(entry) });
-      }
-    }
-    return out;
+    if (!q) return allTiles;
+    return allTiles.filter((t) => t.entry[0].toLowerCase().includes(q) || t.line.name.toLowerCase().includes(q));
   });
-  const colorCount = $derived(result.lines.reduce((n, l) => n + l.colors.length, 0));
+  const colorCount = $derived(BC.tilesFor(result.lines, { merge: !showAll }).length);
+  const groupName = $derived(result.group || variant || 'Basic');
   const label = $derived([BC.findBrand(db, brand)?.name ? brand : '', type].filter(Boolean).join(' '));
   const pickedTile = $derived(picked ? findTile(picked.id) : null);
-  const suggestion = $derived(canSetVariant && pickedTile ? BC.suggestedVariant(pickedTile.line) : '');
+  // Offer the picked line's group as the variant (not "Basic" when there's no variant)
+  const suggestion = $derived.by(() => {
+    if (!canSetVariant || !pickedTile) return '';
+    const g = BC.suggestedVariant(pickedTile.line);
+    return g === variant || (g === 'Basic' && !variant) ? '' : g;
+  });
 
   function findTile(id) {
     for (const line of allLines) {
@@ -169,9 +171,11 @@
   }
 
   function filterNote() {
-    if (result.filter === 'variant') return `${variant} lines`;
-    if (result.filter === 'none') return 'lines without a variant';
-    return 'all lines';
+    const lines = `${result.lines.length} ${result.lines.length === 1 ? 'line' : 'lines'}`;
+    if (result.filter === 'group') return `${result.group}: ${colorCount} colors from ${lines}`;
+    if (result.filter === 'basic') return `Basic (no variant): ${colorCount} colors from ${lines}`;
+    if (result.filter === 'name') return `lines named “${variant}”: ${colorCount} colors from ${lines}`;
+    return `every line (${result.total}), nothing merged`;
   }
 </script>
 
@@ -195,21 +199,19 @@
 
     {#if expanded}
       {#if result.filter === 'nomatch'}
-        <p class="hint">No {label} lines match {variant || 'having no variant'}.</p>
+        <p class="hint">{label} has no {groupName} colors.</p>
       {:else}
-        <p class="hint">
-          Showing {filterNote()} ({result.lines.length} of {result.total}).
-        </p>
+        <p class="hint">Showing {filterNote()}.</p>
       {/if}
       <div class="filters">
         {#if result.filter !== 'all' || showAll}
           <button type="button" class="btn small" onclick={() => { showAll = !showAll; lineFilter = ''; shown = PAGE; }}>
-            {showAll ? `Show only ${variant ? `${variant} lines` : 'lines without a variant'}` : `Show all ${label} lines`}
+            {showAll ? `Show only ${groupName}` : `Show all ${label} lines`}
           </button>
         {/if}
       </div>
 
-      {#if result.lines.length > 1}
+      {#if showAll && result.lines.length > 1}
         <div class="lines" role="group" aria-label="Filament lines">
           <button type="button" class="line" aria-pressed={!lineFilter} onclick={() => { lineFilter = ''; shown = PAGE; }}>All</button>
           {#each result.lines as line (line.name)}
@@ -229,7 +231,7 @@
               type="button"
               class="tile"
               aria-pressed={isPicked}
-              title={`${tile.info.name}, ${tile.line.name}: ${tile.info.colors.map((h) => '#' + h).join(' + ')}`}
+              title={`${tile.info.name}, ${[tile.line.name, ...tile.alsoIn].join(' / ')}: ${tile.info.colors.map((h) => '#' + h).join(' + ')}`}
               onclick={() => (isPicked ? unpick() : pick(tile))}
             >
               <span class="bar" style:background={bar(tile.info)} aria-hidden="true">
@@ -237,7 +239,10 @@
               </span>
               <span class="name">{tile.info.name}</span>
               <span class="hex">{tile.info.colors.join('\n')}</span>
-              {#if !lineFilter && result.lines.length > 1}<span class="line-name">{tile.line.name}</span>{/if}
+              {#if tile.info.colors.length > 1}<span class="multi">{tile.info.colors.length} colors{tile.info.gradient ? ', gradient' : ''}</span>{/if}
+              {#if !lineFilter && result.lines.length > 1}
+                <span class="line-name">{tile.line.name}{tile.alsoIn.length ? ` +${tile.alsoIn.length}` : ''}</span>
+              {/if}
             </button>
           {/each}
         </div>
@@ -310,6 +315,7 @@
   .name { font-size: 0.8125rem; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
   .hex { font-family: var(--font-label); font-size: 0.8125rem; white-space: pre-line; line-height: 1.2; letter-spacing: 0.04em; color: var(--muted); }
   .line-name { font-size: 0.6875rem; color: var(--muted); line-height: 1.2; }
+  .multi { font-size: 0.6875rem; font-weight: 700; color: var(--action); line-height: 1.2; }
   .credit { margin: 0; font-size: 0.75rem; color: var(--muted); }
   .credit a { color: inherit; }
 </style>
