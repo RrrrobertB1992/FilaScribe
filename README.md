@@ -23,7 +23,7 @@ The multi-color fields and `color_type` match PrintTag-Web-Rrrrobert. Saved colo
 
 ## Your own chips
 
-Each Custom box (Brand, Material, Variant) has a **Save** button on its right. It keeps what you typed as a chip after the built-in ones, without writing a tag. Writing a tag does the same for any Custom value on it. Brands and materials you save show up everywhere; a saved variant shows up for the brand and material it was saved with. Pick one of your chips to see **Remove "…" from your chips** under the row. Built-in chips can't be removed. They're kept in the browser (or the app) under `filascribe-custom-chips`.
+Each Custom box (Brand, Material, Variant) has a **Save** button on its right. It keeps what you typed as a chip after the built-in ones, without writing a tag. Writing a tag does the same for any Custom value on it. Brands and materials you save show up everywhere; a saved variant shows up for the brand and material it was saved with. Your chips have a dashed outline so they stand out. Pick one to see **Remove "…" from your chips** under the row. Built-in chips can't be removed. They're kept in the browser (or the app) under `filascribe-custom-chips`.
 
 ## Colors
 
