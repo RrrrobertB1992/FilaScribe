@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as BC from '../src/lib/brandColors.js';
-import { VARIANTS } from '../src/lib/catalog.js';
+import { VARIANTS, MATERIALS } from '../src/lib/catalog.js';
 import snapshot from '../src/data/brand-colors.json' with { type: 'json' };
 
 const line = (name, traits = '', colors = [['White', 'FFFFFF', '', '']], temps = [200, 220, 55, 60]) => ({ name, temps, traits, colors });
@@ -359,5 +359,44 @@ describe('the bundled snapshot', () => {
     expect(q('Bambu Lab', 'PLA', '')).toContain('PLA Basic'); // no variant = Basic
     expect(q('SUNLU', 'PLA', 'Wood')).toEqual(['PLA Wood', 'Real Wood Fiber PLA']);
     expect(q('SUNLU', 'PLA', 'Silk')).toContain('Silk PLA+ Dual-Color');
+  });
+});
+
+describe('brand colors: material chips per brand', () => {
+  it('lists the materials the brand has colors for, in the usual order', () => {
+    expect(BC.materialChoices(DB, 'Acme', 'PLA')).toEqual(['PLA', 'TPU', 'PA', 'PLA-CF', 'PA-CF']);
+  });
+
+  it('keeps the current material as a chip when the brand doesn’t list it', () => {
+    expect(BC.materialChoices(DB, 'Acme', 'ABS')).toEqual(['PLA', 'TPU', 'PA', 'PLA-CF', 'PA-CF', 'ABS']);
+    expect(BC.materialChoices(DB, 'Acme', 'PLA+')).toEqual(['PLA', 'TPU', 'PA', 'PLA-CF', 'PA-CF']); // Custom stays Custom
+  });
+
+  it('falls back to every material for unknown brands or no data', () => {
+    const all = Object.keys(MATERIALS);
+    expect(BC.materialChoices(DB, 'Generic', 'PLA')).toEqual(all);
+    expect(BC.materialChoices(null, 'Acme', 'PLA')).toEqual(all);
+  });
+
+  it('works on the bundled snapshot', () => {
+    const jayo = BC.materialChoices(snapshot, 'Jayo', 'PLA');
+    expect(jayo).toEqual(expect.arrayContaining(['PLA', 'PETG', 'TPU']));
+    expect(jayo).not.toContain('ABS');
+    expect(BC.materialChoices(snapshot, 'Bambu Lab', 'PLA')).toContain('PETG');
+  });
+});
+
+describe('brand colors: keeping the material', () => {
+  it('keeps a material the new brand has, or a Custom one', () => {
+    expect(BC.carryMaterial(DB, 'Acme', 'TPU')).toBe('TPU');
+    expect(BC.carryMaterial(DB, 'Acme', 'PLA+')).toBe('PLA+');
+    expect(BC.carryMaterial(DB, 'Generic', 'PEEK')).toBe('PEEK');
+  });
+
+  it('switches to PLA (or the brand’s first material) otherwise', () => {
+    expect(BC.carryMaterial(DB, 'Acme', 'PEEK')).toBe('PLA');
+    expect(BC.carryMaterial(snapshot, 'Jayo', 'PEEK')).toBe('PLA');
+    const tpuOnly = { source: {}, brands: [{ name: 'Flexo', keys: ['flexo'], materials: { TPU: [line('TPU 95A')] } }] };
+    expect(BC.carryMaterial(tpuOnly, 'Flexo', 'PLA')).toBe('TPU');
   });
 });
