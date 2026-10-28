@@ -76,8 +76,11 @@ function setEntries(all, key, list) {
 
 export const entriesFor = (all, key) => (key && all[key] ? all[key] : []);
 
-/** Save colors under key (newest first), adding the variant to a matching row. */
-export function save(all, key, colors, style, variant) {
+/**
+ * Save colors under key (newest first), adding the variant to a matching
+ * row. A name (e.g. a brand color's name) is given to a row that has none.
+ */
+export function save(all, key, colors, style, variant, name = '') {
   if (!key || !colors.length) return all;
   const id = idFor(colors, style);
   const entries = copy(entriesFor(all, key));
@@ -85,6 +88,7 @@ export function save(all, key, colors, style, variant) {
   const entry = index >= 0 ? entries.splice(index, 1)[0] : { colors: [...colors], name: '', variants: [] };
   if (colors.length > 1) entry.colorType = style === '0' ? '0' : '1';
   if (!entry.variants.includes(variant)) entry.variants.push(variant);
+  if (!entry.name && name) entry.name = name.trim().slice(0, 32);
   entries.unshift(entry);
   return setEntries(all, key, entries);
 }

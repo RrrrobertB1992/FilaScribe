@@ -3,6 +3,7 @@
   import Palette from './components/Palette.svelte';
   import ColorEditor from './components/ColorEditor.svelte';
   import SavedColors from './components/SavedColors.svelte';
+  import BrandColors from './components/BrandColors.svelte';
   import SpoolPreview from './components/SpoolPreview.svelte';
   import NfcSheet from './components/NfcSheet.svelte';
   import TagDetails from './components/TagDetails.svelte';
@@ -21,8 +22,12 @@
   let sheet = $state(null); // { mode: 'read' | 'write', wrongUid }
   let status = $state(null); // { kind: 'ok' | 'error' | 'info', text }
   let showErrors = $state(false);
-  let pickersHidden = $state(false);
+  let savedHidesPickers = $state(false);
+  let brandHidesPickers = $state(false);
+  const pickersHidden = $derived(savedHidesPickers || brandHidesPickers);
   let saved = $state();
+  let brandColors = $state();
+  let brandColorName = $state(''); // the picked brand color's name, for Saved colors
 
   onMount(async () => {
     nfcState = await nfc.status();
@@ -127,6 +132,7 @@
     // The saved-colors panel may only now be on screen; let it mount first
     await tick();
     saved?.afterLoad();
+    brandColors?.afterLoad();
     say('Tag read. Change what you need, then update the tag.', 'ok');
   }
 
@@ -153,7 +159,9 @@
           })
         : await nfc.write([record]);
       sheet = null;
-      saved?.afterWrite();
+      // The colors are now a picked saved color (named after the brand color)
+      saved?.afterWrite(brandColorName);
+      brandColors?.release();
       if (nfc.kind === 'native' && !r.verified) {
         say('Tag written, but reading it back didn’t match. Read the tag to check it.', 'error');
       } else {
@@ -223,6 +231,21 @@
       {/if}
 
       <div class="colors">
+        <BrandColors
+          bind:this={brandColors}
+          brand={form.brand}
+          type={form.type}
+          variant={u1 ? form.subtype : ''}
+          canSetVariant={u1}
+          bind:colors={form.colors}
+          bind:colorType={form.colorType}
+          bind:pickersHidden={brandHidesPickers}
+          bind:pickedName={brandColorName}
+          getTemps={() => ({ minTemp: form.minTemp, maxTemp: form.maxTemp, bedMinTemp: form.bedMinTemp, bedMaxTemp: form.bedMaxTemp })}
+          setTemps={(t) => Object.assign(form, t)}
+          setVariant={(v) => (form.subtype = v)}
+          onpick={() => saved?.release()}
+        />
         <SavedColors
           bind:this={saved}
           brand={form.brand}
@@ -230,7 +253,8 @@
           variant={u1 ? form.subtype : ''}
           bind:colors={form.colors}
           bind:colorType={form.colorType}
-          bind:pickersHidden
+          bind:pickersHidden={savedHidesPickers}
+          onpick={() => brandColors?.release()}
           onstatus={(t, isError) => say(t, isError ? 'error' : 'ok')}
         />
         {#if !pickersHidden}

@@ -13,6 +13,9 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     target: 'es2022',
+    // The brand-colors snapshot is one ~610 kB chunk (135 kB gzipped), loaded
+    // only after the page appears
+    chunkSizeWarningLimit: 700,
   },
   test: {
     include: ['tests/**/*.test.js'],
