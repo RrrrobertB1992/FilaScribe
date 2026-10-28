@@ -24,10 +24,17 @@ The multi-color fields and `color_type` match PrintTag-Web-Rrrrobert. Saved colo
 ## Brand colors
 
 Pick a brand and material, and optionally a variant, then open **Brand colors** to choose a named color from that brand's real lineup, like Bambu Lab PLA Basic "Jade White". It works like Saved colors, but read-only:
-- **Filtered by variant:** it shows the lines that fit your variant (Matte, Silk, HF and so on), by line name or by the database's finish tags. With no variant, it shows the lines that fit no variant chip, such as Galaxy, Wood or Translucent. **Show all** lists every line.
-- **Picking a color** fills in the colors, Gradient or Segments for multi-color spools, and the line's nozzle and bed temperatures. Tap it again to put back what was there; **Edit colors** keeps it and lets you adjust it. A line with a clear variant offers **Set variant to …**.
-- **Writing the tag** saves the colors to Saved colors, named after the brand color. Reading a tag marks the matching brand color.
-- **Nothing new on the tag:** names and lines aren't written. The tag gets the same OpenSpool fields as before, with your brand spelling.
+- **Grouped by variant.** Every filament line belongs to one group, and each group is a variant chip:
+  - the original chips: Basic, Matte, SnapSpeed, Silk, Support, HF, 95A, 95A HF;
+  - common finishes: Wood, Marble, Galaxy, Glow, Metallic, Multi-color, Fluorescent, Translucent, Color change.
+- **How lines are grouped:**
+  - Lines are grouped by their name ("wood", "sparkle", "neon", "dual-color"…), with the database's finish tags as a fallback.
+  - A finish wins over multi-color, so "Silk PLA+ Dual-Color" is Silk, and over high speed, so "High Speed Matte PLA" is Matte.
+  - Plain lines are Basic. Picking a variant shows its group, and **None shows Basic**. A Custom variant shows the lines whose name contains it.
+- **Similar lines merge.** For example, Sunlu's "PLA Wood" and "Real Wood Fiber PLA" are one Wood list. A color with the same name and nearly the same shade in another line of the group is shown once ("PLA Wood +1"). **Show all** lists every original line, with nothing merged.
+- **Picking a color** fills in the colors, Gradient or Segments for multi-color spools (labeled "2 colors, gradient"), and the line's nozzle and bed temperatures. Tap it again to put back what was there; **Edit colors** keeps it and lets you adjust it. A line from another group, picked under Show all, offers **Set variant to …**.
+- **Writing the tag** saves the colors to Saved colors, named after the brand color. Reading a tag marks the matching brand color, looking first at the line named after the tag's variant.
+- **Nothing new on the tag:** names and lines aren't written. The tag gets the same OpenSpool fields as before, with your brand spelling. The new variant chips are written as `subtype` like the others.
 
 The colors come from the [Open Filament Database](https://github.com/OpenFilamentCollective/open-filament-database) (MIT). A snapshot is bundled in `src/data/brand-colors.json`, built by `scripts/build-brand-colors.js`, so it works offline. On the website it only loads after the page appears. Shades are approximate.
 
@@ -77,8 +84,8 @@ The **Tests** workflow runs on every pull request and on `main`:
   - **Create:** default tag, standard vs U1 fields, material temperature presets, Custom material/brand/variant, 1 to 5 colors with gradient/segments, color and temperature validation, spool details, the tag data preview, and cancelling a write or a write that fails.
   - **Read & update:** loading U1 and standard tags, updating (undocumented fields dropped), blank, unreadable and non-OpenSpool tags, several records on one tag, Read another, and copying a read tag onto a new one.
   - **Saved colors:** saving on write, per brand + material, surviving a reload, picking and un-picking, gradient vs segments, variants, rename, editing colors, removing, clearing, picking automatically when a tag is read, and import/export.
-  - **Brand colors:** filtering by variant, Show all when nothing matches, picking and un-picking (colors and temperatures), gradient spools, search, Edit colors, the variant suggestion, working alongside Saved colors, naming the saved color, and matching a read tag.
-- **Brand colors logic** (`tests/brandColors.test.js`): line filtering (variants, finish tags, fiber materials), color matching, and that the bundled snapshot is well-formed and covers every FilaScribe brand.
+  - **Brand colors:** groups by variant (None = Basic), merged look-alikes (Sunlu Wood), Show all when a group is empty, picking and un-picking (colors and temperatures), gradient spools, search, Edit colors, the variant suggestion, working alongside Saved colors, naming the saved color, and matching a read tag.
+- **Brand colors logic** (`tests/brandColors.test.js`): grouping lines (names, finish tags, fiber materials), merging look-alikes, color matching, and that the bundled snapshot is well-formed and covers every FilaScribe brand.
 
 - **U1 reader compatibility** (`tests/compat/`): FilaScribe writes about 160 tags as full NTAG215 memory images. A dozen are hand-picked cases, including a gradient with 5 colors, custom names and the largest possible tag; the rest are random forms. The real OpenSpool readers then read them: paxx12's U1 extended firmware and OpenRFID, fetched at pinned commits by `tests/compat/fetch-readers.sh`. Each check compares what the reader reports against what was entered in the form. Neither project is copied into this repo.
   - Features a reader doesn't support yet are skipped: `color_type`, and OpenRFID's extra colors. These checks switch on once a pinned reader adds them.

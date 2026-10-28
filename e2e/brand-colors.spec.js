@@ -17,37 +17,48 @@ test.describe('Brand colors', () => {
     await expect(brand(page)).toHaveCount(0);
   });
 
-  test('narrows to the variant’s lines', async ({ page }) => {
+  test('shows the variant’s group', async ({ page }) => {
     await open(page, 'Bambu Lab', 'Basic');
     await expect(brand(page)).toContainText('Brand colors for Bambu Lab PLA Basic');
-    await expect(brand(page)).toContainText('Showing Basic lines');
-    await expect(brand(page).getByRole('button', { name: 'PLA Basic', exact: true })).toBeVisible();
-    await expect(brand(page).getByRole('button', { name: 'PLA Matte', exact: true })).toHaveCount(0);
+    await expect(brand(page)).toContainText(/Showing Basic: \d+ colors from \d+ lines/);
+    await expect(tile(page, 'Jade White')).toBeVisible();
+    // grouped views list colors, not line chips
+    await expect(brand(page).getByRole('group', { name: 'Filament lines' })).toHaveCount(0);
 
-    await chip(page, 'Matte').click();
-    await expect(brand(page)).toContainText('Brand colors for Bambu Lab PLA Matte');
-    await expect(brand(page)).toContainText('Showing Matte lines (1 of');
-    await expect(brand(page).locator('.tile').first()).toBeVisible();
+    await chip(page, 'Galaxy').click();
+    await expect(brand(page)).toContainText('Brand colors for Bambu Lab PLA Galaxy');
+    await expect(brand(page)).toContainText(/Showing Galaxy: \d+ colors from 2 lines/); // PLA Galaxy + PLA Sparkle
   });
 
-  test('no variant shows the lines without one', async ({ page }) => {
+  test('no variant shows Basic', async ({ page }) => {
     await open(page, 'Bambu Lab', 'None');
-    await expect(brand(page)).toContainText('Showing lines without a variant');
-    await expect(brand(page).getByRole('button', { name: 'PLA Galaxy', exact: true })).toBeVisible();
-    await expect(brand(page).getByRole('button', { name: 'PLA Basic', exact: true })).toHaveCount(0);
+    await expect(brand(page)).toContainText('Showing Basic (no variant)');
+    await expect(tile(page, 'Jade White')).toBeVisible();
   });
 
-  test('when nothing matches, Show all lists every line', async ({ page }) => {
-    await open(page, 'Polymaker', 'Basic');
-    await expect(brand(page)).toContainText('No Polymaker PLA lines match Basic.');
+  test('similar lines are merged into one group, look-alike colors shown once', async ({ page }) => {
+    await open(page, 'SUNLU', 'Wood');
+    await expect(brand(page)).toContainText('Showing Wood: 6 colors from 2 lines'); // PLA Wood + Real Wood Fiber PLA
+    await expect(brand(page).locator('.tile')).toHaveCount(6);
+    await expect(brand(page).locator('.line-name', { hasText: '+1' })).toHaveCount(1);
+    // Show all lists every original line, nothing merged
+    await brand(page).getByRole('button', { name: 'Show all SUNLU PLA lines' }).click();
+    await expect(brand(page)).toContainText('Showing every line');
+    await expect(brand(page).getByRole('button', { name: 'Real Wood Fiber PLA', exact: true })).toBeVisible();
+  });
+
+  test('when a group is empty, Show all lists every line', async ({ page }) => {
+    await open(page, 'Polymaker', 'Marble');
+    await expect(brand(page)).toContainText('Polymaker PLA has no Marble colors.');
     await brand(page).getByRole('button', { name: 'Show all Polymaker PLA lines' }).click();
-    await expect(brand(page)).toContainText('Showing all lines');
+    await expect(brand(page)).toContainText('Showing every line');
     await expect(brand(page).getByRole('button', { name: 'Polylite PLA', exact: true })).toBeVisible();
+    await brand(page).getByRole('button', { name: 'Show only Marble' }).click();
+    await expect(brand(page)).toContainText('has no Marble colors');
   });
 
   test('picking a color fills colors and temperatures; un-picking restores them', async ({ page }) => {
     await open(page, 'Bambu Lab', 'Basic');
-    await brand(page).getByRole('button', { name: 'PLA Basic', exact: true }).click();
     await tile(page, 'Jade White').click();
     await expect(brand(page).locator('.picked-name')).toHaveText(/Jade White\s+PLA Basic/);
     await expect(page.locator('#hex-input')).toBeHidden(); // pickers hide while picked
@@ -74,7 +85,8 @@ test.describe('Brand colors', () => {
 
   test('a gradient spool sets Gradient and all its colors', async ({ page }) => {
     await open(page, 'Bambu Lab', 'Basic');
-    await brand(page).getByRole('button', { name: 'PLA Basic Gradient', exact: true }).click();
+    await brand(page).getByLabel('Search brand colors').fill('Basic Gradient'); // search also matches line names
+    await expect(brand(page).locator('.tile').first().locator('.multi')).toContainText(/2 colors, gradient/);
     await brand(page).locator('.tile').first().click();
     await writeTag(page);
     const data = await lastWrite(page);
@@ -102,7 +114,7 @@ test.describe('Brand colors', () => {
 
   test('search finds colors by name', async ({ page }) => {
     await open(page, 'Bambu Lab', 'Basic');
-    await brand(page).getByLabel('Search brand colors').fill('jade');
+    await brand(page).getByLabel('Search brand colors').fill('jade white');
     await expect(brand(page).locator('.tile')).toHaveCount(1);
     await brand(page).getByLabel('Search brand colors').fill('zzzz');
     await expect(brand(page)).toContainText('No colors match');
