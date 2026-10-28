@@ -70,6 +70,8 @@ test.describe('Create', () => {
     expect((await lastWrite(page)).brand).toBe('Elegoo');
 
     // a brand the database doesn't know is written as typed
+    await expect(chip(page, 'Elegoo')).toHaveAttribute('aria-pressed', 'true'); // saved as a chip by the write
+    await brand.getByRole('button', { name: 'Custom' }).click();
     await page.getByLabel('Custom brand').fill('My Own Brand ');
     await page.getByLabel('Custom brand').blur();
     await expect(page.getByLabel('Custom brand')).toHaveValue('My Own Brand');
@@ -229,4 +231,71 @@ test('without Web NFC the app says why and disables writing', async ({ browser }
   await expect(page.getByText('Web NFC isn’t available here.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Write tag' })).toBeDisabled();
   await page.close();
+});
+
+test.describe('Your own chips', () => {
+  const group = (page, name) => page.getByRole('group', { name, exact: true });
+
+  test('Save keeps a Custom brand, material and variant as chips', async ({ page }) => {
+    await group(page, 'Brand').getByRole('button', { name: 'Custom' }).click();
+    await page.getByLabel('Custom brand').fill('Zephyr');
+    await page.getByRole('button', { name: 'Save brand as a chip' }).click();
+    await expect(group(page, 'Brand').getByRole('button', { name: 'Zephyr', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByLabel('Custom brand')).toHaveCount(0);
+
+    await group(page, 'Material').getByRole('button', { name: 'Custom' }).click();
+    await expect(page.getByRole('button', { name: 'Save material as a chip' })).toBeDisabled(); // nothing typed
+    await page.getByLabel('Custom material').fill('PLA+');
+    await page.getByRole('button', { name: 'Save material as a chip' }).click();
+    await expect(group(page, 'Material').getByRole('button', { name: 'PLA+', exact: true })).toHaveAttribute('aria-pressed', 'true');
+
+    await group(page, 'Variant').getByRole('button', { name: 'Custom' }).click();
+    await page.getByLabel('Custom variant').fill('Rapid');
+    await page.getByRole('button', { name: 'Save variant as a chip' }).click();
+    await expect(group(page, 'Variant').getByRole('button', { name: 'Rapid', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    expect(await writeCount(page)).toBe(0); // saving doesn't write a tag
+
+    // they stay after a reload
+    await page.reload();
+    await chip(page, 'Zephyr').click();
+    await chip(page, 'PLA+').click();
+    await expect(group(page, 'Variant').getByRole('button', { name: 'Rapid', exact: true })).toBeVisible();
+    // a variant belongs to its brand + material
+    await chip(page, 'PETG').click();
+    await expect(group(page, 'Variant').getByRole('button', { name: 'Rapid', exact: true })).toHaveCount(0);
+  });
+
+  test('writing a tag saves its Custom values as chips', async ({ page }) => {
+    await group(page, 'Brand').getByRole('button', { name: 'Custom' }).click();
+    await page.getByLabel('Custom brand').fill('Zephyr');
+    await group(page, 'Variant').getByRole('button', { name: 'Custom' }).click();
+    await page.getByLabel('Custom variant').fill('Velvet');
+    await writeTag(page);
+    expect(await lastWrite(page)).toMatchObject({ brand: 'Zephyr', subtype: 'Velvet' });
+    await expect(chip(page, 'Zephyr')).toHaveAttribute('aria-pressed', 'true');
+    await expect(group(page, 'Variant').getByRole('button', { name: 'Velvet', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByLabel('Custom brand')).toHaveCount(0);
+  });
+
+  test('a saved chip can be removed', async ({ page }) => {
+    await group(page, 'Brand').getByRole('button', { name: 'Custom' }).click();
+    await page.getByLabel('Custom brand').fill('Zephyr');
+    await page.getByRole('button', { name: 'Save brand as a chip' }).click();
+    // built-in chips have no Remove
+    await chip(page, 'Generic').click();
+    await expect(page.getByRole('button', { name: /^Remove “/ })).toHaveCount(0);
+    await chip(page, 'Zephyr').click();
+    await page.getByRole('button', { name: 'Remove “Zephyr” from your chips' }).click();
+    await expect(chip(page, 'Zephyr')).toHaveCount(0);
+    // still the brand for this tag, now as a Custom value
+    await expect(page.getByLabel('Custom brand')).toHaveValue('Zephyr');
+  });
+});
+
+test('typing a Custom material letter by letter past a chip name keeps the box open', async ({ page }) => {
+  await page.getByRole('group', { name: 'Material', exact: true }).getByRole('button', { name: 'Custom' }).click();
+  await page.getByLabel('Custom material').pressSequentially('PLA+'); // "PLA" on the way used to close the box
+  await expect(page.getByLabel('Custom material')).toHaveValue('PLA+');
+  await writeTag(page);
+  expect((await lastWrite(page)).type).toBe('PLA+');
 });
