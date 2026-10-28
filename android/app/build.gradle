@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "io.github.rrrrobertb1992.spoolscribe"
+    namespace = "io.github.rrrrobertb1992.filascribe"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "io.github.rrrrobertb1992.spoolscribe"
+        applicationId "io.github.rrrrobertb1992.filascribe"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // CI passes these; local builds get 1 / 0.0.0-dev
@@ -40,7 +40,7 @@ android {
     }
     buildTypes {
         debug {
-            // Installs next to the release app; named "SpoolScribe Test" by src/debug/res
+            // Installs next to the release app; named "FilaScribe Test" by src/debug/res
             applicationIdSuffix ".test"
             versionNameSuffix "-test"
             signingConfig signingConfigs.ciDebug

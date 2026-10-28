@@ -173,7 +173,7 @@
 
 <div class="page">
   <header>
-    <h1>SpoolScribe</h1>
+    <h1>FilaScribe</h1>
     <div class="modes" role="tablist" aria-label="Mode">
       <button type="button" role="tab" aria-selected={mode === 'create'} onclick={() => switchMode('create')}>Create</button>
       <button type="button" role="tab" aria-selected={mode === 'update'} onclick={() => switchMode('update')}>Read & update</button>
@@ -290,7 +290,7 @@
   {/if}
 
   <footer>
-    <p>SpoolScribe {version}. Writes <a href="https://openspool.io/rfid.html">OpenSpool</a> tags{nfc.kind === 'web' ? ' with Web NFC' : ''}.</p>
+    <p>FilaScribe {version}. Writes <a href="https://openspool.io/rfid.html">OpenSpool</a> tags{nfc.kind === 'web' ? ' with Web NFC' : ''}.</p>
   </footer>
 </div>
 

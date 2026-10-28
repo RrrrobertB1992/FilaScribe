@@ -1,4 +1,4 @@
-package io.github.rrrrobertb1992.spoolscribe;
+package io.github.rrrrobertb1992.filascribe;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -26,7 +26,7 @@ import java.io.IOException;
 import java.util.Locale;
 
 /**
- * NFC for SpoolScribe, using Android reader mode so the app gets the tag
+ * NFC for FilaScribe, using Android reader mode so the app gets the tag
  * directly while a read or write is waiting.
  *
  *  read()                         -> { uid, chip, techs, maxNdefSize, writable, ndef?, pages? }
@@ -39,8 +39,8 @@ import java.util.Locale;
  * NO_NFC, NFC_DISABLED, CANCELLED, TAG_LOST, WRONG_TAG, READ_ONLY, TOO_BIG,
  * NOT_NDEF, BAD_MESSAGE, FAILED.
  */
-@CapacitorPlugin(name = "SpoolScribeNfc")
-public class SpoolScribeNfcPlugin extends Plugin {
+@CapacitorPlugin(name = "FilaScribeNfc")
+public class FilaScribeNfcPlugin extends Plugin {
 
     private static final int READER_FLAGS = NfcAdapter.FLAG_READER_NFC_A
             | NfcAdapter.FLAG_READER_NFC_B
