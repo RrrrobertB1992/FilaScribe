@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import * as BC from '../src/lib/brandColors.js';
-import { VARIANTS, MATERIALS } from '../src/lib/catalog.js';
+import { VARIANTS, MATERIALS, BRANDS } from '../src/lib/catalog.js';
 import snapshot from '../src/data/brand-colors.json' with { type: 'json' };
+import orca from '../src/data/orca-vendors.json' with { type: 'json' };
+
+// The data as the app loads it: OrcaSlicer's vendor names applied
+const named = BC.withOrcaNames(snapshot, orca.vendors);
 
 const line = (name, traits = '', colors = [['White', 'FFFFFF', '', '']], temps = [200, 220, 55, 60]) => ({ name, temps, traits, colors });
 const DB = {
@@ -344,9 +348,9 @@ describe('the bundled snapshot', () => {
     }
   });
 
-  it('has the brands FilaScribe lists (except Generic)', async () => {
+  it('has colors for the brands FilaScribe lists (except Generic)', async () => {
     const { BRANDS } = await import('../src/lib/catalog.js');
-    const missing = BRANDS.filter((b) => b !== 'Generic' && !BC.findBrand(snapshot, b));
+    const missing = BRANDS.filter((b) => b !== 'Generic' && !Object.keys(BC.findBrand(named, b)?.materials || {}).length);
     expect(missing).toEqual([]);
   });
 
@@ -398,5 +402,47 @@ describe('brand colors: keeping the material', () => {
     expect(BC.carryMaterial(snapshot, 'Jayo', 'PEEK')).toBe('PLA');
     const tpuOnly = { source: {}, brands: [{ name: 'Flexo', keys: ['flexo'], materials: { TPU: [line('TPU 95A')] } }] };
     expect(BC.carryMaterial(tpuOnly, 'Flexo', 'PLA')).toBe('TPU');
+  });
+});
+
+describe('brand colors: brand names', () => {
+  it('uses OrcaSlicer’s spelling, else the database’s, and keeps others as typed', () => {
+    expect(BC.canonicalBrand(named, 'esun')).toBe('eSUN');
+    expect(BC.canonicalBrand(named, 'eSUN 3D')).toBe('eSUN');
+    expect(BC.canonicalBrand(named, ' Elegoo ')).toBe('Elegoo');
+    expect(BC.canonicalBrand(named, 'Prusament')).toBe('Prusa Polymers');
+    expect(BC.canonicalBrand(named, 'qidi tech')).toBe('QIDI');
+    expect(BC.canonicalBrand(named, 'hatchbox')).toBe('HATCHBOX');
+    expect(BC.canonicalBrand(named, 'inland')).toBe('Inland'); // not in Orca: the database's
+    expect(BC.canonicalBrand(named, 'goofoo')).toBe('Goofoo'); // only in Orca
+    expect(BC.canonicalBrand(named, 'My Brand ')).toBe('My Brand');
+    expect(BC.canonicalBrand(null, 'esun')).toBe('esun');
+  });
+
+  it('Orca-only vendors have no colors, so everything else falls back', () => {
+    expect(BC.findBrand(named, 'Goofoo').materials).toEqual({});
+    expect(BC.materialChoices(named, 'Goofoo')).toEqual(Object.keys(MATERIALS));
+    expect(BC.variantChoices(named, 'Goofoo', 'PLA')).toBe(VARIANTS);
+    expect(BC.linesFor(named, { brand: 'Goofoo', type: 'PLA' }).total).toBe(0);
+  });
+
+  it('every brand chip is spelled as in OrcaSlicer', () => {
+    for (const b of BRANDS.filter((b) => b !== 'Generic')) {
+      expect(orca.vendors).toContain(b);
+      expect(BC.canonicalBrand(named, b)).toBe(b);
+    }
+  });
+
+  it('suggests brands while typing: start of a name first, then anywhere in it', () => {
+    expect(BC.suggestBrands(named, 'Bambu')).toEqual(['Bambu Lab']);
+    expect(BC.suggestBrands(named, 'ele')[0]).toBe('Elegoo');
+    expect(BC.suggestBrands(named, 'prusa')).toEqual(['Prusa Polymers']); // Prusament
+    const poly = BC.suggestBrands(named, 'poly', 20);
+    expect(poly.slice(0, 2)).toEqual(['PolyFlex', 'PolyLite']);
+    expect(poly).toContain('Polymaker');
+    expect(BC.suggestBrands(snapshot, 'filament', 20)).toEqual(expect.arrayContaining(['American Filament', 'Das Filament']));
+    expect(BC.suggestBrands(snapshot, 'ab', 3)).toHaveLength(3);
+    expect(BC.suggestBrands(snapshot, '')).toEqual([]);
+    expect(BC.suggestBrands(snapshot, 'zzzz')).toEqual([]);
   });
 });

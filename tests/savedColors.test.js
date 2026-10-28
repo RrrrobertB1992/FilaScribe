@@ -65,3 +65,23 @@ describe('saved colors', () => {
     expect(SC.load(mem)).toEqual({});
   });
 });
+
+describe('saved colors: renaming brands', () => {
+  it('moves rows to the new spelling and merges with rows already there', () => {
+    const all = {
+      'eSun|PLA': [{ colors: ['111111'], name: 'Old', variants: [''] }, { colors: ['222222'], name: '', variants: [''] }],
+      'eSUN 3D|PLA': [{ colors: ['111111'], name: 'Kept', variants: ['Matte'] }],
+      'Generic|PLA': [{ colors: ['333333'], name: '', variants: [''] }],
+    };
+    const next = SC.renameBrands(all, (b) => (b.toLowerCase() === 'esun' ? 'eSUN 3D' : b));
+    expect(Object.keys(next).sort()).toEqual(['Generic|PLA', 'eSUN 3D|PLA']);
+    expect(next['eSUN 3D|PLA'].map((e) => e.colors[0])).toEqual(['111111', '222222']);
+    expect(next['eSUN 3D|PLA'][0].name).toBe('Kept');
+    expect(next['eSUN 3D|PLA'][0].variants).toEqual(['Matte', '']);
+  });
+
+  it('returns the same object when nothing changes', () => {
+    const all = { 'Generic|PLA': [{ colors: ['333333'], name: '', variants: [''] }] };
+    expect(SC.renameBrands(all, (b) => b)).toBe(all);
+  });
+});

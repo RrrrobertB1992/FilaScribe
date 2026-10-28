@@ -9,7 +9,7 @@
   import { MATERIALS, BRANDS, VARIANTS } from './lib/catalog.js';
   import { encodeMessage, mimeRecord, maxMessageSize, NTAG, TNF } from './lib/ndef.js';
   import { getNfc } from './lib/nfc/index.js';
-  import { variantChoices, carryVariant, materialChoices, carryMaterial } from './lib/brandColors.js';
+  import { variantChoices, carryVariant, materialChoices, carryMaterial, canonicalBrand, suggestBrands } from './lib/brandColors.js';
   import { loadBrandColors } from './lib/brandColorsData.js';
 
   const nfc = getNfc();
@@ -155,6 +155,10 @@
     }
 
     form = parsed.form;
+    // The database's spelling of a known brand ("eSun" -> "eSUN 3D"), so an
+    // update writes the same name as a new tag would
+    if (!brandData) brandData = await loadBrandColors().catch(() => null);
+    form.brand = canonicalBrand(brandData, form.brand);
     loaded = { tag: result.tag, raw: parsed.raw, unknownKeys: parsed.unknownKeys, notes: parsed.notes, empty: false };
     showErrors = true;
     mode = 'update';
@@ -251,7 +255,15 @@
           : 'Only the fields in the OpenSpool spec. Extra colors, variant and bed temperatures aren’t written.'}
       />
 
-      <Palette label="Brand" items={BRANDS} bind:value={form.brand} customPlaceholder="e.g. Elegoo" onpick={pickBrand} />
+      <Palette
+        label="Brand"
+        items={BRANDS}
+        bind:value={form.brand}
+        customPlaceholder="e.g. Elegoo"
+        onpick={pickBrand}
+        suggest={(t) => suggestBrands(brandData, t)}
+        commit={(t) => canonicalBrand(brandData, t)}
+      />
       <Palette
         label="Material"
         items={materialItems}

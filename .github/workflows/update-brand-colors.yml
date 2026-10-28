@@ -1,5 +1,6 @@
 # Monthly (and on demand): rebuild the Brand colors snapshot from the latest
-# Open Filament Database and open (or update) a pull request with it.
+# Open Filament Database, and the brand names from OrcaSlicer's filament
+# profiles, and open (or update) a pull request with them.
 # Nothing is pushed to main; merge the PR after checking it.
 #
 # One-time setting: Settings > Actions > General > Workflow permissions >
@@ -45,15 +46,30 @@ jobs:
           git -C "$RUNNER_TEMP/ofd" sparse-checkout set --no-cone '/data/**/*.json'
           git -C "$RUNNER_TEMP/ofd" checkout -q
 
+      - name: Get the latest OrcaSlicer filament profiles (JSON files only)
+        run: |
+          git clone -q --depth 1 --filter=blob:none --no-checkout \
+            https://github.com/SoftFever/OrcaSlicer "$RUNNER_TEMP/orca"
+          git -C "$RUNNER_TEMP/orca" sparse-checkout set --no-cone '/resources/profiles/*/filament/**/*.json'
+          git -C "$RUNNER_TEMP/orca" checkout -q
+
       - name: Rebuild the snapshot
         id: build
         run: |
+          cp src/data/orca-vendors.json "$RUNNER_TEMP/old-orca.json"
+          node scripts/build-orca-vendors.js "$RUNNER_TEMP/orca" src/data/orca-vendors.json
+          orca_changed=true
+          if node scripts/build-orca-vendors.js --same "$RUNNER_TEMP/old-orca.json" src/data/orca-vendors.json; then
+            orca_changed=false
+            cp "$RUNNER_TEMP/old-orca.json" src/data/orca-vendors.json # same names: keep the old commit
+          fi
           cp src/data/brand-colors.json "$RUNNER_TEMP/old.json"
           node scripts/build-brand-colors.js "$RUNNER_TEMP/ofd" src/data/brand-colors.json
           echo "old=$(node scripts/build-brand-colors.js --summary "$RUNNER_TEMP/old.json")" >> "$GITHUB_OUTPUT"
           echo "new=$(node scripts/build-brand-colors.js --summary src/data/brand-colors.json)" >> "$GITHUB_OUTPUT"
           # A new database commit with the same colors isn't worth a PR
-          if node scripts/build-brand-colors.js --same "$RUNNER_TEMP/old.json" src/data/brand-colors.json; then
+          echo "orca=$(node -p "require('./src/data/orca-vendors.json').vendors.length") OrcaSlicer vendors" >> "$GITHUB_OUTPUT"
+          if node scripts/build-brand-colors.js --same "$RUNNER_TEMP/old.json" src/data/brand-colors.json && [ "$orca_changed" = false ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -70,18 +86,20 @@ jobs:
         env:
           OLD: ${{ steps.build.outputs.old }}
           NEW: ${{ steps.build.outputs.new }}
+          ORCA: ${{ steps.build.outputs.orca }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898+github-actions[bot]@users.noreply.github.com"
           git checkout -B "$BRANCH"
-          git add src/data/brand-colors.json
-          git commit -q -m "Update brand colors from the Open Filament Database" -m "Before: $OLD" -m "After: $NEW"
+          git add src/data/brand-colors.json src/data/orca-vendors.json
+          git commit -q -m "Update brand colors and names" -m "Before: $OLD" -m "After: $NEW, $ORCA"
           git push -f origin "$BRANCH"
           body=$(printf '%s\n' \
-            "Monthly refresh of the Brand colors snapshot (\`src/data/brand-colors.json\`) from the [Open Filament Database](https://github.com/OpenFilamentCollective/open-filament-database)." \
+            "Monthly refresh of the Brand colors snapshot (\`src/data/brand-colors.json\`) from the [Open Filament Database](https://github.com/OpenFilamentCollective/open-filament-database), and the brand names (\`src/data/orca-vendors.json\`) from [OrcaSlicer's filament profiles](https://github.com/SoftFever/OrcaSlicer/tree/main/resources/profiles)." \
             "" \
             "- Before: $OLD" \
             "- After: $NEW" \
+            "- Brand names: $ORCA" \
             "" \
             "The snapshot passed the brand-colors tests (well-formed, all FilaScribe brands present, real-brand filtering)." \
             "" \
@@ -96,4 +114,4 @@ jobs:
 
       - name: Nothing new
         if: steps.build.outputs.changed != 'true'
-        run: echo "The brand colors snapshot is already up to date."
+        run: echo "The brand colors and names are already up to date."

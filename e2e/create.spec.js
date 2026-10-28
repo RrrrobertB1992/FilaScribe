@@ -37,12 +37,45 @@ test.describe('Create', () => {
     await page.getByLabel('Custom material').fill('PLA+');
     await expect(temps(page, 'Nozzle').min).toHaveValue('230'); // custom keeps the temps
     await page.getByRole('group', { name: 'Brand' }).getByRole('button', { name: 'Custom' }).click();
-    await page.getByLabel('Custom brand').fill('Elegoo');
+    await page.getByLabel('Custom brand').fill('Zephyr Filaments');
     await page.getByRole('group', { name: 'Variant' }).getByRole('button', { name: 'Custom' }).click();
     await page.getByLabel('Custom variant').fill('Rapid');
-    await expect(page.getByLabel('Tag preview')).toContainText('Elegoo PLA+ Rapid');
+    await expect(page.getByLabel('Tag preview')).toContainText('Zephyr Filaments PLA+ Rapid');
     await writeTag(page);
-    expect(await lastWrite(page)).toMatchObject({ type: 'PLA+', brand: 'Elegoo', subtype: 'Rapid' });
+    expect(await lastWrite(page)).toMatchObject({ type: 'PLA+', brand: 'Zephyr Filaments', subtype: 'Rapid' });
+  });
+
+  test('a typed brand suggests database brands and uses their spelling', async ({ page }) => {
+    const brand = page.getByRole('group', { name: 'Brand' });
+    const materials = page.getByRole('group', { name: 'Material' });
+    const matches = page.getByRole('group', { name: 'Suggestions' });
+    await brand.getByRole('button', { name: 'Custom' }).click();
+    // part of a name: suggestions, and the rows wait until the name is done
+    await page.getByLabel('Custom brand').fill('Bambu');
+    await expect(matches.getByRole('button', { name: 'Bambu Lab' })).toBeVisible();
+    await expect(materials.getByRole('button', { name: 'PEEK', exact: true })).toBeVisible(); // still every material
+    await matches.getByRole('button', { name: 'Bambu Lab' }).click();
+    await expect(chip(page, 'Bambu Lab')).toHaveAttribute('aria-pressed', 'true'); // the chip, not Custom
+    await expect(page.getByLabel('Custom brand')).toHaveCount(0);
+    await expect(materials.getByRole('button', { name: 'PEEK', exact: true })).toHaveCount(0);
+
+    // a full name in any spelling becomes OrcaSlicer's, on Enter or leaving the box
+    await brand.getByRole('button', { name: 'Custom' }).click();
+    await page.getByLabel('Custom brand').fill('elegoo');
+    await page.getByLabel('Custom brand').press('Enter');
+    await expect(page.getByLabel('Custom brand')).toHaveValue('Elegoo');
+    await expect(page.getByRole('dialog')).toHaveCount(0); // Enter doesn't write the tag
+    await expect(materials).toContainText('The materials Elegoo makes.');
+    await writeTag(page);
+    expect((await lastWrite(page)).brand).toBe('Elegoo');
+
+    // a brand the database doesn't know is written as typed
+    await page.getByLabel('Custom brand').fill('My Own Brand ');
+    await page.getByLabel('Custom brand').blur();
+    await expect(page.getByLabel('Custom brand')).toHaveValue('My Own Brand');
+    await expect(materials.getByRole('button', { name: 'PEEK', exact: true })).toBeVisible();
+    await writeTag(page);
+    expect((await lastWrite(page)).brand).toBe('My Own Brand');
   });
 
   test('variant None leaves subtype out', async ({ page }) => {
