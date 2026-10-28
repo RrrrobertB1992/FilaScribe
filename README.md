@@ -28,7 +28,9 @@ The Colors card shows the current colors at the top: a spool swatch, the color's
 - **Saved**: the colors you saved for this brand and material. Off until something is saved.
 - **Custom**: the color picker, Gradient or Segments for 2+ colors, and **Save colors**.
 
-A new brand or material opens the first one that has something (Brand, then Saved, then Custom). Reading a tag opens the one its colors match. Each button shows how many colors it has. Picking in one list lets go of a pick in the other, and changing the colors in Custom lets go of both. **Edit colors** on a saved color opens Custom with **Save colors** and **Cancel** for that saved color.
+A new brand or material opens the first one that has something (Brand, then Saved, then Custom). Reading a tag opens the one its colors match. Each button shows how many colors it has. Picking in one list lets go of a pick in the other, and changing the colors in Custom lets go of a brand color.
+
+Saved colors belong to a brand and material only; the variant doesn't matter. To change a saved color, tap it and then change the colors in Custom (or tap **Edit colors**). An edit bar appears with **Save changes** (update that saved color), **Save as new** (keep it and add the new colors), and **Cancel**. Writing a tag while editing also saves the change to that saved color.
 
 ## Brand colors
 
@@ -40,7 +42,6 @@ Pick a brand and material, and optionally a variant, then choose a named color u
   None and Custom are always there. When you change the brand or material, the variant stays only if it still fits:
   - a chip the new brand has stays as it is;
   - the same kind of variant switches to the new brand's word, e.g. Bambu "Metal" becomes Polymaker "Metallic";
-  - a variant your Saved colors use for that brand and material stays;
   - anything else goes back to None.
 
   Reading a tag never changes its subtype. One the brand doesn't list, like SnapSpeed on a Bambu tag, shows in the Custom box and is written back unchanged.
@@ -114,7 +115,7 @@ The **Tests** workflow runs on every pull request and on `main`:
 - **Browser tests** (`e2e/`): a phone-sized Chrome, in light and dark mode, goes through the basic features with the NFC tag simulated by `e2e/nfc.js`:
   - **Create:** default tag, standard vs U1 fields, material temperature presets, Custom material/brand/variant, 1 to 5 colors with gradient/segments, color and temperature validation, spool details, the tag data preview, and cancelling a write or a write that fails.
   - **Read & update:** loading U1 and standard tags, updating (undocumented fields dropped), blank, unreadable and non-OpenSpool tags, several records on one tag, Read another, and copying a read tag onto a new one.
-  - **Saved colors:** the Saved button turning on and off, saving on write, per brand + material, surviving a reload, picking and un-picking, gradient vs segments, variants, rename, editing colors, removing, clearing, picking automatically when a tag is read, and import/export.
+  - **Saved colors:** the Saved button turning on and off, saving on write, per brand + material, surviving a reload, picking and un-picking, gradient vs segments, one row whatever the variant, rename, editing a picked color in Custom (Save changes, Save as new, writing while editing), removing, clearing, picking automatically when a tag is read, and import/export.
   - **Brand colors:** which color source opens (Generic opens Custom, a brand opens Brand, a read tag opens what it matches), groups by variant (None = Basic), merged look-alikes (Sunlu Wood), Show all when a group is empty, picking and un-picking (colors and temperatures), gradient spools, search, Edit colors opening Custom, changing colors in Custom letting go of the pick, the variant suggestion, working alongside Saved colors, naming the saved color, and matching a read tag.
 - **Brand colors logic** (`tests/brandColors.test.js`): grouping lines (names, finish tags, fiber materials), merging look-alikes, color matching, and that the bundled snapshot is well-formed and covers every FilaScribe brand.
 

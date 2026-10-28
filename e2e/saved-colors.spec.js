@@ -71,19 +71,65 @@ test.describe('Saved colors', () => {
     await expect(colorTab(page, 'Saved')).toHaveText(/Saved\s*2/);
   });
 
-  test('the same colors under another variant add that variant', async ({ page }) => {
+  test('saved colors ignore the variant: one row, shown under any variant', async ({ page }) => {
     await setColors(page, '334455');
     await chip(page, 'Matte').click();
     await writeTag(page);
     await chip(page, 'Silk').click();
-    await page.locator('#hex-input').fill('334455');
     await writeTag(page);
     await expect(colorTab(page, 'Saved')).toHaveText(/Saved\s*1/);
+    await chip(page, 'None').click();
     await colorTab(page, 'Saved').click();
-    await expect(tiles(page).first()).toContainText('Matte, Silk');
+    await expect(tiles(page)).toHaveCount(1);
+    await expect(tiles(page).first()).not.toContainText('Matte');
+    await expect(panel(page).getByRole('button', { name: /^Remove “/ })).toHaveCount(0);
   });
 
-  test('rename, edit colors, remove a variant, remove a row, clear', async ({ page }) => {
+  test('picking a saved color, then changing it in Custom, edits that saved color', async ({ page }) => {
+    await setColors(page, '111111');
+    await save(page).click();
+    await page.locator('#hex-input').fill('222222');
+    await save(page).click();
+    await colorTab(page, 'Saved').click();
+    await tiles(page).filter({ hasText: '111111' }).click();
+    await openCustom(page);
+    await expect(page.locator('.editbar')).toHaveCount(0); // nothing changed yet
+    await page.locator('#hex-input').fill('333333');
+    await expect(page.locator('.editbar')).toContainText('Editing saved color');
+    await expect(save(page)).toHaveCount(0); // only the edit bar's buttons
+    await page.locator('.editbar').getByRole('button', { name: 'Save changes' }).click();
+    await expect(status(page)).toHaveText('Saved color updated');
+    await expect(colorTab(page, 'Saved')).toHaveText(/Saved\s*2/); // updated, not added
+    await expect(tiles(page).filter({ hasText: '333333' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(tiles(page).filter({ hasText: '111111' })).toHaveCount(0);
+
+    // Save as new keeps the original
+    await openCustom(page);
+    await page.locator('#hex-input').fill('444444');
+    await page.locator('.editbar').getByRole('button', { name: 'Save as new' }).click();
+    await expect(colorTab(page, 'Saved')).toHaveText(/Saved\s*3/);
+    await expect(tiles(page).filter({ hasText: '333333' })).toHaveCount(1);
+
+    // Writing while editing keeps the edit in that saved color
+    await openCustom(page);
+    await page.locator('#hex-input').fill('555555');
+    await writeTag(page);
+    await expect(colorTab(page, 'Saved')).toHaveText(/Saved\s*3/);
+    await colorTab(page, 'Saved').click();
+    await expect(tiles(page).filter({ hasText: '555555' })).toHaveCount(1);
+    await expect(tiles(page).filter({ hasText: '444444' })).toHaveCount(0);
+  });
+
+  test('colors saved by a write are not edited by later changes', async ({ page }) => {
+    await setColors(page, '666666');
+    await writeTag(page); // saved and picked, but not by you
+    await page.locator('#hex-input').fill('777777');
+    await expect(page.locator('.editbar')).toHaveCount(0);
+    await writeTag(page);
+    await expect(colorTab(page, 'Saved')).toHaveText(/Saved\s*2/);
+  });
+
+  test('rename, edit colors, remove a row, clear', async ({ page }) => {
     await setColors(page, '101010');
     await chip(page, 'Basic').click();
     await writeTag(page); // saved + picked
@@ -99,7 +145,7 @@ test.describe('Saved colors', () => {
     await panel(page).getByRole('button', { name: 'Edit colors' }).click();
     await expect(page.locator('.editbar')).toContainText('Editing saved color Charcoal');
     await page.locator('#hex-input').fill('202020');
-    await page.locator('.editbar').getByRole('button', { name: 'Save colors' }).click();
+    await page.locator('.editbar').getByRole('button', { name: 'Save changes' }).click();
     await expect(colorTab(page, 'Saved')).toHaveAttribute('aria-pressed', 'true');
     await expect(tiles(page).first()).toContainText('202020');
     await expect(tiles(page).first()).toContainText('Charcoal');
@@ -112,13 +158,6 @@ test.describe('Saved colors', () => {
     await expect(page.locator('.colorsec .now-hex')).toHaveText('#202020');
 
     // Removing the last one turns Saved off and opens another source
-    await panel(page).getByRole('button', { name: 'Remove “Basic”' }).click();
-    await expect(colorTab(page, 'Saved')).toBeDisabled();
-
-    await openCustom(page);
-    await setColors(page, '303030');
-    await save(page).click();
-    await colorTab(page, 'Saved').click();
     await panel(page).getByRole('button', { name: 'Remove color' }).click();
     await expect(colorTab(page, 'Saved')).toBeDisabled();
 

@@ -2,8 +2,10 @@
   // Saved colors for the current brand + material (the "Saved" panel of the
   // color section), with the same behavior as PrintTag-Web-Rrrrobert: pick
   // one to fill the colors, rename it, edit its colors (in the Custom panel),
-  // remove a variant or the whole row. Colors are saved automatically after
-  // a successful write.
+  // or remove it. Colors are saved automatically after a successful write.
+  // Saved colors belong to a brand + material only, not to a variant. (The
+  // variants are still recorded, so an export stays readable by
+  // PrintTag-Web-Rrrrobert, but nothing here uses them.)
   import { Capacitor } from '@capacitor/core';
   import * as SC from '../lib/savedColors.js';
 
@@ -16,6 +18,7 @@
     count = $bindable(0), // saved colors for this brand + material
     pickedName = $bindable(null), // the picked saved color's name ('' if unnamed), or null
     editing = $bindable(false), // its colors are being edited in the Custom panel
+    editInPlace = false, // the pickers are open: changing the colors edits a saved color you picked
     onchange = () => {},
     onstatus = () => {},
     onpick = () => {}, // a saved color was picked (Brand colors lets go of its pick)
@@ -27,6 +30,7 @@
   let snapshot = null; // colors before a saved color was picked
   let renaming = $state(false);
   let renameText = $state('');
+  let userPicked = false; // picked by tapping it (not by a write, read or save)
   let currentKey = null;
 
   const key = $derived(SC.keyFor(brand, type));
@@ -58,14 +62,20 @@
     count = entries.length;
     pickedName = selectedEntry ? selectedEntry.name : null;
   });
-  // The colors were changed elsewhere (another list, the pickers): let go of
-  // the pick, unless they're being edited for it
+  // The colors changed: in the pickers, a saved color you picked is now being
+  // edited; anywhere else (a brand color picked) the pick is let go
   $effect(() => {
     if (!selectedEntry || editing) return;
     if (SC.idFor(colors.map((c) => c.toUpperCase()), style) !== SC.entryId(selectedEntry)) {
+      if (editInPlace && userPicked) {
+        renaming = false;
+        editing = true;
+        return;
+      }
       selected = null;
       snapshot = null;
       renaming = false;
+      userPicked = false;
     }
   });
 
@@ -84,6 +94,7 @@
     // Keep the first snapshot when switching between saved colors
     if (!selected) snapshot = { colors: [...colors], colorType };
     selected = SC.entryId(entry);
+    userPicked = true;
     renaming = false;
     editing = false;
     apply(entry);
@@ -118,12 +129,6 @@
     if (selected === id) deselect();
   }
 
-  function removeVariant(entry) {
-    const id = SC.entryId(entry);
-    persist(SC.removeVariant(all, key, id, variant));
-    if (!SC.entriesFor(all, key).some((e) => SC.entryId(e) === id)) deselect();
-  }
-
   function startRename() {
     renameText = selectedEntry?.name || '';
     renaming = true;
@@ -134,11 +139,21 @@
     renaming = false;
   }
 
+  /** Save the edited colors over the saved color being edited. */
   export function saveEdit() {
-    const r = SC.replaceColors(all, key, selected, colors, style);
+    const r = SC.replaceColors(all, key, selected, colors.map((c) => c.toUpperCase()), style);
     persist(r.all);
     selected = r.id;
     editing = false;
+    onstatus('Saved color updated');
+  }
+
+  /** Keep the saved color as it was and save the edited colors as a new one. */
+  export function saveEditAsNew() {
+    persist(SC.save(all, key, colors, style, variant));
+    selected = SC.idFor(colors.map((c) => c.toUpperCase()), style);
+    editing = false;
+    onstatus('Colors saved');
   }
 
   export function cancelEdit() {
@@ -160,13 +175,17 @@
    */
   export function afterWrite(name = '') {
     if (!key) return;
+    // Writing while editing a saved color keeps the edit in that saved color
+    if (editing && selectedEntry) saveEdit();
     editing = false;
+    userPicked = false;
     persist(SC.save(all, key, colors, style, variant, name));
     selectMatching();
   }
 
   /** Let go of the pick without changing the colors (another list picked them). */
   export function release() {
+    userPicked = false;
     selected = null;
     snapshot = null;
     renaming = false;
@@ -175,6 +194,7 @@
 
   /** After a tag is loaded: forget the old pick, then mark matching colors. */
   export function afterLoad() {
+    userPicked = false;
     selected = null;
     snapshot = null;
     renaming = false;
@@ -188,6 +208,7 @@
     if (!SC.entriesFor(all, key).some((e) => SC.entryId(e) === id)) return;
     if (!selected) snapshot = { colors: [...colors], colorType };
     selected = id;
+    userPicked = false;
     renaming = false;
     editing = false;
   }
@@ -251,7 +272,7 @@
   <div class="saved">
     <p class="hint">
       {#if entries.length}
-        {entries.length} saved {entries.length === 1 ? 'color' : 'colors'} for {label}. The current variant is highlighted.
+        {entries.length} saved {entries.length === 1 ? 'color' : 'colors'} for {label}.
       {:else}
         Nothing saved for {label} yet. Colors are saved here when you write a tag, or with Save in Custom.
       {/if}
@@ -273,9 +294,6 @@
             </span>
             <span class="name">{entry.name || ' '}</span>
             <span class="hex">{entry.colors.join('\n')}</span>
-            <span class="vars">
-              {#each entry.variants as v, i}{#if i}{', '}{/if}<span class:current={v === variant}>{v || 'No variant'}</span>{/each}
-            </span>
           </button>
         {/each}
       </div>
@@ -306,9 +324,6 @@
         {:else}
           <button type="button" class="btn small" onclick={startRename}>Rename</button>
           <button type="button" class="btn small" onclick={() => { renaming = false; editing = true; }}>Edit colors</button>
-          {#if selectedEntry.variants.includes(variant)}
-            <button type="button" class="btn small danger" onclick={() => removeVariant(selectedEntry)}>Remove “{variant || 'No variant'}”</button>
-          {/if}
           <button type="button" class="btn small danger" onclick={() => removeRow(selectedEntry)}>Remove color</button>
         {/if}
       </div>
@@ -348,8 +363,6 @@
   .bar span { flex: 1; }
   .name { font-size: 0.8125rem; font-weight: 700; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .hex { font-family: var(--font-label); font-size: 0.8125rem; white-space: pre-line; line-height: 1.2; letter-spacing: 0.04em; color: var(--muted); }
-  .vars { font-size: 0.6875rem; color: var(--muted); line-height: 1.25; }
-  .vars .current { color: var(--action); font-weight: 700; }
   .saved > .hint { margin: 0; }
   .actions, .backup { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
   .backup { padding-top: var(--s1); border-top: 1px solid var(--line); }

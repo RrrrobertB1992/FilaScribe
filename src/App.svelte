@@ -10,7 +10,6 @@
   import { encodeMessage, mimeRecord, maxMessageSize, NTAG, TNF } from './lib/ndef.js';
   import { getNfc } from './lib/nfc/index.js';
   import { variantChoices, carryVariant } from './lib/brandColors.js';
-  import * as SavedColorsData from './lib/savedColors.js';
   import { loadBrandColors } from './lib/brandColorsData.js';
 
   const nfc = getNfc();
@@ -57,12 +56,10 @@
   const gradient = $derived(u1 && visibleColors.length > 1 && form.colorType === '0');
 
   // Changing the brand or material keeps the variant only if it still fits:
-  // a chip the new brand has, its word for the same kind, or a variant saved
-  // colors use for it; otherwise None. (Reading a tag never changes it.)
+  // a chip the new brand has, or its word for the same kind; otherwise None.
+  // (Reading a tag never changes it.)
   function keepVariantFitting() {
-    const key = SavedColorsData.keyFor(form.brand, form.type);
-    const saved = SavedColorsData.entriesFor(SavedColorsData.load(), key).flatMap((e) => e.variants);
-    form.subtype = carryVariant(brandData, form.subtype, form.brand, form.type, saved);
+    form.subtype = carryVariant(brandData, form.subtype, form.brand, form.type);
   }
 
   function pickMaterial(value, custom) {

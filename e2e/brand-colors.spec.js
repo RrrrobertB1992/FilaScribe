@@ -113,7 +113,7 @@ test.describe('Brand colors', () => {
     await expect(pressed('Metallic')).toHaveAttribute('aria-pressed', 'true');
   });
 
-  test('changing brand keeps a variant your saved colors use for it', async ({ page }) => {
+  test('saved colors don’t keep a variant when changing brand', async ({ page }) => {
     const variants = page.getByRole('group', { name: 'Variant' });
     // save colors for Snapmaker PLA under the Custom variant "Rainbow"
     await chip(page, 'Snapmaker').click();
@@ -121,11 +121,11 @@ test.describe('Brand colors', () => {
     await page.getByLabel('Custom variant').fill('Rainbow');
     await openCustom(page);
     await page.getByRole('button', { name: 'Save colors' }).click();
-    // Sunlu PLA Rainbow -> Snapmaker keeps it
+    // Sunlu PLA Rainbow -> Snapmaker still goes to None
     await chip(page, 'SUNLU').click();
     await variants.getByRole('button', { name: 'Rainbow', exact: true }).click();
     await chip(page, 'Snapmaker').click();
-    await expect(page.getByLabel('Custom variant')).toHaveValue('Rainbow');
+    await expect(variants.getByRole('button', { name: 'None', exact: true })).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('a subtype the brand doesn’t list stays, as Custom', async ({ page }) => {

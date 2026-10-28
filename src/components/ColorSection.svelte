@@ -103,6 +103,11 @@
     tab = 'saved';
   }
 
+  function saveEditAsNew() {
+    savedList?.saveEditAsNew();
+    tab = 'saved';
+  }
+
   function cancelEdit() {
     savedList?.cancelEdit();
     tab = 'saved';
@@ -179,6 +184,7 @@
       bind:count={savedCount}
       bind:pickedName={savedName}
       bind:editing
+      editInPlace={tab === 'custom'}
       {onstatus}
     />
   </div>
@@ -189,7 +195,8 @@
       <div class="editbar">
         <span>Editing saved color <strong>{savedName || hexes}</strong></span>
         <div class="row">
-          <button type="button" class="btn small" onclick={saveEdit}>Save colors</button>
+          <button type="button" class="btn small" onclick={saveEdit}>Save changes</button>
+          <button type="button" class="btn small" onclick={saveEditAsNew}>Save as new</button>
           <button type="button" class="btn small quiet" onclick={cancelEdit}>Cancel</button>
         </div>
       </div>
