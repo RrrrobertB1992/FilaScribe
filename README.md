@@ -21,6 +21,15 @@ Value formats follow the spec examples: colors are 6 hex digits without `#`, and
 
 The multi-color fields and `color_type` match PrintTag-Web-Rrrrobert. Saved colors work the same way and use the same data shape. To bring yours over, save the value of the `printtag-saved-colors` localStorage key from that site (for example from Chrome DevTools, under Application, then Local storage) as a `.json` file. Then, in FilaScribe, choose **Import saved colors** under Custom (or Import under Saved).
 
+## Settings
+
+The **Settings** tab sits next to Create and Read & update:
+- **Defaults for new tags:** what Create starts with and Start over goes back to. **Use the form as it is now** saves the fields, brand, material, variant, temperatures and spool details on screen (not the colors); **Reset to built-in** goes back to Generic PLA. Kept under `filascribe-defaults`.
+- **Your chips:** every Custom brand, material and variant you saved, with × to remove one, or all of them.
+- **Saved colors:** how many are saved for each brand and material, with Clear for one or all, plus Export and Import (Import also takes a PrintTag-Web-Rrrrobert export).
+- **Appearance:** follow the system, or always Light or Dark (`filascribe-theme`).
+- **About:** the version and build links, the specs FilaScribe writes, and where the brand colors and names come from.
+
 ## Your own chips
 
 Each Custom box (Brand, Material, Variant) has a **Save** button on its right. It keeps what you typed as a chip after the built-in ones, without writing a tag. Writing a tag does the same for any Custom value on it. Brands and materials you save show up everywhere; a saved variant shows up for the brand and material it was saved with. Your chips have a dashed outline so they stand out. Pick one to see **Remove "…" from your chips** under the row. Built-in chips can't be removed. They're kept in the browser (or the app) under `filascribe-custom-chips`.
@@ -124,6 +133,7 @@ The **Tests** workflow runs on every pull request and on `main`:
   - **Read & update:** loading U1 and standard tags, updating (undocumented fields dropped), blank, unreadable and non-OpenSpool tags, several records on one tag, Read another, and copying a read tag onto a new one.
   - **Saved colors:** the Saved button turning on and off, saving on write, per brand + material, surviving a reload, picking and un-picking, gradient vs segments, one row whatever the variant, rename, editing a picked color in Custom (Save changes, Save as new, writing while editing), removing, clearing, picking automatically when a tag is read, and import/export.
   - **Brand colors:** typed brands (suggestions, OrcaSlicer's names, waiting until the name is done), Brand above Material, the Material row following the brand (switching to PLA when the new brand doesn't make the material), which color source opens (Generic opens Custom, a brand opens Brand, a read tag opens what it matches), groups by variant (None = Basic), merged look-alikes (Sunlu Wood), Show all when a group is empty, picking and un-picking (colors and temperatures), gradient spools, search, Edit colors opening Custom, changing colors in Custom letting go of the pick, the variant suggestion, working alongside Saved colors, naming the saved color, and matching a read tag.
+- **Settings** (`tests/settings.test.js`, `e2e/settings.spec.js`): defaults (saved from the form, used by new tags and Start over, reset, junk in storage), listing and removing your chips, saved colors per brand + material with clear/import/export, the theme (applied, kept after a reload) and the About links.
 - **Your own chips** (`tests/customChips.test.js`): saving, skipping built-in chips, variants per brand + material, removing, the size limit and junk in storage.
 - **Brand colors logic** (`tests/brandColors.test.js`): brand names (OrcaSlicer's, then the database's) and suggestions, material chips per brand, grouping lines (names, finish tags, fiber materials), merging look-alikes, color matching, and that the bundled snapshot is well-formed and covers every FilaScribe brand.
 

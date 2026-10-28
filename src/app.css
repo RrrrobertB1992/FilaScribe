@@ -31,8 +31,10 @@
   color-scheme: light;
 }
 
+/* Dark: when the system is dark (unless Settings says Light), or when
+   Settings says Dark. data-theme is set in lib/theme.js. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --bg: #161a20;
     --surface: #1f252d;
     --ink: #e4e8ed;
@@ -47,6 +49,22 @@
     --chip: #2a313b;
     color-scheme: dark;
   }
+}
+
+:root[data-theme='dark'] {
+  --bg: #161a20;
+  --surface: #1f252d;
+  --ink: #e4e8ed;
+  --muted: #9aa5b3;
+  --line: #333c47;
+  --action: #6f8cff;
+  --action-ink: #0c1230;
+  --brass: #d9aa4c;
+  --danger: #ff8a80;
+  --ok: #6fd49b;
+  --focus: #8fa6ff;
+  --chip: #2a313b;
+  color-scheme: dark;
 }
 
 *, *::before, *::after { box-sizing: border-box; }

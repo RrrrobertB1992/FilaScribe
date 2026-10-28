@@ -6,7 +6,7 @@
   // Saved colors belong to a brand + material only, not to a variant. (The
   // variants are still recorded, so an export stays readable by
   // PrintTag-Web-Rrrrobert, but nothing here uses them.)
-  import { Capacitor } from '@capacitor/core';
+  import { exportJson, readJsonFile } from '../lib/backup.js';
   import { onMount } from 'svelte';
   import * as SC from '../lib/savedColors.js';
   import { canonicalBrand } from '../lib/brandColors.js';
@@ -235,22 +235,8 @@
   }
 
   async function exportAll() {
-    const json = JSON.stringify(all, null, 2);
-    if (Capacitor.isNativePlatform()) {
-      try {
-        await navigator.clipboard.writeText(json);
-        onstatus('Saved colors copied. Paste them somewhere safe, or into a .json file.');
-      } catch {
-        onstatus('Couldn’t copy the saved colors.', true);
-      }
-      return;
-    }
-    const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'filascribe-saved-colors.json';
-    a.click();
-    URL.revokeObjectURL(url);
+    const r = await exportJson(all, 'filascribe-saved-colors.json');
+    if (r.message) onstatus(r.ok ? `Saved colors copied. ${r.message.replace(/^Copied\. /, '')}` : 'Couldn’t copy the saved colors.', !r.ok);
   }
 
   async function importFile(e) {
@@ -258,7 +244,7 @@
     e.currentTarget.value = '';
     if (!file) return;
     try {
-      const r = SC.importInto(all, JSON.parse(await file.text()));
+      const r = SC.importInto(all, await readJsonFile(file));
       persist(r.all);
       onstatus(r.added ? `Imported ${r.added} saved ${r.added === 1 ? 'color' : 'colors'}.` : 'Nothing new to import.');
     } catch {
