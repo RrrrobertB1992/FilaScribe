@@ -1,0 +1,99 @@
+# Monthly (and on demand): rebuild the Brand colors snapshot from the latest
+# Open Filament Database and open (or update) a pull request with it.
+# Nothing is pushed to main; merge the PR after checking it.
+#
+# One-time setting: Settings > Actions > General > Workflow permissions >
+# "Allow GitHub Actions to create and approve pull requests".
+#
+# PRs opened by a workflow don't start other workflows by themselves, so the
+# PR's Tests / test APK checks run once you close and reopen it (or push to it).
+name: Update brand colors
+
+on:
+  schedule:
+    - cron: '23 12 1 * *' # the 1st of each month
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: update-brand-colors
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BRANCH: update-brand-colors
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Get the latest Open Filament Database (JSON files only)
+        run: |
+          git clone -q --depth 1 --filter=blob:none --no-checkout \
+            https://github.com/OpenFilamentCollective/open-filament-database "$RUNNER_TEMP/ofd"
+          git -C "$RUNNER_TEMP/ofd" sparse-checkout set --no-cone '/data/**/*.json'
+          git -C "$RUNNER_TEMP/ofd" checkout -q
+
+      - name: Rebuild the snapshot
+        id: build
+        run: |
+          cp src/data/brand-colors.json "$RUNNER_TEMP/old.json"
+          node scripts/build-brand-colors.js "$RUNNER_TEMP/ofd" src/data/brand-colors.json
+          echo "old=$(node scripts/build-brand-colors.js --summary "$RUNNER_TEMP/old.json")" >> "$GITHUB_OUTPUT"
+          echo "new=$(node scripts/build-brand-colors.js --summary src/data/brand-colors.json)" >> "$GITHUB_OUTPUT"
+          # A new database commit with the same colors isn't worth a PR
+          if node scripts/build-brand-colors.js --same "$RUNNER_TEMP/old.json" src/data/brand-colors.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check the snapshot
+        if: steps.build.outputs.changed == 'true'
+        run: |
+          npm ci
+          npx vitest run tests/brandColors.test.js
+
+      - name: Open or update the pull request
+        if: steps.build.outputs.changed == 'true'
+        env:
+          OLD: ${{ steps.build.outputs.old }}
+          NEW: ${{ steps.build.outputs.new }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add src/data/brand-colors.json
+          git commit -q -m "Update brand colors from the Open Filament Database" -m "Before: $OLD" -m "After: $NEW"
+          git push -f origin "$BRANCH"
+          body=$(printf '%s\n' \
+            "Monthly refresh of the Brand colors snapshot (\`src/data/brand-colors.json\`) from the [Open Filament Database](https://github.com/OpenFilamentCollective/open-filament-database)." \
+            "" \
+            "- Before: $OLD" \
+            "- After: $NEW" \
+            "" \
+            "The snapshot passed the brand-colors tests (well-formed, all FilaScribe brands present, real-brand filtering)." \
+            "" \
+            "**To run the full checks** (Tests, test APK): close and reopen this PR. PRs opened by a workflow don't start other workflows by themselves." \
+            "" \
+            "Spot-check a brand you use in the test APK, then merge.")
+          if gh pr view "$BRANCH" --json state -q .state 2>/dev/null | grep -q OPEN; then
+            gh pr edit "$BRANCH" --body "$body"
+          else
+            gh pr create --base main --head "$BRANCH" --title "Update brand colors" --body "$body"
+          fi
+
+      - name: Nothing new
+        if: steps.build.outputs.changed != 'true'
+        run: echo "The brand colors snapshot is already up to date."

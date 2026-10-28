@@ -21,6 +21,18 @@ Value formats follow the spec examples: colors are 6 hex digits without `#`, and
 
 The multi-color fields and `color_type` match PrintTag-Web-Rrrrobert. Saved colors work the same way and use the same data shape. To bring yours over, save the value of the `printtag-saved-colors` localStorage key from that site (for example from Chrome DevTools, under Application, then Local storage) as a `.json` file. Then, in FilaScribe, open Saved colors and choose Import.
 
+## Brand colors
+
+Pick a brand and material, and optionally a variant, then open **Brand colors** to choose a named color from that brand's real lineup, like Bambu Lab PLA Basic "Jade White". It works like Saved colors, but read-only:
+- **Filtered by variant:** it shows the lines that fit your variant (Matte, Silk, HF and so on), by line name or by the database's finish tags. With no variant, it shows the lines that fit no variant chip, such as Galaxy, Wood or Translucent. **Show all** lists every line.
+- **Picking a color** fills in the colors, Gradient or Segments for multi-color spools, and the line's nozzle and bed temperatures. Tap it again to put back what was there; **Edit colors** keeps it and lets you adjust it. A line with a clear variant offers **Set variant to …**.
+- **Writing the tag** saves the colors to Saved colors, named after the brand color. Reading a tag marks the matching brand color.
+- **Nothing new on the tag:** names and lines aren't written. The tag gets the same OpenSpool fields as before, with your brand spelling.
+
+The colors come from the [Open Filament Database](https://github.com/OpenFilamentCollective/open-filament-database) (MIT). A snapshot is bundled in `src/data/brand-colors.json`, built by `scripts/build-brand-colors.js`, so it works offline. On the website it only loads after the page appears. Shades are approximate.
+
+The **Update brand colors** workflow rebuilds the snapshot on the 1st of each month, and on demand from the Actions tab. If anything changed, it opens or updates a PR named "Update brand colors". It needs one setting: Settings → Actions → General → Workflow permissions → **Allow GitHub Actions to create and approve pull requests**. GitHub doesn't run other workflows on a PR that a workflow opened, so close and reopen that PR to run its Tests and test APK.
+
 ## Project layout
 
 ```
@@ -32,6 +44,8 @@ src/
   lib/ndef.js                NDEF message and Type 2 TLV encoding
   lib/savedColors.js         saved colors data (localStorage)
   lib/catalog.js             material, brand and variant choices
+  lib/brandColors.js         Brand colors: line filtering and color matching
+  data/brand-colors.json     Open Filament Database snapshot (generated)
   lib/nfc/                   one NFC interface: web.js (Web NFC), native.js (app plugin)
 android/                     Capacitor Android project
   app/src/main/java/.../FilaScribeNfcPlugin.java   native NFC (reader mode)
@@ -62,6 +76,8 @@ The **Tests** workflow runs on every pull request and on `main`:
   - **Create:** default tag, standard vs U1 fields, material temperature presets, Custom material/brand/variant, 1 to 5 colors with gradient/segments, color and temperature validation, spool details, the tag data preview, and cancelling a write or a write that fails.
   - **Read & update:** loading U1 and standard tags, updating (undocumented fields dropped), blank, unreadable and non-OpenSpool tags, several records on one tag, Read another, and copying a read tag onto a new one.
   - **Saved colors:** saving on write, per brand + material, surviving a reload, picking and un-picking, gradient vs segments, variants, rename, editing colors, removing, clearing, picking automatically when a tag is read, and import/export.
+  - **Brand colors:** filtering by variant, Show all when nothing matches, picking and un-picking (colors and temperatures), gradient spools, search, Edit colors, the variant suggestion, working alongside Saved colors, naming the saved color, and matching a read tag.
+- **Brand colors logic** (`tests/brandColors.test.js`): line filtering (variants, finish tags, fiber materials), color matching, and that the bundled snapshot is well-formed and covers every FilaScribe brand.
 
 If the browser tests fail, the run has a `playwright-report` artifact with screenshots and a trace of each failure.
 

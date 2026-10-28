@@ -15,6 +15,7 @@
     pickersHidden = $bindable(false),
     onchange = () => {},
     onstatus = () => {},
+    onpick = () => {}, // a saved color was picked (Brand colors lets go of its pick)
   } = $props();
 
   let all = $state(SC.load());
@@ -74,6 +75,7 @@
     renaming = false;
     editing = false;
     apply(entry);
+    onpick();
   }
 
   function deselect() {
@@ -138,12 +140,23 @@
 
   // --- Called by the app ---
 
-  /** After a successful write: save the colors and mark them picked. */
-  export function afterWrite() {
+  /**
+   * After a successful write: save the colors and mark them picked. A name
+   * (from a brand color) is given to a new saved color.
+   */
+  export function afterWrite(name = '') {
     if (!key) return;
     editing = false;
-    persist(SC.save(all, key, colors, style, variant));
+    persist(SC.save(all, key, colors, style, variant, name));
     selectMatching();
+  }
+
+  /** Let go of the pick without changing the colors (another list picked them). */
+  export function release() {
+    selected = null;
+    snapshot = null;
+    renaming = false;
+    editing = false;
   }
 
   /** After a tag is loaded: forget the old pick, then mark matching colors. */
