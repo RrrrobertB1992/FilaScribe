@@ -4,6 +4,8 @@
   // With `suggest`, the text box offers matches while typing and only sets
   // `value` when the text is done (a match tapped, Enter, or leaving the box),
   // passing it through `commit` (e.g. to fix the spelling).
+  // With `onsave`, a Save button by the text box keeps the typed value as a
+  // chip; chips in `removable` (the saved ones) can be removed again.
   let {
     label,
     items,
@@ -15,6 +17,9 @@
     onpick = () => {},
     suggest = null, // (text) => matching names, best first
     commit = (text) => text.trim(),
+    onsave = null, // (value) => keep it as a chip
+    removable = [], // saved chips that can be removed
+    onremove = () => {},
   } = $props();
 
   const options = $derived(items.map((i) => (typeof i === 'string' ? { value: i, label: i || 'None' } : i)));
@@ -26,6 +31,7 @@
   let customInput = $state();
   let draft = $state(value); // the text box while typing (with `suggest`)
   let typing = $state(false);
+  let focused = $state(false); // the text box has focus
   const matches = $derived(suggest && typing ? suggest(draft).filter((m) => m !== draft) : []);
 
   // A value set from outside (e.g. a tag was read) closes a Custom box
@@ -37,6 +43,12 @@
       draft = value;
       typing = false;
     }
+  });
+
+  // A Custom value that became a chip (saved after a write) shows as that
+  // chip, unless the box is being typed in
+  $effect(() => {
+    if (customOpen && value && known && !focused) customOpen = false;
   });
 
   function pick(v) {
@@ -55,11 +67,15 @@
     queueMicrotask(() => customInput?.focus());
   }
 
-  function typed() {
+  function typed(e) {
     if (suggest) {
       typing = true;
       return;
     }
+    // Set `value` and `ownValue` together, so the effect above doesn't take
+    // a typed value for one set from outside ("PLA" on the way to "PLA+"
+    // used to close the box and pick the PLA chip)
+    value = e.currentTarget.value;
     ownValue = value;
     onpick(value, true);
   }
@@ -76,6 +92,16 @@
     onpick(v, !options.some((o) => o.value === v));
   }
 
+  const typedText = $derived((suggest ? draft : value) ?? '');
+
+  function save() {
+    if (suggest) done();
+    const v = String(value ?? '').trim();
+    if (!v) return;
+    onsave(v);
+    customOpen = false; // it's a chip now
+  }
+
   function keydown(e) {
     if (!suggest) return;
     if (e.key === 'Enter') {
@@ -86,6 +112,20 @@
     }
   }
 </script>
+
+{#snippet saveButton()}
+  {#if onsave}
+    <!-- mousedown: keep the box focused so its text is saved as typed -->
+    <button
+      type="button"
+      class="btn small save"
+      disabled={!typedText.trim()}
+      aria-label={`Save ${label.toLowerCase()} as a chip`}
+      onmousedown={(e) => e.preventDefault()}
+      onclick={save}
+    >Save</button>
+  {/if}
+{/snippet}
 
 <div class="field" role="group" aria-labelledby={id}>
   <span class="label" {id}>{label}</span>
@@ -101,6 +141,7 @@
   </div>
   {#if custom}
     {#if suggest}
+      <div class="customrow">
       <input
         bind:this={customInput}
         type="text"
@@ -112,8 +153,11 @@
         autocomplete="off"
         oninput={typed}
         onkeydown={keydown}
-        onblur={() => done()}
+        onfocus={() => (focused = true)}
+        onblur={() => { focused = false; done(); }}
       />
+      {@render saveButton()}
+      </div>
       {#if matches.length}
         <div class="matches" role="group" aria-label="Suggestions">
           {#each matches as m (m)}
@@ -123,17 +167,24 @@
         </div>
       {/if}
     {:else}
+      <div class="customrow">
       <input
         bind:this={customInput}
         type="text"
-        bind:value
+        {value}
         placeholder={customPlaceholder}
         aria-label={`Custom ${label.toLowerCase()}`}
         aria-invalid={!!error}
         maxlength="40"
         oninput={typed}
+        onfocus={() => (focused = true)}
+        onblur={() => (focused = false)}
       />
+      {@render saveButton()}
+      </div>
     {/if}
+  {:else if removable.includes(value)}
+    <button type="button" class="btn small quiet danger remove" onclick={() => onremove(value)}>Remove “{value}” from your chips</button>
   {/if}
   {#if error}<p class="error-text">{error}</p>{:else if hint}<p class="hint">{hint}</p>{/if}
 </div>
@@ -150,6 +201,10 @@
     font-weight: 500;
     font-size: 1rem;
   }
+  .customrow { display: flex; gap: var(--s2); align-items: center; }
+  .customrow input { flex: 1; min-width: 0; }
+  .save { flex: none; min-height: 44px; }
+  .remove { justify-self: start; }
   .matches { display: flex; flex-wrap: wrap; gap: var(--s1); }
   .match {
     min-height: 34px;

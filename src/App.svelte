@@ -12,6 +12,7 @@
   import { variantChoices, carryVariant, materialChoices, carryMaterial, canonicalBrand, suggestBrands } from './lib/brandColors.js';
   import { loadBrandColors } from './lib/brandColorsData.js';
   import { buildParts } from './lib/buildInfo.js';
+  import * as CustomChips from './lib/customChips.js';
 
   const nfc = getNfc();
   const buildLabel = buildParts(__BUILD__);
@@ -28,10 +29,36 @@
   // Variant chips: the groups this brand has for this material, in its own
   // words; the full default list until the data loads or for other brands
   let brandData = $state(null);
-  const variantItems = $derived(variantChoices(brandData, form.brand, form.type));
+  const builtInVariants = $derived(variantChoices(brandData, form.brand, form.type));
   // The materials the brand has colors for (every material for Generic or a brand not in the database)
-  const materialItems = $derived(materialChoices(brandData, form.brand, form.type));
-  const materialsFiltered = $derived(materialItems.length < Object.keys(MATERIALS).length);
+  const builtInMaterials = $derived(materialChoices(brandData, form.brand, form.type));
+  const materialsFiltered = $derived(builtInMaterials.length < Object.keys(MATERIALS).length);
+
+  // Your own chips (Custom values you saved), after the built-in ones
+  let chips = $state(CustomChips.load());
+  const savedVariants = $derived(CustomChips.variantsFor(chips, form.brand, form.type));
+  const brandItems = $derived(CustomChips.withSaved(BRANDS, chips.brands));
+  const materialItems = $derived(CustomChips.withSaved(builtInMaterials, chips.materials));
+  const variantItems = $derived(CustomChips.withSaved(builtInVariants, savedVariants));
+
+  function saveChip(kind, value, builtIn) {
+    const next = CustomChips.add(chips, kind, value, { brand: form.brand, type: form.type, builtIn });
+    if (next === chips) return;
+    chips = next;
+    CustomChips.store(chips);
+  }
+
+  function removeChip(kind, value) {
+    chips = CustomChips.remove(chips, kind, value, { brand: form.brand, type: form.type });
+    CustomChips.store(chips);
+  }
+
+  // After a write: Custom values on the tag become chips too
+  function saveCustomsFromForm() {
+    saveChip('brand', form.brand, BRANDS);
+    saveChip('material', form.type, builtInMaterials);
+    if (u1) saveChip('variant', form.subtype, builtInVariants);
+  }
 
   onMount(async () => {
     nfcState = await nfc.status();
@@ -63,7 +90,7 @@
   // a chip the new brand has, or its word for the same kind; otherwise None.
   // (Reading a tag never changes it.)
   function keepVariantFitting() {
-    form.subtype = carryVariant(brandData, form.subtype, form.brand, form.type);
+    form.subtype = carryVariant(brandData, form.subtype, form.brand, form.type, CustomChips.variantsFor(chips, form.brand, form.type));
   }
 
   // A new brand that doesn't make the material switches to PLA (or the
@@ -194,6 +221,7 @@
       sheet = null;
       // The colors are now a picked saved color (named after the brand color)
       colorSection?.afterWrite();
+      saveCustomsFromForm();
       if (nfc.kind === 'native' && !r.verified) {
         say('Tag written, but reading it back didn’t match. Read the tag to check it.', 'error');
       } else {
@@ -258,12 +286,15 @@
 
       <Palette
         label="Brand"
-        items={BRANDS}
+        items={brandItems}
         bind:value={form.brand}
         customPlaceholder="e.g. Elegoo"
         onpick={pickBrand}
         suggest={(t) => suggestBrands(brandData, t)}
         commit={(t) => canonicalBrand(brandData, t)}
+        onsave={(v) => saveChip('brand', v, BRANDS)}
+        removable={chips.brands}
+        onremove={(v) => removeChip('brand', v)}
       />
       <Palette
         label="Material"
@@ -273,6 +304,9 @@
         customPlaceholder="e.g. PLA+"
         error={errorFor('type')}
         hint={materialsFiltered ? `The materials ${form.brand} makes. Custom for anything else.` : ''}
+        onsave={(v) => saveChip('material', v, builtInMaterials)}
+        removable={chips.materials}
+        onremove={(v) => removeChip('material', v)}
       />
       {#if u1}
         <Palette
@@ -280,7 +314,10 @@
           items={variantItems}
           bind:value={form.subtype}
           customPlaceholder="e.g. Rapid"
-          hint={variantItems === VARIANTS ? 'Written as subtype. None leaves it out.' : `The variants ${form.brand} makes in ${form.type}. Written as subtype. None leaves it out.`}
+          hint={builtInVariants === VARIANTS ? 'Written as subtype. None leaves it out.' : `The variants ${form.brand} makes in ${form.type}. Written as subtype. None leaves it out.`}
+          onsave={form.brand.trim() && form.type.trim() ? (v) => saveChip('variant', v, builtInVariants) : null}
+          removable={savedVariants}
+          onremove={(v) => removeChip('variant', v)}
         />
       {/if}
 
