@@ -1,7 +1,10 @@
-# Tests the basic features on every pull request and on main:
-#  - unit tests (formats, NDEF, saved colors, the app's NFC bridge)
+# Runs on every pull request and on main:
+#  - unit tests: formats, NDEF, saved colors, the app's NFC bridge, tag
+#    size limits, and fuzz/round-trip tests with random input
 #  - browser tests: a phone-sized Chrome clicks through Create, Read &
 #    update and Saved colors, with the NFC tag simulated
+#  - U1 reader compatibility: the real OpenSpool readers (U1 extended
+#    firmware and OpenRFID, at pinned commits) read tags FilaScribe wrote
 # If the browser tests fail, the report (with screenshots and traces) is
 # attached to the run as "playwright-report".
 name: Tests
@@ -52,3 +55,27 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 14
+
+  readers:
+    name: U1 reader compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install
+        run: |
+          npm ci
+          pip install pytest
+
+      - name: Read FilaScribe tags with the U1 readers
+        run: npm run test:readers

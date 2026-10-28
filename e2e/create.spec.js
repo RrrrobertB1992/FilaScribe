@@ -148,6 +148,22 @@ test.describe('Create', () => {
     await expect(page.getByLabel('Tag preview')).toContainText(/\d+ of 499 bytes on NTAG215/);
   });
 
+  test('data too big for the tag is refused before writing', async ({ page }) => {
+    const wide = '€'.repeat(40); // 3 bytes each: long names in some scripts get big fast
+    await page.getByRole('group', { name: 'Material' }).getByRole('button', { name: 'Custom' }).click();
+    await page.getByLabel('Custom material').fill(wide);
+    await page.getByRole('group', { name: 'Brand' }).getByRole('button', { name: 'Custom' }).click();
+    await page.getByLabel('Custom brand').fill(wide);
+    await page.getByRole('group', { name: 'Variant' }).getByRole('button', { name: 'Custom' }).click();
+    await page.getByLabel('Custom variant').fill(wide);
+    for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'Add a color' }).click();
+    await expect(page.getByLabel('Tag preview')).toContainText('too big');
+    await page.getByRole('button', { name: 'Write tag' }).click();
+    await expect(status(page)).toContainText('more than the 499 that fit on NTAG215');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(await writeCount(page)).toBe(0);
+  });
+
   test('cancelling a write writes nothing', async ({ page }) => {
     await page.evaluate(() => { window.__tapDelay = 5000; });
     await page.getByRole('button', { name: 'Write tag' }).click();

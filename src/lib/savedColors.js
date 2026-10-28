@@ -34,11 +34,11 @@ function clean(all) {
     const entries = list
       .filter((e) => e && Array.isArray(e.colors) && e.colors.length)
       .map((e) => {
-        const colors = e.colors.map((h) => String(h).replace('#', '').toUpperCase()).filter((h) => HEX.test(h));
+        const colors = e.colors.filter((h) => typeof h === 'string').map((h) => h.replace('#', '').toUpperCase()).filter((h) => HEX.test(h));
         const entry = {
           colors,
           name: typeof e.name === 'string' ? e.name : '',
-          variants: Array.isArray(e.variants) ? e.variants.map(String) : [''],
+          variants: Array.isArray(e.variants) ? [...new Set(e.variants.filter((v) => typeof v === 'string'))] : [''],
         };
         if (colors.length > 1) entry.colorType = e.colorType === '0' ? '0' : '1';
         return entry;

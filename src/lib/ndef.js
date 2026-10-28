@@ -104,6 +104,14 @@ export function type2Footprint(messageLength) {
   return (messageLength > 254 ? 4 : 2) + messageLength + 1;
 }
 
+/** Largest NDEF message that fits in this much Type 2 tag user memory. */
+export function maxMessageSize(userBytes) {
+  // Short TLV form (2 + n + 1) holds up to 254 bytes; longer needs the 4-byte form
+  const short = Math.min(254, userBytes - 3);
+  const long = userBytes - 5;
+  return Math.max(0, long > 254 ? long : short);
+}
+
 /** Wrap a message in Type 2 tag TLVs: NDEF TLV + terminator. */
 export function wrapTlv(message) {
   const head = message.length > 254

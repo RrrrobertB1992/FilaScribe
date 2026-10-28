@@ -57,20 +57,31 @@ export function emptyForm(profile = 'u1') {
 
 // --- Value helpers ---
 
+/**
+ * A tag value as text. Only strings and numbers count: anything else (an
+ * object, array or boolean on a damaged or odd tag) reads as empty rather
+ * than being converted, which could throw.
+ */
+function scalar(v) {
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' && Number.isFinite(v)) return String(v);
+  return '';
+}
+
 /** "#abc" / "abc" / "#aabbcc" -> "AABBCC", or null if it isn't a hex color. */
 export function normalizeHex(value) {
-  let v = String(value ?? '').trim().replace(/^#/, '').toUpperCase();
+  let v = scalar(value).trim().replace(/^#/, '').toUpperCase();
   if (/^[0-9A-F]{3}$/.test(v)) v = v.split('').map((c) => c + c).join('');
   return /^[0-9A-F]{6}$/.test(v) ? v : null;
 }
 
 function normalizeAlpha(value) {
-  const v = String(value ?? '').trim().replace(/^#/, '').toUpperCase();
+  const v = scalar(value).trim().replace(/^#/, '').toUpperCase();
   if (/^[0-9A-F]$/.test(v)) return '0' + v;
   return /^[0-9A-F]{2}$/.test(v) ? v : null;
 }
 
-const str = (v) => (v === undefined || v === null ? '' : String(v).trim());
+const str = (v) => scalar(v).trim();
 const isInt = (v) => /^\d+$/.test(v);
 const isDecimal = (v) => /^\d+(\.\d+)?$/.test(v);
 
@@ -195,13 +206,13 @@ export function parse(data) {
   form.brand = str(data.brand);
 
   const main = normalizeHex(data.color_hex);
-  if (!main && data.color_hex !== undefined) notes.push(`color_hex "${data.color_hex}" isn't a valid color; using white.`);
+  if (!main && data.color_hex !== undefined) notes.push(`color_hex "${str(data.color_hex) || JSON.stringify(data.color_hex)}" isn't a valid color; using white.`);
   const extra = Array.isArray(data.additional_color_hexes) ? data.additional_color_hexes : [];
   if (extra.length > MAX_ADDITIONAL_COLORS) {
     notes.push(`The tag has ${extra.length} extra colors; only the first ${MAX_ADDITIONAL_COLORS} are kept.`);
   }
   form.colors = [main || 'FFFFFF', ...extra.slice(0, MAX_ADDITIONAL_COLORS).map((h) => normalizeHex(h) || 'FFFFFF')];
-  form.colorType = String(data.color_type) === '0' ? COLOR_TYPE_GRADIENT : COLOR_TYPE_SEGMENTS;
+  form.colorType = scalar(data.color_type) === '0' ? COLOR_TYPE_GRADIENT : COLOR_TYPE_SEGMENTS;
 
   form.minTemp = str(data.min_temp);
   form.maxTemp = str(data.max_temp);
@@ -213,7 +224,7 @@ export function parse(data) {
   form.diameter = str(data.diameter);
 
   if (data.version !== undefined && str(data.version) !== VERSION) {
-    notes.push(`The tag says version "${data.version}"; it will be written back as "${VERSION}".`);
+    notes.push(`The tag says version "${str(data.version) || JSON.stringify(data.version)}"; it will be written back as "${VERSION}".`);
   }
   return { form, unknownKeys, notes };
 }

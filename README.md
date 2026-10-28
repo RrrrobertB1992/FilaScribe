@@ -48,6 +48,7 @@ npm install
 npm run dev          # local web server (Web NFC needs https on a phone; use the PR builds or Pages)
 npm test             # unit tests
 npm run test:e2e     # browser tests (first time: npx playwright install chromium)
+npm run test:readers # U1 reader compatibility (needs Python 3.10+ with pytest)
 npm run build        # web app into dist/
 npm run cap:sync     # build, then copy into android/
 cd android && ./gradlew assembleDebug
@@ -63,7 +64,17 @@ The **Tests** workflow runs on every pull request and on `main`:
   - **Read & update:** loading U1 and standard tags, updating (undocumented fields dropped), blank, unreadable and non-OpenSpool tags, several records on one tag, Read another, and copying a read tag onto a new one.
   - **Saved colors:** saving on write, per brand + material, surviving a reload, picking and un-picking, gradient vs segments, variants, rename, editing colors, removing, clearing, picking automatically when a tag is read, and import/export.
 
+- **U1 reader compatibility** (`tests/compat/`): FilaScribe writes about 160 tags as full NTAG215 memory images. A dozen are hand-picked cases, including a gradient with 5 colors, custom names and the largest possible tag; the rest are random forms. The real OpenSpool readers then read them: paxx12's U1 extended firmware and OpenRFID, fetched at pinned commits by `tests/compat/fetch-readers.sh`. Each check compares what the reader reports against what was entered in the form. Neither project is copied into this repo.
+  - Features a reader doesn't support yet are skipped: `color_type`, and OpenRFID's extra colors. These checks switch on once a pinned reader adds them.
+  - Two known reader behaviors are tested as they are, so a change upstream gets noticed:
+    - OpenRFID only loads spools whose material is in its list. A Custom material like `PLA+` is rejected, and so is a tag with only a nozzle min temperature (a missing max counts as 0).
+    - The firmware reads `alpha` as decimal. This is marked as an expected failure.
+- **Fuzz and round-trip** (`tests/fuzz.test.js`): random valid forms must survive write then read unchanged and write exactly what was entered. Random and damaged tag bytes, odd JSON values and random saved-colors actions and imports must never crash the app.
+- **Tag size** (`tests/tagSize.test.js`): room on NTAG213/215/216, the switch to the long formats above 254 bytes, and that data too big for a tag is refused.
+
 If the browser tests fail, the run has a `playwright-report` artifact with screenshots and a trace of each failure.
+
+The **Advanced tests (weekly)** workflow runs every Monday, and also on demand from the Actions tab. It fuzzes with 20,000 inputs per test, and runs the reader tests against the latest `main` of the firmware and OpenRFID instead of the pinned commits. If it fails while PR tests pass, something changed upstream. Check what changed, then update the pins in `tests/compat/fetch-readers.sh`.
 
 The native Android code (the reader-mode plugin) can only be fully tested on a phone. It still gets compiled on every PR by the test-APK build.
 
