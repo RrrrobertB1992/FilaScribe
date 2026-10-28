@@ -187,8 +187,8 @@ export function variantChoices(db, brand, type) {
 /**
  * The material chips for a brand: the FilaScribe materials it has colors
  * for, in the usual order, plus `current` if it's set and not among them
- * (so a material picked before the brand isn't hidden). Brands not in the
- * database get every material.
+ * (a tag read with a material its brand doesn't list still shows it as a
+ * chip). Brands not in the database get every material.
  */
 export function materialChoices(db, brand, current = '') {
   const all = Object.keys(MATERIALS);
@@ -197,6 +197,17 @@ export function materialChoices(db, brand, current = '') {
   if (!made.length) return all;
   const cur = String(current ?? '').trim();
   return cur && all.includes(cur) && !made.includes(cur) ? [...made, cur] : made;
+}
+
+/**
+ * The material to keep when the brand changes: the same one if the new brand
+ * has it (or it's a Custom material), otherwise PLA, or the brand's first.
+ */
+export function carryMaterial(db, brand, type) {
+  const t = String(type ?? '').trim();
+  const made = materialChoices(db, brand);
+  if (!t || !Object.keys(MATERIALS).includes(t) || made.includes(t)) return t;
+  return made.includes('PLA') ? 'PLA' : made[0];
 }
 
 /**

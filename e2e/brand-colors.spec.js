@@ -315,13 +315,32 @@ test.describe('Brand and material', () => {
     expect((await lastWrite(page)).type).toBe('ABS');
   });
 
-  test('a material picked first stays when the brand doesn’t list it', async ({ page }) => {
+  test('a brand that doesn’t make the material switches to PLA', async ({ page }) => {
     const materials = page.getByRole('group', { name: 'Material' });
-    await chip(page, 'ABS').click();
+    // the reported case: SUNLU PEEK -> Jayo (no PEEK)
+    await chip(page, 'SUNLU').click();
+    await materials.getByRole('button', { name: 'PEEK', exact: true }).click();
+    await expect(temps(page, 'Nozzle').min).toHaveValue('360');
     await chip(page, 'Jayo').click();
-    await expect(materials.getByRole('button', { name: 'ABS', exact: true })).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.getByLabel('Custom material')).toHaveCount(0);
-    await materials.getByRole('button', { name: 'PLA', exact: true }).click();
-    await expect(materials.getByRole('button', { name: 'ABS', exact: true })).toHaveCount(0);
+    await expect(materials.getByRole('button', { name: 'PLA', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(materials.getByRole('button', { name: 'PEEK', exact: true })).toHaveCount(0);
+    await expect(temps(page, 'Nozzle').min).toHaveValue('190'); // PLA's temperatures
+    // a material the new brand has stays
+    await materials.getByRole('button', { name: 'TPU', exact: true }).click();
+    await chip(page, 'Overture').click();
+    await expect(materials.getByRole('button', { name: 'TPU', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    // a Custom material stays
+    await materials.getByRole('button', { name: 'Custom' }).click();
+    await page.getByLabel('Custom material').fill('PLA+');
+    await chip(page, 'Jayo').click();
+    await expect(page.getByLabel('Custom material')).toHaveValue('PLA+');
+  });
+
+  test('a tag with a material its brand doesn’t list still shows it', async ({ page }) => {
+    await page.getByRole('tab', { name: 'Read & update' }).click();
+    await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'ABS', brand: 'Jayo', color_hex: 'FFFFFF' });
+    await page.getByRole('button', { name: 'Read tag' }).click();
+    await expect(page.getByRole('dialog')).toBeHidden();
+    await expect(page.getByRole('group', { name: 'Material' }).getByRole('button', { name: 'ABS', exact: true })).toHaveAttribute('aria-pressed', 'true');
   });
 });

@@ -385,3 +385,18 @@ describe('brand colors: material chips per brand', () => {
     expect(BC.materialChoices(snapshot, 'Bambu Lab', 'PLA')).toContain('PETG');
   });
 });
+
+describe('brand colors: keeping the material', () => {
+  it('keeps a material the new brand has, or a Custom one', () => {
+    expect(BC.carryMaterial(DB, 'Acme', 'TPU')).toBe('TPU');
+    expect(BC.carryMaterial(DB, 'Acme', 'PLA+')).toBe('PLA+');
+    expect(BC.carryMaterial(DB, 'Generic', 'PEEK')).toBe('PEEK');
+  });
+
+  it('switches to PLA (or the brand’s first material) otherwise', () => {
+    expect(BC.carryMaterial(DB, 'Acme', 'PEEK')).toBe('PLA');
+    expect(BC.carryMaterial(snapshot, 'Jayo', 'PEEK')).toBe('PLA');
+    const tpuOnly = { source: {}, brands: [{ name: 'Flexo', keys: ['flexo'], materials: { TPU: [line('TPU 95A')] } }] };
+    expect(BC.carryMaterial(tpuOnly, 'Flexo', 'PLA')).toBe('TPU');
+  });
+});
