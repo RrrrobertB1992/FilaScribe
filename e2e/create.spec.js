@@ -1,4 +1,4 @@
-import { test, expect, colorStyle, lastWrite, writeCount, chip, writeTag, status, temps, unpickSaved } from './nfc.js';
+import { test, expect, colorStyle, lastWrite, writeCount, chip, writeTag, status, temps } from './nfc.js';
 
 test.describe('Create', () => {
   test('writes the default tag', async ({ page }) => {
@@ -65,8 +65,7 @@ test.describe('Create', () => {
       color_hex: 'FF0000', additional_color_hexes: ['00FF00', '0000FF'], color_type: 0,
     });
 
-    // The write saved and picked these colors, which hides the pickers; un-pick to edit
-    await unpickSaved(page);
+    // The write saved these colors; the pickers stay open to keep editing
     await colorStyle(page, 'Segments').click();
     await writeTag(page);
     const data = await lastWrite(page);

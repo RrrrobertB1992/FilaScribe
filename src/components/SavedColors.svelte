@@ -1,8 +1,9 @@
 <script>
-  // Saved colors for the current brand + material, with the same behavior as
-  // PrintTag-Web-Rrrrobert: pick one to fill the colors (the pickers hide
-  // while it's picked), rename it, edit its colors, remove a variant or the
-  // whole row. Colors are saved automatically after a successful write.
+  // Saved colors for the current brand + material (the "Saved" panel of the
+  // color section), with the same behavior as PrintTag-Web-Rrrrobert: pick
+  // one to fill the colors, rename it, edit its colors (in the Custom panel),
+  // remove a variant or the whole row. Colors are saved automatically after
+  // a successful write.
   import { Capacitor } from '@capacitor/core';
   import * as SC from '../lib/savedColors.js';
 
@@ -12,20 +13,20 @@
     variant = '',
     colors = $bindable(['FFFFFF']),
     colorType = $bindable('1'),
-    pickersHidden = $bindable(false),
+    count = $bindable(0), // saved colors for this brand + material
+    pickedName = $bindable(null), // the picked saved color's name ('' if unnamed), or null
+    editing = $bindable(false), // its colors are being edited in the Custom panel
     onchange = () => {},
     onstatus = () => {},
     onpick = () => {}, // a saved color was picked (Brand colors lets go of its pick)
   } = $props();
 
   let all = $state(SC.load());
-  let expanded = $state(false);
   let shown = $state(SC.PAGE_SIZE);
   let selected = $state(null); // entry id
   let snapshot = null; // colors before a saved color was picked
   let renaming = $state(false);
   let renameText = $state('');
-  let editing = $state(false);
   let currentKey = null;
 
   const key = $derived(SC.keyFor(brand, type));
@@ -54,7 +55,18 @@
     }
   });
   $effect(() => {
-    pickersHidden = !!selectedEntry && !editing;
+    count = entries.length;
+    pickedName = selectedEntry ? selectedEntry.name : null;
+  });
+  // The colors were changed elsewhere (another list, the pickers): let go of
+  // the pick, unless they're being edited for it
+  $effect(() => {
+    if (!selectedEntry || editing) return;
+    if (SC.idFor(colors.map((c) => c.toUpperCase()), style) !== SC.entryId(selectedEntry)) {
+      selected = null;
+      snapshot = null;
+      renaming = false;
+    }
   });
 
   function persist(next) {
@@ -90,10 +102,12 @@
     }
   }
 
-  function saveCurrent() {
+  /** Save the current colors (the Custom panel's Save button). */
+  export function saveCurrent() {
     if (!key) return;
     persist(SC.save(all, key, colors, style, variant));
     onstatus('Colors saved');
+    selectMatching();
   }
 
   function removeRow(entry) {
@@ -120,14 +134,14 @@
     renaming = false;
   }
 
-  function saveEdit() {
+  export function saveEdit() {
     const r = SC.replaceColors(all, key, selected, colors, style);
     persist(r.all);
     selected = r.id;
     editing = false;
   }
 
-  function cancelEdit() {
+  export function cancelEdit() {
     if (selectedEntry) apply(selectedEntry);
     editing = false;
   }
@@ -182,6 +196,11 @@
 
   let importInput = $state();
 
+  /** Open the file picker for importing saved colors. */
+  export function openImport() {
+    importInput?.click();
+  }
+
   async function exportAll() {
     const json = JSON.stringify(all, null, 2);
     if (Capacitor.isNativePlatform()) {
@@ -230,21 +249,15 @@
 
 {#if key}
   <div class="saved">
-    <div class="head">
-      <span class="label">Saved colors for {label} ({entries.length})</span>
-      {#if selectedEntry && !expanded}
-        <span class="bar picked" style:background={bar(selectedEntry)} aria-hidden="true">
-          {#if !bar(selectedEntry)}{#each selectedEntry.colors as h}<span style:background={`#${h}`}></span>{/each}{/if}
-        </span>
-      {/if}
+    <p class="hint">
       {#if entries.length}
-        <button type="button" class="btn small quiet" aria-expanded={expanded} onclick={() => { expanded = !expanded; renaming = false; }}>
-          {expanded ? 'Hide' : 'Show'}
-        </button>
+        {entries.length} saved {entries.length === 1 ? 'color' : 'colors'} for {label}. The current variant is highlighted.
+      {:else}
+        Nothing saved for {label} yet. Colors are saved here when you write a tag, or with Save in Custom.
       {/if}
-    </div>
+    </p>
 
-    {#if expanded && entries.length}
+    {#if entries.length}
       <div class="grid">
         {#each entries.slice(0, shown) as entry (SC.entryId(entry))}
           {@const isSel = selectedEntry === entry}
@@ -258,70 +271,62 @@
             <span class="bar" style:background={bar(entry)} aria-hidden="true">
               {#if !bar(entry)}{#each entry.colors as h}<span style:background={`#${h}`}></span>{/each}{/if}
             </span>
-            <span class="hex">{entry.colors.join('\n')}</span>
             <span class="name">{entry.name || ' '}</span>
+            <span class="hex">{entry.colors.join('\n')}</span>
             <span class="vars">
               {#each entry.variants as v, i}{#if i}{', '}{/if}<span class:current={v === variant}>{v || 'No variant'}</span>{/each}
             </span>
           </button>
         {/each}
       </div>
-    {/if}
-
-    <div class="actions">
-      {#if selectedEntry && renaming}
-        <input
-          type="text"
-          bind:value={renameText}
-          placeholder="Color name"
-          maxlength="32"
-          aria-label="Saved color name"
-          onkeydown={(e) => {
-            if (e.key === 'Enter') { e.preventDefault(); saveRename(); }
-            if (e.key === 'Escape') { e.preventDefault(); renaming = false; }
-          }}
-        />
-        <button type="button" class="btn small" onclick={saveRename}>Save name</button>
-        <button type="button" class="btn small quiet" onclick={() => (renaming = false)}>Cancel</button>
-      {:else if selectedEntry && editing}
-        <p class="hint grow">Change the colors below, then save them to this saved color.</p>
-        <button type="button" class="btn small" onclick={saveEdit}>Save colors</button>
-        <button type="button" class="btn small quiet" onclick={cancelEdit}>Cancel</button>
-      {:else if selectedEntry}
-        <button type="button" class="btn small" onclick={startRename}>Rename</button>
-        <button type="button" class="btn small" onclick={() => { renaming = false; editing = true; }}>Edit colors</button>
-        {#if selectedEntry.variants.includes(variant)}
-          <button type="button" class="btn small danger" onclick={() => removeVariant(selectedEntry)}>Remove “{variant || 'No variant'}”</button>
-        {/if}
-        <button type="button" class="btn small danger" onclick={() => removeRow(selectedEntry)}>Remove color</button>
-      {:else}
-        <button type="button" class="btn small" onclick={saveCurrent}>Save current colors</button>
-      {/if}
-      {#if expanded && entries.length > shown}
+      {#if entries.length > shown}
         {@const left = entries.length - shown}
         <button type="button" class="btn small quiet" onclick={() => (shown += SC.PAGE_SIZE)}>
           Show {Math.min(SC.PAGE_SIZE, left)} more ({left} left)
         </button>
       {/if}
-      {#if expanded && entries.length && !selectedEntry}
-        <button type="button" class="btn small quiet danger" onclick={clearAll}>Clear {label}</button>
-      {/if}
-    </div>
+    {/if}
 
-    {#if expanded}
-      <div class="backup">
-        <button type="button" class="btn small quiet" onclick={exportAll}>Export all saved colors</button>
-        <button type="button" class="btn small quiet" onclick={() => importInput.click()}>Import</button>
-        <input bind:this={importInput} type="file" accept="application/json,.json" class="visually-hidden" tabindex="-1" onchange={importFile} />
+    {#if selectedEntry}
+      <div class="actions">
+        {#if renaming}
+          <input
+            type="text"
+            bind:value={renameText}
+            placeholder="Color name"
+            maxlength="32"
+            aria-label="Saved color name"
+            onkeydown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); saveRename(); }
+              if (e.key === 'Escape') { e.preventDefault(); renaming = false; }
+            }}
+          />
+          <button type="button" class="btn small" onclick={saveRename}>Save name</button>
+          <button type="button" class="btn small quiet" onclick={() => (renaming = false)}>Cancel</button>
+        {:else}
+          <button type="button" class="btn small" onclick={startRename}>Rename</button>
+          <button type="button" class="btn small" onclick={() => { renaming = false; editing = true; }}>Edit colors</button>
+          {#if selectedEntry.variants.includes(variant)}
+            <button type="button" class="btn small danger" onclick={() => removeVariant(selectedEntry)}>Remove “{variant || 'No variant'}”</button>
+          {/if}
+          <button type="button" class="btn small danger" onclick={() => removeRow(selectedEntry)}>Remove color</button>
+        {/if}
       </div>
     {/if}
+
+    <div class="backup">
+      {#if entries.length}
+        <button type="button" class="btn small quiet danger" onclick={clearAll}>Clear {label}</button>
+      {/if}
+      <button type="button" class="btn small quiet" onclick={exportAll}>Export all saved colors</button>
+      <button type="button" class="btn small quiet" onclick={openImport}>Import</button>
+      <input bind:this={importInput} type="file" accept="application/json,.json" class="visually-hidden" tabindex="-1" onchange={importFile} />
+    </div>
   </div>
 {/if}
 
 <style>
   .saved { display: grid; gap: var(--s2); }
-  .head { display: flex; align-items: center; gap: var(--s2); }
-  .head .label { flex: 1; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: var(--s2); }
   .tile {
     display: grid;
@@ -329,7 +334,7 @@
     padding: var(--s2);
     border-radius: 8px;
     border: 2px solid transparent;
-    background: var(--surface);
+    background: var(--bg);
     text-align: center;
   }
   .tile[aria-pressed='true'] { border-color: var(--ink); }
@@ -341,12 +346,12 @@
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
   }
   .bar span { flex: 1; }
-  .bar.picked { width: 44px; height: 18px; flex: none; }
-  .hex { font-family: var(--font-label); font-size: 0.875rem; white-space: pre-line; line-height: 1.2; letter-spacing: 0.04em; }
-  .name { font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .name { font-size: 0.8125rem; font-weight: 700; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hex { font-family: var(--font-label); font-size: 0.8125rem; white-space: pre-line; line-height: 1.2; letter-spacing: 0.04em; color: var(--muted); }
   .vars { font-size: 0.6875rem; color: var(--muted); line-height: 1.25; }
   .vars .current { color: var(--action); font-weight: 700; }
+  .saved > .hint { margin: 0; }
   .actions, .backup { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+  .backup { padding-top: var(--s1); border-top: 1px solid var(--line); }
   .actions input { flex: 1 1 100%; }
-  .grow { flex: 1 1 100%; }
 </style>

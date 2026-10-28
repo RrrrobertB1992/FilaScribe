@@ -116,12 +116,13 @@ export function temps(page, which) {
   return { min: group.getByLabel('Min'), max: group.getByLabel('Max') };
 }
 
-/** Un-pick the picked saved color (a write picks it), showing the pickers again. */
-export async function unpickSaved(page) {
-  const panel = page.locator('.saved');
-  const toggle = panel.getByRole('button', { name: 'Show' });
-  if (await toggle.isVisible()) await toggle.click();
-  await panel.getByRole('button', { pressed: true }).click();
+/** A color source button: Brand, Saved or Custom (the name includes its count). */
+export const colorTab = (page, name) =>
+  page.getByRole('group', { name: 'Color source' }).getByRole('button', { name: new RegExp(`^${name}\\b`) });
+
+/** Open the Custom color source, where the color pickers are. */
+export async function openCustom(page) {
+  await colorTab(page, 'Custom').click();
   await expect(page.locator('#hex-input')).toBeVisible();
 }
 

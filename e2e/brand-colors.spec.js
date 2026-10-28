@@ -1,32 +1,48 @@
-import { test, expect, placeTag, lastWrite, chip, writeTag, temps } from './nfc.js';
+import { test, expect, colorTab, openCustom, placeTag, lastWrite, chip, writeTag, temps } from './nfc.js';
 
 // Uses the bundled Open Filament Database snapshot (src/data/brand-colors.json)
 const brand = (page) => page.locator('.brand');
 const tile = (page, name) => brand(page).locator('.tile', { hasText: name }).first();
+const nowName = (page) => page.locator('.colorsec .now-name');
+const nowFrom = (page) => page.locator('.colorsec .now-from');
 
 async function open(page, brandName, variant) {
   await chip(page, brandName).click();
   if (variant !== undefined) await chip(page, variant).click();
-  await brand(page).getByRole('button', { name: 'Show' }).click();
+  await expect(colorTab(page, 'Brand')).toHaveAttribute('aria-pressed', 'true');
 }
 
 test.describe('Brand colors', () => {
-  test('not shown for Generic', async ({ page }) => {
+  test('Generic has no brand colors: Custom is open', async ({ page }) => {
     await expect(chip(page, 'Generic')).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('.saved')).toBeVisible();
+    await expect(colorTab(page, 'Brand')).toBeDisabled();
+    await expect(colorTab(page, 'Saved')).toBeDisabled();
+    await expect(colorTab(page, 'Custom')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#hex-input')).toBeVisible();
     await expect(brand(page)).toHaveCount(0);
+  });
+
+  test('a brand with colors opens Brand, with the count on its button', async ({ page }) => {
+    await chip(page, 'Bambu Lab').click();
+    await expect(colorTab(page, 'Brand')).toHaveAttribute('aria-pressed', 'true');
+    await expect(colorTab(page, 'Brand')).toHaveText(/Brand\s*\d+/);
+    await expect(page.locator('#hex-input')).toBeHidden();
+    await openCustom(page);
+    await expect(brand(page)).toBeHidden();
+    // back to Generic: Brand turns off, Custom opens
+    await colorTab(page, 'Brand').click();
+    await chip(page, 'Generic').click();
+    await expect(colorTab(page, 'Custom')).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('shows the variant’s group', async ({ page }) => {
     await open(page, 'Bambu Lab', 'Basic');
-    await expect(brand(page)).toContainText('Brand colors for Bambu Lab PLA Basic');
     await expect(brand(page)).toContainText(/Showing Basic: \d+ colors from \d+ lines/);
     await expect(tile(page, 'Jade White')).toBeVisible();
     // grouped views list colors, not line chips
     await expect(brand(page).getByRole('group', { name: 'Filament lines' })).toHaveCount(0);
 
     await chip(page, 'Galaxy').click();
-    await expect(brand(page)).toContainText('Brand colors for Bambu Lab PLA Galaxy');
     await expect(brand(page)).toContainText(/Showing Galaxy: \d+ colors from 2 lines/); // PLA Galaxy + PLA Sparkle
   });
 
@@ -41,8 +57,6 @@ test.describe('Brand colors', () => {
     await expect(variants.getByRole('button', { name: 'HF', exact: true })).toHaveCount(0);
     await expect(variants.getByRole('button', { name: 'Metallic', exact: true })).toHaveCount(0);
     await variants.getByRole('button', { name: 'Metal', exact: true }).click();
-    await brand(page).getByRole('button', { name: 'Show' }).click();
-    await expect(brand(page)).toContainText('Brand colors for Bambu Lab PLA Metal');
     await expect(brand(page)).toContainText('Showing Metal:');
     await writeTag(page);
     expect((await lastWrite(page)).subtype).toBe('Metal');
@@ -56,8 +70,7 @@ test.describe('Brand colors', () => {
     await chip(page, 'Bambu Lab').click();
     await expect(variants.getByRole('button', { name: 'Tough+', exact: true })).toBeVisible();
     await variants.getByRole('button', { name: 'Aero', exact: true }).click();
-    await brand(page).getByRole('button', { name: 'Show' }).click();
-    await expect(brand(page)).toContainText('Brand colors for Bambu Lab PLA Aero');
+    await expect(brand(page)).toContainText('Showing Aero:');
     await brand(page).locator('.tile').first().click();
     await writeTag(page);
     expect((await lastWrite(page)).subtype).toBe('Aero'); // not Basic
@@ -70,8 +83,7 @@ test.describe('Brand colors', () => {
     const variants = page.getByRole('group', { name: 'Variant' });
     await chip(page, 'eSun').click();
     await variants.getByRole('button', { name: 'Plus', exact: true }).click();
-    await brand(page).getByRole('button', { name: 'Show' }).click();
-    await expect(brand(page)).toContainText('Brand colors for eSun PLA Plus');
+    await expect(brand(page)).toContainText('Showing Plus:');
     await brand(page).locator('.tile').first().click();
     await writeTag(page);
     expect((await lastWrite(page)).subtype).toBe('Plus');
@@ -107,7 +119,8 @@ test.describe('Brand colors', () => {
     await chip(page, 'Snapmaker').click();
     await variants.getByRole('button', { name: 'Custom' }).click();
     await page.getByLabel('Custom variant').fill('Rainbow');
-    await page.locator('.saved').getByRole('button', { name: 'Save current colors' }).click();
+    await openCustom(page);
+    await page.getByRole('button', { name: 'Save colors' }).click();
     // Sunlu PLA Rainbow -> Snapmaker keeps it
     await chip(page, 'SUNLU').click();
     await variants.getByRole('button', { name: 'Rainbow', exact: true }).click();
@@ -149,7 +162,6 @@ test.describe('Brand colors', () => {
     await expect(page.getByRole('group', { name: 'Variant' }).getByRole('button', { name: 'Marble', exact: true })).toHaveCount(0);
     await page.getByRole('group', { name: 'Variant' }).getByRole('button', { name: 'Custom' }).click();
     await page.getByLabel('Custom variant').fill('Marble');
-    await brand(page).getByRole('button', { name: 'Show' }).click();
     await expect(brand(page)).toContainText('Polymaker PLA has no Marble colors.');
     await brand(page).getByRole('button', { name: 'Show all Polymaker PLA lines' }).click();
     await expect(brand(page)).toContainText('Showing every line');
@@ -161,8 +173,8 @@ test.describe('Brand colors', () => {
   test('picking a color fills colors and temperatures; un-picking restores them', async ({ page }) => {
     await open(page, 'Bambu Lab', 'Basic');
     await tile(page, 'Jade White').click();
-    await expect(brand(page).locator('.picked-name')).toHaveText(/Jade White\s+PLA Basic/);
-    await expect(page.locator('#hex-input')).toBeHidden(); // pickers hide while picked
+    await expect(nowName(page)).toHaveText('Jade White');
+    await expect(nowFrom(page)).toHaveText('Brand color · PLA Basic');
     await expect(temps(page, 'Nozzle').min).toHaveValue('190');
     await expect(temps(page, 'Nozzle').max).toHaveValue('230');
     await expect(temps(page, 'Bed').min).toHaveValue('35');
@@ -170,7 +182,7 @@ test.describe('Brand colors', () => {
     expect(await lastWrite(page)).toMatchObject({ brand: 'Bambu Lab', type: 'PLA', subtype: 'Basic', color_hex: 'FFFFFF', max_temp: '230', bed_min_temp: '35' });
 
     // the write saved it, named after the brand color
-    await page.locator('.saved').getByRole('button', { name: 'Show' }).click();
+    await colorTab(page, 'Saved').click();
     await expect(page.locator('.saved .tile').first()).toContainText('Jade White');
   });
 
@@ -179,6 +191,8 @@ test.describe('Brand colors', () => {
     await open(page, 'Bambu Lab', 'Basic');
     await tile(page, 'Jade White').click();
     await tile(page, 'Jade White').click(); // un-pick
+    await expect(nowName(page)).toHaveText('Custom colors');
+    await openCustom(page);
     await expect(page.locator('#hex-input')).toHaveValue('123456');
     await expect(temps(page, 'Nozzle').max).toHaveValue('220');
     await expect(temps(page, 'Bed').min).toHaveValue('50');
@@ -195,11 +209,23 @@ test.describe('Brand colors', () => {
     expect(data.color_type).toBe(0);
   });
 
-  test('Edit colors keeps the color and shows the pickers', async ({ page }) => {
+  test('Edit colors keeps the color and opens Custom', async ({ page }) => {
     await open(page, 'Bambu Lab', 'Basic');
     await tile(page, 'Jade White').click();
     await brand(page).getByRole('button', { name: 'Edit colors' }).click();
+    await expect(colorTab(page, 'Custom')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('#hex-input')).toHaveValue('FFFFFF');
+    await expect(tile(page, 'Jade White')).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  test('changing the colors in Custom lets go of the brand color', async ({ page }) => {
+    await open(page, 'Bambu Lab', 'Basic');
+    await tile(page, 'Jade White').click();
+    await openCustom(page);
+    await expect(nowName(page)).toHaveText('Jade White'); // unchanged so far
+    await page.locator('#hex-input').fill('FFFFFE');
+    await expect(nowName(page)).toHaveText('Custom colors');
+    await colorTab(page, 'Brand').click();
     await expect(tile(page, 'Jade White')).toHaveAttribute('aria-pressed', 'false');
   });
 
@@ -210,7 +236,7 @@ test.describe('Brand colors', () => {
     await brand(page).locator('.tile').first().click();
     await brand(page).getByRole('button', { name: 'Set variant to Matte' }).click();
     await expect(chip(page, 'Matte')).toHaveAttribute('aria-pressed', 'true');
-    await expect(brand(page).locator('.picked-name')).toContainText('PLA Matte'); // still picked
+    await expect(nowFrom(page)).toContainText('PLA Matte'); // still picked
   });
 
   test('search finds colors by name', async ({ page }) => {
@@ -224,14 +250,18 @@ test.describe('Brand colors', () => {
   test('picking a brand color lets go of a picked saved color, and back', async ({ page }) => {
     await chip(page, 'Bambu Lab').click();
     await chip(page, 'Basic').click();
+    await openCustom(page);
     await page.locator('#hex-input').fill('ABCDEF');
-    await page.locator('.saved').getByRole('button', { name: 'Save current colors' }).click();
-    await page.locator('.saved').getByRole('button', { name: 'Show' }).click();
-    await page.locator('.saved .tile').first().click(); // saved picked
-    await brand(page).getByRole('button', { name: 'Show' }).click();
+    await page.getByRole('button', { name: 'Save colors' }).click(); // saved + picked
+    await expect(nowFrom(page)).toHaveText('Saved color');
+    await colorTab(page, 'Brand').click();
     await tile(page, 'Jade White').click(); // brand picked
+    await expect(nowFrom(page)).toHaveText('Brand color · PLA Basic');
+    await colorTab(page, 'Saved').click();
     await expect(page.locator('.saved .tile').first()).toHaveAttribute('aria-pressed', 'false');
     await page.locator('.saved .tile').first().click(); // saved again
+    await expect(nowFrom(page)).toHaveText('Saved color');
+    await colorTab(page, 'Brand').click();
     await expect(tile(page, 'Jade White')).toHaveAttribute('aria-pressed', 'false');
     await writeTag(page);
     expect((await lastWrite(page)).color_hex).toBe('ABCDEF');
@@ -242,6 +272,17 @@ test.describe('Brand colors', () => {
     await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'PLA', brand: 'Bambu Lab', subtype: 'Basic', color_hex: 'FFFFFF' });
     await page.getByRole('button', { name: 'Read tag' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
-    await expect(brand(page).locator('.picked-name')).toHaveText(/Jade White/);
+    await expect(colorTab(page, 'Brand')).toHaveAttribute('aria-pressed', 'true');
+    await expect(tile(page, 'Jade White')).toHaveAttribute('aria-pressed', 'true');
+    await expect(nowName(page)).toHaveText('Jade White');
+  });
+
+  test('reading a tag with no matching color opens Custom', async ({ page }) => {
+    await page.getByRole('tab', { name: 'Read & update' }).click();
+    await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'PLA', brand: 'Bambu Lab', color_hex: '123457' });
+    await page.getByRole('button', { name: 'Read tag' }).click();
+    await expect(page.getByRole('dialog')).toBeHidden();
+    await expect(colorTab(page, 'Custom')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#hex-input')).toHaveValue('123457');
   });
 });

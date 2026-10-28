@@ -1,9 +1,9 @@
 <script>
-  // Brand colors: the brand's named colors for the picked material, narrowed
-  // by the variant (see lib/brandColors.js). Works like Saved colors but
-  // read-only: pick a color to fill the colors (and the line's temperatures);
-  // the pickers hide while it's picked; tap it again to put back what was
-  // there. "Edit colors" copies it into the pickers to adjust.
+  // Brand colors (the "Brand" panel of the color section): the brand's named
+  // colors for the picked material, narrowed by the variant (see
+  // lib/brandColors.js). Works like Saved colors but read-only: pick a color
+  // to fill the colors (and the line's temperatures); tap it again to put
+  // back what was there. "Edit colors" keeps them and opens the pickers.
   import { onMount } from 'svelte';
   import * as BC from '../lib/brandColors.js';
   import { loadBrandColors } from '../lib/brandColorsData.js';
@@ -15,18 +15,20 @@
     canSetVariant = false,
     colors = $bindable(['FFFFFF']),
     colorType = $bindable('1'),
-    pickersHidden = $bindable(false),
+    count = $bindable(0), // colors shown for this brand + material + variant
+    available = $bindable(false), // the brand has colors for this material
     pickedName = $bindable(''), // name of the picked color, for Saved colors
+    pickedLine = $bindable(''), // its filament line
     getTemps = () => ({}),
     setTemps = () => {},
     setVariant = () => {},
     onpick = () => {}, // a brand color was picked (Saved colors lets go of its pick)
     onchange = () => {},
+    onedit = () => {}, // Edit colors: the app opens the pickers
   } = $props();
 
   const PAGE = 30;
   let db = $state(null);
-  let expanded = $state(false);
   let showAll = $state(false);
   let lineFilter = $state(''); // Show all: a line name, or '' for every line
   let search = $state('');
@@ -93,8 +95,19 @@
     }
   });
   $effect(() => {
-    pickersHidden = !!pickedTile;
+    available = !!db && result.total > 0;
+    count = colorCount;
     pickedName = pickedTile ? pickedTile.info.name : '';
+    pickedLine = pickedTile ? pickedTile.line.name : '';
+  });
+  // The colors were changed elsewhere (Saved colors, the pickers): let go of the pick
+  $effect(() => {
+    if (!pickedTile) return;
+    const now = colors.map((c) => c.toUpperCase()).join(',');
+    if (now !== pickedTile.info.colors.map((c) => c.toUpperCase()).join(',')) {
+      picked = null;
+      snapshot = null;
+    }
   });
 
   function apply(tile) {
@@ -133,6 +146,7 @@
   function editColors() {
     picked = null;
     snapshot = null;
+    onedit();
   }
 
   // --- Called by the app ---
@@ -179,76 +193,59 @@
 
 {#if db && result.total > 0}
   <div class="brand">
-    <div class="head">
-      <span class="label">Brand colors for {label}{variant ? ` ${variant}` : ''} ({colorCount})</span>
-      {#if pickedTile && !expanded}
-        <span class="bar picked" style:background={bar(pickedTile.info)} aria-hidden="true">
-          {#if !bar(pickedTile.info)}{#each pickedTile.info.colors as h}<span style:background={`#${h}`}></span>{/each}{/if}
-        </span>
-      {/if}
-      <button type="button" class="btn small quiet" aria-expanded={expanded} onclick={() => (expanded = !expanded)}>
-        {expanded ? 'Hide' : 'Show'}
-      </button>
-    </div>
-
-    {#if pickedTile}
-      <p class="picked-name">{pickedTile.info.name} <span class="hint">{pickedTile.line.name}</span></p>
+    {#if result.filter === 'nomatch'}
+      <p class="hint">{label} has no {groupName} colors.</p>
+    {:else}
+      <p class="hint">Showing {filterNote()}.</p>
     {/if}
 
-    {#if expanded}
-      {#if result.filter === 'nomatch'}
-        <p class="hint">{label} has no {groupName} colors.</p>
-      {:else}
-        <p class="hint">Showing {filterNote()}.</p>
-      {/if}
+    {#if result.filter !== 'all' || showAll}
       <div class="filters">
-        {#if result.filter !== 'all' || showAll}
-          <button type="button" class="btn small" onclick={() => { showAll = !showAll; lineFilter = ''; shown = PAGE; }}>
-            {showAll ? `Show only ${groupName}` : `Show all ${label} lines`}
-          </button>
-        {/if}
+        <button type="button" class="btn small" onclick={() => { showAll = !showAll; lineFilter = ''; shown = PAGE; }}>
+          {showAll ? `Show only ${groupName}` : `Show all ${label} lines`}
+        </button>
       </div>
+    {/if}
 
-      {#if showAll && result.lines.length > 1}
-        <div class="lines" role="group" aria-label="Filament lines">
-          <button type="button" class="line" aria-pressed={!lineFilter} onclick={() => { lineFilter = ''; shown = PAGE; }}>All</button>
-          {#each result.lines as line (line.name)}
-            <button type="button" class="line" aria-pressed={lineFilter === line.name} onclick={() => { lineFilter = line.name; shown = PAGE; }}>
-              {line.name}
-            </button>
-          {/each}
-        </div>
-      {/if}
+    {#if showAll && result.lines.length > 1}
+      <div class="lines" role="group" aria-label="Filament lines">
+        <button type="button" class="line" aria-pressed={!lineFilter} onclick={() => { lineFilter = ''; shown = PAGE; }}>All</button>
+        {#each result.lines as line (line.name)}
+          <button type="button" class="line" aria-pressed={lineFilter === line.name} onclick={() => { lineFilter = line.name; shown = PAGE; }}>
+            {line.name}
+          </button>
+        {/each}
+      </div>
+    {/if}
 
-      {#if result.lines.length}
-        <input type="text" class="search" bind:value={search} placeholder="Search colors" aria-label="Search brand colors" oninput={() => (shown = PAGE)} />
-        <div class="grid">
-          {#each tiles.slice(0, shown) as tile (tile.id)}
-            {@const isPicked = picked?.id === tile.id}
-            <button
-              type="button"
-              class="tile"
-              aria-pressed={isPicked}
-              title={`${tile.info.name}, ${[tile.line.name, ...tile.alsoIn].join(' / ')}: ${tile.info.colors.map((h) => '#' + h).join(' + ')}`}
-              onclick={() => (isPicked ? unpick() : pick(tile))}
-            >
-              <span class="bar" style:background={bar(tile.info)} aria-hidden="true">
-                {#if !bar(tile.info)}{#each tile.info.colors as h}<span style:background={`#${h}`}></span>{/each}{/if}
-              </span>
-              <span class="name">{tile.info.name}</span>
-              <span class="hex">{tile.info.colors.join('\n')}</span>
-              {#if tile.info.colors.length > 1}<span class="multi">{tile.info.colors.length} colors{tile.info.gradient ? ', gradient' : ''}</span>{/if}
-              {#if !lineFilter && result.lines.length > 1}
-                <span class="line-name">{tile.line.name}{tile.alsoIn.length ? ` +${tile.alsoIn.length}` : ''}</span>
-              {/if}
-            </button>
-          {/each}
-        </div>
-        {#if !tiles.length}<p class="hint">No colors match “{search}”.</p>{/if}
-        {#if tiles.length > shown}
-          {@const left = tiles.length - shown}
-          <button type="button" class="btn small quiet" onclick={() => (shown += PAGE)}>Show {Math.min(PAGE, left)} more ({left} left)</button>
-        {/if}
+    {#if result.lines.length}
+      <input type="search" class="search" bind:value={search} placeholder="Search colors" aria-label="Search brand colors" oninput={() => (shown = PAGE)} />
+      <div class="grid">
+        {#each tiles.slice(0, shown) as tile (tile.id)}
+          {@const isPicked = picked?.id === tile.id}
+          <button
+            type="button"
+            class="tile"
+            aria-pressed={isPicked}
+            title={`${tile.info.name}, ${[tile.line.name, ...tile.alsoIn].join(' / ')}: ${tile.info.colors.map((h) => '#' + h).join(' + ')}`}
+            onclick={() => (isPicked ? unpick() : pick(tile))}
+          >
+            <span class="bar" style:background={bar(tile.info)} aria-hidden="true">
+              {#if !bar(tile.info)}{#each tile.info.colors as h}<span style:background={`#${h}`}></span>{/each}{/if}
+            </span>
+            <span class="name">{tile.info.name}</span>
+            <span class="hex">{tile.info.colors.join('\n')}</span>
+            {#if tile.info.colors.length > 1}<span class="multi">{tile.info.colors.length} colors{tile.info.gradient ? ', gradient' : ''}</span>{/if}
+            {#if !lineFilter && result.lines.length > 1}
+              <span class="line-name">{tile.line.name}{tile.alsoIn.length ? ` +${tile.alsoIn.length}` : ''}</span>
+            {/if}
+          </button>
+        {/each}
+      </div>
+      {#if !tiles.length}<p class="hint">No colors match “{search}”.</p>{/if}
+      {#if tiles.length > shown}
+        {@const left = tiles.length - shown}
+        <button type="button" class="btn small quiet" onclick={() => (shown += PAGE)}>Show {Math.min(PAGE, left)} more ({left} left)</button>
       {/if}
     {/if}
 
@@ -261,21 +258,16 @@
       </div>
     {/if}
 
-    {#if expanded}
-      <p class="credit">
-        Colors from the <a href="https://openfilamentdatabase.org/" target="_blank" rel="noopener">Open Filament Database</a>
-        ({db.source?.date || 'snapshot'}). Shades are approximate.
-      </p>
-    {/if}
+    <p class="credit">
+      Colors from the <a href="https://openfilamentdatabase.org/" target="_blank" rel="noopener">Open Filament Database</a>
+      ({db.source?.date || 'snapshot'}). Shades are approximate.
+    </p>
   </div>
 {/if}
 
 <style>
   .brand { display: grid; gap: var(--s2); }
-  .head { display: flex; align-items: center; gap: var(--s2); }
-  .head .label { flex: 1; }
-  .picked-name { margin: 0; font-family: var(--font-label); font-weight: 600; }
-  .picked-name .hint { font-family: var(--font-body); font-weight: 400; margin-left: var(--s1); }
+  .brand > .hint { margin: 0; }
   .filters, .actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
   .lines { display: flex; flex-wrap: wrap; gap: var(--s1); }
   .line {
@@ -297,7 +289,7 @@
     padding: var(--s2);
     border-radius: 8px;
     border: 2px solid transparent;
-    background: var(--surface);
+    background: var(--bg);
     text-align: center;
   }
   .tile[aria-pressed='true'] { border-color: var(--ink); }
@@ -309,11 +301,10 @@
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
   }
   .bar span { flex: 1; }
-  .bar.picked { width: 44px; height: 18px; flex: none; }
   .name { font-size: 0.8125rem; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
   .hex { font-family: var(--font-label); font-size: 0.8125rem; white-space: pre-line; line-height: 1.2; letter-spacing: 0.04em; color: var(--muted); }
   .line-name { font-size: 0.6875rem; color: var(--muted); line-height: 1.2; }
   .multi { font-size: 0.6875rem; font-weight: 700; color: var(--action); line-height: 1.2; }
-  .credit { margin: 0; font-size: 0.75rem; color: var(--muted); }
+  .credit { margin: 0; padding-top: var(--s1); border-top: 1px solid var(--line); font-size: 0.75rem; color: var(--muted); }
   .credit a { color: inherit; }
 </style>
