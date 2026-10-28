@@ -5,6 +5,8 @@
   import SpoolPreview from './components/SpoolPreview.svelte';
   import NfcSheet from './components/NfcSheet.svelte';
   import TagDetails from './components/TagDetails.svelte';
+  import Settings from './components/Settings.svelte';
+  import * as Defaults from './lib/defaults.js';
   import * as OpenSpool from './lib/formats/openspool.js';
   import { MATERIALS, BRANDS, VARIANTS } from './lib/catalog.js';
   import { encodeMessage, mimeRecord, maxMessageSize, NTAG, TNF } from './lib/ndef.js';
@@ -17,8 +19,9 @@
   const nfc = getNfc();
   const buildLabel = buildParts(__BUILD__);
 
-  let mode = $state('create'); // 'create' | 'update'
-  let form = $state(OpenSpool.emptyForm('u1'));
+  let mode = $state('create'); // 'create' | 'update' | 'settings'
+  let defaults = $state(Defaults.load()); // what new tags start with (Settings)
+  let form = $state(Defaults.newForm(defaults));
   let loaded = $state(null); // { tag, raw, unknownKeys, notes } after a read
   let nfcState = $state({ available: true, enabled: true });
   let sheet = $state(null); // { mode: 'read' | 'write', wrongUid }
@@ -124,7 +127,7 @@
   }
 
   function startOver() {
-    form = OpenSpool.emptyForm(form.profile);
+    form = Defaults.newForm(defaults);
     showErrors = false;
     say(null);
   }
@@ -241,10 +244,11 @@
     <div class="modes" role="tablist" aria-label="Mode">
       <button type="button" role="tab" aria-selected={mode === 'create'} onclick={() => switchMode('create')}>Create</button>
       <button type="button" role="tab" aria-selected={mode === 'update'} onclick={() => switchMode('update')}>Read & update</button>
+      <button type="button" role="tab" aria-selected={mode === 'settings'} onclick={() => switchMode('settings')}>Settings</button>
     </div>
   </header>
 
-  {#if !nfcState.available || nfcState.enabled === false}
+  {#if mode !== 'settings' && (!nfcState.available || nfcState.enabled === false)}
     <div class="banner" role="status">
       <p>{nfcState.reason}</p>
       {#if nfcState.available && nfcState.enabled === false}
@@ -254,7 +258,9 @@
     </div>
   {/if}
 
-  {#if mode === 'update' && (!loaded || loaded.empty)}
+  {#if mode === 'settings'}
+    <Settings {form} bind:defaults bind:chips {brandData} onstatus={(t, isError) => say(t, isError ? 'error' : 'ok')} />
+  {:else if mode === 'update' && (!loaded || loaded.empty)}
     <section class="empty">
       <h2>Read a tag to change it</h2>
       <p>Tap Read tag, then hold an OpenSpool tag to your phone. Its details load here so you can edit and write them back.</p>
@@ -390,11 +396,13 @@
   </footer>
 </div>
 
+{#if mode !== 'settings' || status}
 <div class="dock">
   <div class="dock-inner">
     {#if status}
       <p class="status {status.kind}" role={status.kind === 'error' ? 'alert' : 'status'}>{status.text}</p>
     {/if}
+    {#if mode !== 'settings'}
     <div class="dock-actions">
       {#if mode === 'create'}
         <button type="button" class="btn primary wide" onclick={writeTag} disabled={!nfcState.available || nfcState.enabled === false}>Write tag</button>
@@ -405,8 +413,10 @@
         <button type="button" class="btn primary wide" onclick={writeTag} disabled={!nfcState.available || nfcState.enabled === false}>Update tag</button>
       {/if}
     </div>
+    {/if}
   </div>
 </div>
+{/if}
 
 {#if sheet}
   <NfcSheet mode={sheet.mode} wrongUid={sheet.wrongUid} oncancel={cancelNfc} />
