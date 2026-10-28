@@ -9,12 +9,15 @@
   import * as Theme from '../lib/theme.js';
   import { exportJson, readJsonFile } from '../lib/backup.js';
   import { buildParts } from '../lib/buildInfo.js';
+  import * as BrandList from '../lib/brandList.js';
+  import { suggestBrands, canonicalBrand, findBrand } from '../lib/brandColors.js';
   import orca from '../data/orca-vendors.json';
 
   let {
     form, // the form on screen (Create or a read tag), for "Use the form"
     defaults = $bindable({}),
     chips = $bindable({ brands: [], materials: [], variants: {} }),
+    shownBrands = $bindable([...BrandList.DEFAULT]),
     brandData = null,
     onstatus = () => {},
   } = $props();
@@ -54,10 +57,50 @@
     onstatus('New tags start with the built-in defaults again.');
   }
 
+  // --- Brands ---
+
+  const PAGE = 30;
+  let find = $state('');
+  let listed = $state(PAGE);
+  const known = (b) => !!(brandData && findBrand(brandData, b));
+  const hasColors = (b) => Object.keys(findBrand(brandData, b)?.materials || {}).length > 0;
+  const allBrands = $derived(
+    brandData ? [...brandData.brands.map((b) => b.name)].sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' })) : [],
+  );
+  const results = $derived.by(() => {
+    const q = find.trim();
+    if (!q) return allBrands;
+    const own = shownBrands.filter((b) => !known(b) && b.toLowerCase().includes(q.toLowerCase()));
+    return [...new Set([...suggestBrands(brandData, q, 40), ...own])];
+  });
+  // A typed name nobody lists can be added as your own
+  const addOwn = $derived.by(() => {
+    const q = find.trim();
+    if (!q || q.length > 40 || q.toLowerCase() === 'generic') return '';
+    const name = canonicalBrand(brandData, q);
+    return results.includes(name) || shownBrands.includes(name) ? '' : name;
+  });
+
+  function setBrands(next) {
+    if (next === shownBrands) return;
+    shownBrands = next;
+    BrandList.store(shownBrands);
+  }
+
+  function addOwnBrand() {
+    setBrands(BrandList.add(shownBrands, addOwn));
+    find = '';
+  }
+
+  function resetBrands() {
+    if (!confirm('Show the default brands again? Brands you turned on are turned off.')) return;
+    setBrands([...BrandList.DEFAULT]);
+  }
+
   // --- Your chips ---
 
   const variantGroups = $derived(Object.entries(chips.variants).map(([key, list]) => ({ key, label: key.replace('|', ' '), list })));
-  const chipCount = $derived(chips.brands.length + chips.materials.length + variantGroups.reduce((n, g) => n + g.list.length, 0));
+  const chipCount = $derived(chips.materials.length + variantGroups.reduce((n, g) => n + g.list.length, 0));
 
   function removeChip(kind, value, key = '') {
     const [brand, type] = key ? key.split('|') : ['', ''];
@@ -67,7 +110,7 @@
 
   function clearChips() {
     if (!confirm('Remove all your chips? Built-in chips stay.')) return;
-    chips = { brands: [], materials: [], variants: {} };
+    chips = { ...chips, materials: [], variants: {} };
     CustomChips.store(chips);
   }
 
@@ -156,11 +199,53 @@
     </div>
   </section>
 
+  <section class="card" aria-labelledby="set-brands">
+    <h2 id="set-brands">Brands</h2>
+    <p class="hint">The brands on the Brand row. Anything else can be typed with Other… on the form.</p>
+    <div class="group" role="group" aria-label="Brands on the form">
+      <div class="chips">
+        <span class="mine fixed">Generic</span>
+        {#each shownBrands as b (b)}
+          <span class="mine b" class:own={!known(b)}>{b}<button type="button" class="x" aria-label={`Hide ${b}`} onclick={() => setBrands(BrandList.remove(shownBrands, b))}>×</button></span>
+        {/each}
+      </div>
+    </div>
+    <input type="search" bind:value={find} placeholder="Find a brand" aria-label="Find a brand" autocomplete="off" oninput={() => (listed = PAGE)} />
+    {#if !brandData}
+      <p class="hint">Loading the brand list…</p>
+    {:else if results.length}
+      <ul class="brand-list" aria-label="All brands">
+        {#each results.slice(0, listed) as b (b)}
+          {@const on = shownBrands.includes(b)}
+          <li>
+            <button type="button" class="brand-row" role="switch" aria-checked={on} onclick={() => setBrands(BrandList.toggle(shownBrands, b))}>
+              <span class="switch" aria-hidden="true"></span>
+              <span class="bname">{b}</span>
+              {#if known(b) && hasColors(b)}<span class="tagline">colors</span>{:else if !known(b)}<span class="tagline">yours</span>{/if}
+            </button>
+          </li>
+        {/each}
+      </ul>
+      {#if results.length > listed}
+        <button type="button" class="btn small quiet" onclick={() => (listed += PAGE)}>Show {Math.min(PAGE, results.length - listed)} more ({results.length - listed} left)</button>
+      {/if}
+    {:else}
+      <p class="hint">No brands match “{find}”.</p>
+    {/if}
+    {#if addOwn}
+      <button type="button" class="btn small" onclick={addOwnBrand}>Add “{addOwn}” as your own brand</button>
+    {/if}
+    <p class="hint small">“colors” brands have colors under Brand in the color card.</p>
+    <div class="actions">
+      <button type="button" class="btn small quiet" onclick={resetBrands}>Show the default brands</button>
+    </div>
+  </section>
+
   <section class="card" aria-labelledby="set-chips">
     <h2 id="set-chips">Your chips</h2>
     {#if chipCount}
       <p class="hint">Custom values you saved. Tap × to remove one.</p>
-      {#each [['Brands', 'brand', chips.brands], ['Materials', 'material', chips.materials]] as [title, kind, list]}
+      {#each [['Materials', 'material', chips.materials]] as [title, kind, list]}
         {#if list.length}
           <div class="group" role="group" aria-label={`Your ${title.toLowerCase()}`}>
             <span class="label">{title}</span>
@@ -186,7 +271,7 @@
         <button type="button" class="btn small quiet danger" onclick={clearChips}>Remove all your chips</button>
       </div>
     {:else}
-      <p class="hint">None yet. Tap Save next to a Custom brand, material or variant, or write a tag with one.</p>
+      <p class="hint">None yet. Tap Save next to a Custom material or variant, or write a tag with one. Brands are above.</p>
     {/if}
   </section>
 
@@ -276,6 +361,8 @@
     font-family: var(--font-label);
     font-weight: 500;
   }
+  .mine.fixed { padding-right: var(--s3); border-style: solid; border-color: var(--line); color: var(--muted); }
+  .mine.b:not(.own) { border-style: solid; border-color: var(--line); }
   .x {
     width: 32px;
     height: 32px;
@@ -286,6 +373,47 @@
     font-size: 1.25rem;
     line-height: 1;
   }
+
+  .brand-list { list-style: none; margin: 0; padding: 0; display: grid; }
+  .brand-row {
+    display: flex;
+    align-items: center;
+    gap: var(--s3);
+    width: 100%;
+    min-height: 44px;
+    padding: 0 var(--s1);
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    background: transparent;
+    text-align: left;
+    font: inherit;
+    color: var(--ink);
+  }
+  .switch {
+    position: relative;
+    flex: none;
+    width: 38px;
+    height: 22px;
+    border-radius: 999px;
+    background: var(--chip);
+    box-shadow: inset 0 0 0 1px var(--line);
+    transition: background 0.15s ease;
+  }
+  .switch::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: transform 0.15s ease, background 0.15s ease;
+  }
+  .brand-row[aria-checked='true'] .switch { background: var(--action); box-shadow: none; }
+  .brand-row[aria-checked='true'] .switch::after { transform: translateX(16px); background: var(--action-ink); }
+  .bname { flex: 1; min-width: 0; font-family: var(--font-label); font-weight: 600; overflow-wrap: anywhere; }
+  .tagline { font-size: 0.75rem; color: var(--muted); }
 
   .saved-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s1); }
   .saved-list li { display: flex; align-items: center; gap: var(--s3); padding: 4px 0; border-bottom: 1px solid var(--line); }

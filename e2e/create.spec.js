@@ -36,8 +36,8 @@ test.describe('Create', () => {
     await page.getByRole('group', { name: 'Material' }).getByRole('button', { name: 'Custom' }).click();
     await page.getByLabel('Custom material').fill('PLA+');
     await expect(temps(page, 'Nozzle').min).toHaveValue('230'); // custom keeps the temps
-    await page.getByRole('group', { name: 'Brand' }).getByRole('button', { name: 'Custom' }).click();
-    await page.getByLabel('Custom brand').fill('Zephyr Filaments');
+    await page.getByRole('group', { name: 'Brand' }).getByRole('button', { name: 'Other…' }).click();
+    await page.getByLabel('Other brand').fill('Zephyr Filaments');
     await page.getByRole('group', { name: 'Variant' }).getByRole('button', { name: 'Custom' }).click();
     await page.getByLabel('Custom variant').fill('Rapid');
     await expect(page.getByLabel('Tag preview')).toContainText('Zephyr Filaments PLA+ Rapid');
@@ -49,21 +49,21 @@ test.describe('Create', () => {
     const brand = page.getByRole('group', { name: 'Brand' });
     const materials = page.getByRole('group', { name: 'Material' });
     const matches = page.getByRole('group', { name: 'Suggestions' });
-    await brand.getByRole('button', { name: 'Custom' }).click();
+    await brand.getByRole('button', { name: 'Other…' }).click();
     // part of a name: suggestions, and the rows wait until the name is done
-    await page.getByLabel('Custom brand').fill('Bambu');
+    await page.getByLabel('Other brand').fill('Bambu');
     await expect(matches.getByRole('button', { name: 'Bambu Lab' })).toBeVisible();
     await expect(materials.getByRole('button', { name: 'PEEK', exact: true })).toBeVisible(); // still every material
     await matches.getByRole('button', { name: 'Bambu Lab' }).click();
     await expect(chip(page, 'Bambu Lab')).toHaveAttribute('aria-pressed', 'true'); // the chip, not Custom
-    await expect(page.getByLabel('Custom brand')).toHaveCount(0);
+    await expect(page.getByLabel('Other brand')).toHaveCount(0);
     await expect(materials.getByRole('button', { name: 'PEEK', exact: true })).toHaveCount(0);
 
     // a full name in any spelling becomes OrcaSlicer's, on Enter or leaving the box
-    await brand.getByRole('button', { name: 'Custom' }).click();
-    await page.getByLabel('Custom brand').fill('elegoo');
-    await page.getByLabel('Custom brand').press('Enter');
-    await expect(page.getByLabel('Custom brand')).toHaveValue('Elegoo');
+    await brand.getByRole('button', { name: 'Other…' }).click();
+    await page.getByLabel('Other brand').fill('elegoo');
+    await page.getByLabel('Other brand').press('Enter');
+    await expect(page.getByLabel('Other brand')).toHaveValue('Elegoo');
     await expect(page.getByRole('dialog')).toHaveCount(0); // Enter doesn't write the tag
     await expect(materials).toContainText('The materials Elegoo makes.');
     await writeTag(page);
@@ -71,10 +71,10 @@ test.describe('Create', () => {
 
     // a brand the database doesn't know is written as typed
     await expect(chip(page, 'Elegoo')).toHaveAttribute('aria-pressed', 'true'); // saved as a chip by the write
-    await brand.getByRole('button', { name: 'Custom' }).click();
-    await page.getByLabel('Custom brand').fill('My Own Brand ');
-    await page.getByLabel('Custom brand').blur();
-    await expect(page.getByLabel('Custom brand')).toHaveValue('My Own Brand');
+    await brand.getByRole('button', { name: 'Other…' }).click();
+    await page.getByLabel('Other brand').fill('My Own Brand ');
+    await page.getByLabel('Other brand').blur();
+    await expect(page.getByLabel('Other brand')).toHaveValue('My Own Brand');
     await expect(materials.getByRole('button', { name: 'PEEK', exact: true })).toBeVisible();
     await writeTag(page);
     expect((await lastWrite(page)).brand).toBe('My Own Brand');
@@ -186,8 +186,8 @@ test.describe('Create', () => {
     const wide = '€'.repeat(40); // 3 bytes each: long names in some scripts get big fast
     await page.getByRole('group', { name: 'Material' }).getByRole('button', { name: 'Custom' }).click();
     await page.getByLabel('Custom material').fill(wide);
-    await page.getByRole('group', { name: 'Brand' }).getByRole('button', { name: 'Custom' }).click();
-    await page.getByLabel('Custom brand').fill(wide);
+    await page.getByRole('group', { name: 'Brand' }).getByRole('button', { name: 'Other…' }).click();
+    await page.getByLabel('Other brand').fill(wide);
     await page.getByRole('group', { name: 'Variant' }).getByRole('button', { name: 'Custom' }).click();
     await page.getByLabel('Custom variant').fill(wide);
     for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'Add a color' }).click();
@@ -237,11 +237,11 @@ test.describe('Your own chips', () => {
   const group = (page, name) => page.getByRole('group', { name, exact: true });
 
   test('Save keeps a Custom brand, material and variant as chips', async ({ page }) => {
-    await group(page, 'Brand').getByRole('button', { name: 'Custom' }).click();
-    await page.getByLabel('Custom brand').fill('Zephyr');
+    await group(page, 'Brand').getByRole('button', { name: 'Other…' }).click();
+    await page.getByLabel('Other brand').fill('Zephyr');
     await page.getByRole('button', { name: 'Save brand as a chip' }).click();
     await expect(group(page, 'Brand').getByRole('button', { name: 'Zephyr', exact: true })).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.getByLabel('Custom brand')).toHaveCount(0);
+    await expect(page.getByLabel('Other brand')).toHaveCount(0);
 
     await group(page, 'Material').getByRole('button', { name: 'Custom' }).click();
     await expect(page.getByRole('button', { name: 'Save material as a chip' })).toBeDisabled(); // nothing typed
@@ -266,29 +266,47 @@ test.describe('Your own chips', () => {
   });
 
   test('writing a tag saves its Custom values as chips', async ({ page }) => {
-    await group(page, 'Brand').getByRole('button', { name: 'Custom' }).click();
-    await page.getByLabel('Custom brand').fill('Zephyr');
+    await group(page, 'Brand').getByRole('button', { name: 'Other…' }).click();
+    await page.getByLabel('Other brand').fill('Zephyr');
     await group(page, 'Variant').getByRole('button', { name: 'Custom' }).click();
     await page.getByLabel('Custom variant').fill('Velvet');
     await writeTag(page);
     expect(await lastWrite(page)).toMatchObject({ brand: 'Zephyr', subtype: 'Velvet' });
     await expect(chip(page, 'Zephyr')).toHaveAttribute('aria-pressed', 'true');
     await expect(group(page, 'Variant').getByRole('button', { name: 'Velvet', exact: true })).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.getByLabel('Custom brand')).toHaveCount(0);
+    await expect(page.getByLabel('Other brand')).toHaveCount(0);
   });
 
   test('a saved chip can be removed', async ({ page }) => {
-    await group(page, 'Brand').getByRole('button', { name: 'Custom' }).click();
-    await page.getByLabel('Custom brand').fill('Zephyr');
-    await page.getByRole('button', { name: 'Save brand as a chip' }).click();
+    await group(page, 'Material').getByRole('button', { name: 'Custom' }).click();
+    await page.getByLabel('Custom material').fill('PLA+');
+    await page.getByRole('button', { name: 'Save material as a chip' }).click();
     // built-in chips have no Remove
-    await chip(page, 'Generic').click();
+    await chip(page, 'PLA').click();
     await expect(page.getByRole('button', { name: /^Remove “/ })).toHaveCount(0);
-    await chip(page, 'Zephyr').click();
-    await page.getByRole('button', { name: 'Remove “Zephyr” from your chips' }).click();
-    await expect(chip(page, 'Zephyr')).toHaveCount(0);
-    // still the brand for this tag, now as a Custom value
-    await expect(page.getByLabel('Custom brand')).toHaveValue('Zephyr');
+    await chip(page, 'PLA+').click();
+    await page.getByRole('button', { name: 'Remove “PLA+” from your chips' }).click();
+    await expect(chip(page, 'PLA+')).toHaveCount(0);
+    // still the material for this tag, now as a Custom value
+    await expect(page.getByLabel('Custom material')).toHaveValue('PLA+');
+  });
+
+  test('Other… is the brand box; saving turns the brand on, with a dashed outline if nobody lists it', async ({ page }) => {
+    const other = group(page, 'Brand').getByRole('button', { name: 'Other…' });
+    await expect(other).toBeVisible();
+    await other.click();
+    await page.getByLabel('Other brand').fill('Zephyr');
+    await page.getByRole('button', { name: 'Save brand as a chip' }).click();
+    await expect(chip(page, 'Zephyr')).toHaveClass(/saved/);
+    await expect(chip(page, 'SUNLU')).not.toHaveClass(/saved/);
+    // a database brand saved from Other… is a plain chip
+    await other.click();
+    await page.getByLabel('Other brand').fill('elegoo');
+    await page.getByRole('button', { name: 'Save brand as a chip' }).click();
+    await expect(chip(page, 'Elegoo')).toHaveAttribute('aria-pressed', 'true');
+    await expect(chip(page, 'Elegoo')).not.toHaveClass(/saved/);
+    // no Remove on the Brand row: brands are managed in Settings
+    await expect(page.getByRole('button', { name: /^Remove “/ })).toHaveCount(0);
   });
 });
 
