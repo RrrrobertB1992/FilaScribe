@@ -1,9 +1,7 @@
 <script>
   import { onMount, tick } from 'svelte';
   import Palette from './components/Palette.svelte';
-  import ColorEditor from './components/ColorEditor.svelte';
-  import SavedColors from './components/SavedColors.svelte';
-  import BrandColors from './components/BrandColors.svelte';
+  import ColorSection from './components/ColorSection.svelte';
   import SpoolPreview from './components/SpoolPreview.svelte';
   import NfcSheet from './components/NfcSheet.svelte';
   import TagDetails from './components/TagDetails.svelte';
@@ -12,7 +10,6 @@
   import { encodeMessage, mimeRecord, maxMessageSize, NTAG, TNF } from './lib/ndef.js';
   import { getNfc } from './lib/nfc/index.js';
   import { variantChoices, carryVariant } from './lib/brandColors.js';
-  import * as SavedColorsData from './lib/savedColors.js';
   import { loadBrandColors } from './lib/brandColorsData.js';
 
   const nfc = getNfc();
@@ -25,12 +22,7 @@
   let sheet = $state(null); // { mode: 'read' | 'write', wrongUid }
   let status = $state(null); // { kind: 'ok' | 'error' | 'info', text }
   let showErrors = $state(false);
-  let savedHidesPickers = $state(false);
-  let brandHidesPickers = $state(false);
-  const pickersHidden = $derived(savedHidesPickers || brandHidesPickers);
-  let saved = $state();
-  let brandColors = $state();
-  let brandColorName = $state(''); // the picked brand color's name, for Saved colors
+  let colorSection = $state();
 
   // Variant chips: the groups this brand has for this material, in its own
   // words; the full default list until the data loads or for other brands
@@ -64,12 +56,10 @@
   const gradient = $derived(u1 && visibleColors.length > 1 && form.colorType === '0');
 
   // Changing the brand or material keeps the variant only if it still fits:
-  // a chip the new brand has, its word for the same kind, or a variant saved
-  // colors use for it; otherwise None. (Reading a tag never changes it.)
+  // a chip the new brand has, or its word for the same kind; otherwise None.
+  // (Reading a tag never changes it.)
   function keepVariantFitting() {
-    const key = SavedColorsData.keyFor(form.brand, form.type);
-    const saved = SavedColorsData.entriesFor(SavedColorsData.load(), key).flatMap((e) => e.variants);
-    form.subtype = carryVariant(brandData, form.subtype, form.brand, form.type, saved);
+    form.subtype = carryVariant(brandData, form.subtype, form.brand, form.type);
   }
 
   function pickMaterial(value, custom) {
@@ -152,8 +142,7 @@
     mode = 'update';
     // The saved-colors panel may only now be on screen; let it mount first
     await tick();
-    saved?.afterLoad();
-    brandColors?.afterLoad();
+    colorSection?.afterLoad();
     say('Tag read. Change what you need, then update the tag.', 'ok');
   }
 
@@ -181,8 +170,7 @@
         : await nfc.write([record]);
       sheet = null;
       // The colors are now a picked saved color (named after the brand color)
-      saved?.afterWrite(brandColorName);
-      brandColors?.release();
+      colorSection?.afterWrite();
       if (nfc.kind === 'native' && !r.verified) {
         say('Tag written, but reading it back didn’t match. Read the tag to check it.', 'error');
       } else {
@@ -257,38 +245,21 @@
         />
       {/if}
 
-      <div class="colors">
-        <BrandColors
-          bind:this={brandColors}
-          brand={form.brand}
-          type={form.type}
-          variant={u1 ? form.subtype : ''}
-          canSetVariant={u1}
-          bind:colors={form.colors}
-          bind:colorType={form.colorType}
-          bind:pickersHidden={brandHidesPickers}
-          bind:pickedName={brandColorName}
-          getTemps={() => ({ minTemp: form.minTemp, maxTemp: form.maxTemp, bedMinTemp: form.bedMinTemp, bedMaxTemp: form.bedMaxTemp })}
-          setTemps={(t) => Object.assign(form, t)}
-          setVariant={(v) => (form.subtype = v)}
-          onpick={() => saved?.release()}
-        />
-        <SavedColors
-          bind:this={saved}
-          brand={form.brand}
-          type={form.type}
-          variant={u1 ? form.subtype : ''}
-          bind:colors={form.colors}
-          bind:colorType={form.colorType}
-          bind:pickersHidden={savedHidesPickers}
-          onpick={() => brandColors?.release()}
-          onstatus={(t, isError) => say(t, isError ? 'error' : 'ok')}
-        />
-        {#if !pickersHidden}
-          <ColorEditor bind:colors={form.colors} bind:colorType={form.colorType} max={u1 ? OpenSpool.MAX_COLORS : 1} />
-        {/if}
-        {#each colorErrors as e}<p class="error-text">{e.message}</p>{/each}
-      </div>
+      <ColorSection
+        bind:this={colorSection}
+        brand={form.brand}
+        type={form.type}
+        variant={u1 ? form.subtype : ''}
+        canSetVariant={u1}
+        max={u1 ? OpenSpool.MAX_COLORS : 1}
+        bind:colors={form.colors}
+        bind:colorType={form.colorType}
+        getTemps={() => ({ minTemp: form.minTemp, maxTemp: form.maxTemp, bedMinTemp: form.bedMinTemp, bedMaxTemp: form.bedMaxTemp })}
+        setTemps={(t) => Object.assign(form, t)}
+        setVariant={(v) => (form.subtype = v)}
+        onstatus={(t, isError) => say(t, isError ? 'error' : 'ok')}
+        errors={colorErrors}
+      />
 
       <fieldset>
         <legend class="label">Nozzle temperature, °C</legend>
@@ -402,7 +373,6 @@
   .empty p { margin: 0; max-width: 46ch; }
 
   .form { display: grid; gap: var(--s5); }
-  .colors { display: grid; gap: var(--s4); }
   fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: var(--s2); }
   legend { padding: 0; margin-bottom: var(--s2); }
   .pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s3); }

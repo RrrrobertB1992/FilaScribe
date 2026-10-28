@@ -1,8 +1,9 @@
-import { test, expect, colorStyle, placeTag, lastWrite, chip, writeTag, status } from './nfc.js';
+import { test, expect, colorStyle, colorTab, openCustom, placeTag, lastWrite, chip, writeTag, status } from './nfc.js';
 
 const panel = (page) => page.locator('.saved');
 const tiles = (page) => panel(page).getByRole('button', { pressed: undefined }).filter({ has: page.locator('.hex') });
 const colorSlots = (page) => page.getByRole('button', { name: /^Color \d,/ });
+const save = (page) => page.getByRole('button', { name: 'Save colors' });
 
 async function setColors(page, ...hexes) {
   await page.locator('#hex-input').fill(hexes[0]);
@@ -15,45 +16,48 @@ async function setColors(page, ...hexes) {
 test.describe('Saved colors', () => {
   test.beforeEach(async ({ page }) => {
     await chip(page, 'Polymaker').click();
+    await openCustom(page);
   });
 
   test('a successful write saves the colors and picks them', async ({ page }) => {
-    await expect(panel(page)).toContainText('Saved colors for Polymaker PLA (0)');
+    await expect(colorTab(page, 'Saved')).toBeDisabled();
     await setColors(page, '112233');
     await writeTag(page);
-    await expect(panel(page)).toContainText('Saved colors for Polymaker PLA (1)');
-    // picked: the color pickers hide and the row's actions show
+    await expect(colorTab(page, 'Saved')).toHaveText(/Saved\s*1/);
+    await expect(page.locator('.colorsec .now-from')).toHaveText('Saved color');
+    await colorTab(page, 'Saved').click();
     await expect(page.locator('#hex-input')).toBeHidden();
+    await expect(panel(page)).toContainText('1 saved color for Polymaker PLA');
     await expect(panel(page).getByRole('button', { name: 'Rename' })).toBeVisible();
   });
 
   test('saved colors belong to their brand + material and survive a reload', async ({ page }) => {
     await setColors(page, '112233');
-    await panel(page).getByRole('button', { name: 'Save current colors' }).click();
+    await save(page).click();
     await expect(status(page)).toHaveText('Colors saved');
     await chip(page, 'PETG').click();
-    await expect(panel(page)).toContainText('Saved colors for Polymaker PETG (0)');
+    await expect(colorTab(page, 'Saved')).toBeDisabled();
     await page.reload();
     await chip(page, 'Polymaker').click();
-    await expect(panel(page)).toContainText('Saved colors for Polymaker PLA (1)');
+    await expect(colorTab(page, 'Saved')).toHaveText(/Saved\s*1/);
   });
 
   test('picking a saved color fills the colors; unpicking puts them back', async ({ page }) => {
     await setColors(page, 'AA0000', '00AA00');
     await colorStyle(page, 'Gradient').click();
-    await panel(page).getByRole('button', { name: 'Save current colors' }).click();
+    await save(page).click();
     await page.getByRole('button', { name: 'Start over' }).click(); // back to white, brand Generic
     await chip(page, 'Polymaker').click();
 
-    await panel(page).getByRole('button', { name: 'Show' }).click();
+    await colorTab(page, 'Saved').click();
     const tile = tiles(page).first();
     await expect(tile).toContainText('AA0000');
     await tile.click();
-    await expect(page.locator('#hex-input')).toBeHidden();
     await writeTag(page);
     expect(await lastWrite(page)).toMatchObject({ color_hex: 'AA0000', additional_color_hexes: ['00AA00'], color_type: 0 });
 
     await tile.click(); // unpick
+    await colorTab(page, 'Custom').click();
     await expect(page.locator('#hex-input')).toHaveValue('FFFFFF');
     await expect(colorSlots(page)).toHaveCount(1);
   });
@@ -61,74 +65,126 @@ test.describe('Saved colors', () => {
   test('gradient and segments of the same colors are separate rows', async ({ page }) => {
     await setColors(page, 'AA0000', '00AA00');
     await colorStyle(page, 'Gradient').click();
-    await panel(page).getByRole('button', { name: 'Save current colors' }).click();
+    await save(page).click();
     await colorStyle(page, 'Segments').click();
-    await panel(page).getByRole('button', { name: 'Save current colors' }).click();
-    await expect(panel(page)).toContainText('(2)');
+    await save(page).click();
+    await expect(colorTab(page, 'Saved')).toHaveText(/Saved\s*2/);
   });
 
-  test('the same colors under another variant add that variant', async ({ page }) => {
+  test('saved colors ignore the variant: one row, shown under any variant', async ({ page }) => {
     await setColors(page, '334455');
     await chip(page, 'Matte').click();
     await writeTag(page);
     await chip(page, 'Silk').click();
-    await page.locator('.saved').getByRole('button', { name: 'Show' }).click();
-    await tiles(page).first().click(); // unpick (was picked after the write)
-    await page.locator('#hex-input').fill('334455');
     await writeTag(page);
-    await expect(panel(page)).toContainText('(1)');
-    await expect(tiles(page).first()).toContainText('Matte, Silk');
+    await expect(colorTab(page, 'Saved')).toHaveText(/Saved\s*1/);
+    await chip(page, 'None').click();
+    await colorTab(page, 'Saved').click();
+    await expect(tiles(page)).toHaveCount(1);
+    await expect(tiles(page).first()).not.toContainText('Matte');
+    await expect(panel(page).getByRole('button', { name: /^Remove “/ })).toHaveCount(0);
   });
 
-  test('rename, edit colors, remove a variant, remove a row, clear', async ({ page }) => {
+  test('picking a saved color, then changing it in Custom, edits that saved color', async ({ page }) => {
+    await setColors(page, '111111');
+    await save(page).click();
+    await page.locator('#hex-input').fill('222222');
+    await save(page).click();
+    await colorTab(page, 'Saved').click();
+    await tiles(page).filter({ hasText: '111111' }).click();
+    await openCustom(page);
+    await expect(page.locator('.editbar')).toHaveCount(0); // nothing changed yet
+    await page.locator('#hex-input').fill('333333');
+    await expect(page.locator('.editbar')).toContainText('Editing saved color');
+    await expect(save(page)).toHaveCount(0); // only the edit bar's buttons
+    await page.locator('.editbar').getByRole('button', { name: 'Save changes' }).click();
+    await expect(status(page)).toHaveText('Saved color updated');
+    await expect(colorTab(page, 'Saved')).toHaveText(/Saved\s*2/); // updated, not added
+    await expect(tiles(page).filter({ hasText: '333333' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(tiles(page).filter({ hasText: '111111' })).toHaveCount(0);
+
+    // Save as new keeps the original
+    await openCustom(page);
+    await page.locator('#hex-input').fill('444444');
+    await page.locator('.editbar').getByRole('button', { name: 'Save as new' }).click();
+    await expect(colorTab(page, 'Saved')).toHaveText(/Saved\s*3/);
+    await expect(tiles(page).filter({ hasText: '333333' })).toHaveCount(1);
+
+    // Writing while editing keeps the edit in that saved color
+    await openCustom(page);
+    await page.locator('#hex-input').fill('555555');
+    await writeTag(page);
+    await expect(colorTab(page, 'Saved')).toHaveText(/Saved\s*3/);
+    await colorTab(page, 'Saved').click();
+    await expect(tiles(page).filter({ hasText: '555555' })).toHaveCount(1);
+    await expect(tiles(page).filter({ hasText: '444444' })).toHaveCount(0);
+  });
+
+  test('colors saved by a write are not edited by later changes', async ({ page }) => {
+    await setColors(page, '666666');
+    await writeTag(page); // saved and picked, but not by you
+    await page.locator('#hex-input').fill('777777');
+    await expect(page.locator('.editbar')).toHaveCount(0);
+    await writeTag(page);
+    await expect(colorTab(page, 'Saved')).toHaveText(/Saved\s*2/);
+  });
+
+  test('rename, edit colors, remove a row, clear', async ({ page }) => {
     await setColors(page, '101010');
     await chip(page, 'Basic').click();
     await writeTag(page); // saved + picked
+    await colorTab(page, 'Saved').click();
 
     await panel(page).getByRole('button', { name: 'Rename' }).click();
     await panel(page).getByLabel('Saved color name').fill('Charcoal');
     await panel(page).getByRole('button', { name: 'Save name' }).click();
-    await panel(page).getByRole('button', { name: 'Show' }).click();
     await expect(tiles(page).first()).toContainText('Charcoal');
+    await expect(page.locator('.colorsec .now-name')).toHaveText('Charcoal');
 
+    // Edit colors opens Custom with Save / Cancel for the saved color
     await panel(page).getByRole('button', { name: 'Edit colors' }).click();
+    await expect(page.locator('.editbar')).toContainText('Editing saved color Charcoal');
     await page.locator('#hex-input').fill('202020');
-    await panel(page).getByRole('button', { name: 'Save colors' }).click();
+    await page.locator('.editbar').getByRole('button', { name: 'Save changes' }).click();
+    await expect(colorTab(page, 'Saved')).toHaveAttribute('aria-pressed', 'true');
     await expect(tiles(page).first()).toContainText('202020');
     await expect(tiles(page).first()).toContainText('Charcoal');
 
-    await panel(page).getByRole('button', { name: 'Remove “Basic”' }).click();
-    await expect(panel(page)).toContainText('(0)');
+    // Cancel puts the saved colors back
+    await panel(page).getByRole('button', { name: 'Edit colors' }).click();
+    await page.locator('#hex-input').fill('999999');
+    await page.locator('.editbar').getByRole('button', { name: 'Cancel' }).click();
+    await expect(tiles(page).first()).toContainText('202020');
+    await expect(page.locator('.colorsec .now-hex')).toHaveText('#202020');
 
-    await setColors(page, '303030');
-    await panel(page).getByRole('button', { name: 'Save current colors' }).click();
-    // the list is still expanded from above
-    await tiles(page).first().click();
+    // Removing the last one turns Saved off and opens another source
     await panel(page).getByRole('button', { name: 'Remove color' }).click();
-    await expect(panel(page)).toContainText('(0)');
+    await expect(colorTab(page, 'Saved')).toBeDisabled();
 
-    await panel(page).getByRole('button', { name: 'Save current colors' }).click();
+    await openCustom(page);
+    await save(page).click();
     await page.locator('#hex-input').fill('404040');
-    await panel(page).getByRole('button', { name: 'Save current colors' }).click();
-    await expect(panel(page)).toContainText('(2)');
+    await save(page).click();
+    await expect(colorTab(page, 'Saved')).toHaveText(/Saved\s*2/);
+    await colorTab(page, 'Saved').click();
     await panel(page).getByRole('button', { name: 'Clear Polymaker PLA' }).click();
-    await expect(panel(page)).toContainText('(0)');
+    await expect(colorTab(page, 'Saved')).toBeDisabled();
   });
 
   test('reading a tag with saved colors picks them', async ({ page }) => {
     await setColors(page, '5A5A5A');
-    await panel(page).getByRole('button', { name: 'Save current colors' }).click();
+    await save(page).click();
     await page.getByRole('tab', { name: 'Read & update' }).click();
     await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'PLA', brand: 'Polymaker', color_hex: '5A5A5A' });
     await page.getByRole('button', { name: 'Read tag' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
+    await expect(colorTab(page, 'Saved')).toHaveAttribute('aria-pressed', 'true');
     await expect(panel(page).getByRole('button', { name: 'Rename' })).toBeVisible();
     await expect(page.locator('#hex-input')).toBeHidden();
   });
 
   test('import a PrintTag-Web-Rrrrobert list and export it again', async ({ page }) => {
-    await panel(page).getByRole('button', { name: 'Save current colors' }).click();
-    await panel(page).getByRole('button', { name: 'Show' }).click();
+    // Import works from Custom too, since Saved is off while it's empty
     const fork = {
       'Polymaker|PLA': [
         { colors: ['2B2B2D'], name: 'Galaxy Black', variants: ['Matte'] },
@@ -136,11 +192,16 @@ test.describe('Saved colors', () => {
       ],
       'Generic|PETG': [{ colors: ['ABCDEF'], name: '', variants: ['Basic'] }],
     };
-    await panel(page).locator('input[type=file]').setInputFiles({
+    const [chooser] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      page.getByRole('button', { name: 'Import saved colors' }).click(),
+    ]);
+    await chooser.setFiles({
       name: 'printtag-saved-colors.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(fork)),
     });
     await expect(status(page)).toHaveText('Imported 3 saved colors.');
-    await expect(panel(page)).toContainText('(3)');
+    await expect(colorTab(page, 'Saved')).toHaveText(/Saved\s*2/);
+    await colorTab(page, 'Saved').click();
     await expect(panel(page)).toContainText('Galaxy Black');
 
     const [download] = await Promise.all([
@@ -150,7 +211,7 @@ test.describe('Saved colors', () => {
     expect(download.suggestedFilename()).toBe('filascribe-saved-colors.json');
     const exported = JSON.parse(await (await download.createReadStream()).toArray().then((c) => Buffer.concat(c).toString()));
     expect(exported['Generic|PETG'][0].colors).toEqual(['ABCDEF']);
-    expect(exported['Polymaker|PLA']).toHaveLength(3);
+    expect(exported['Polymaker|PLA']).toHaveLength(2);
 
     await panel(page).locator('input[type=file]').setInputFiles({
       name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from('not json'),

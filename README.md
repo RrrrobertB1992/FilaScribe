@@ -19,11 +19,22 @@ Tags hold one NDEF record of type `application/json`. FilaScribe writes only doc
 
 Value formats follow the spec examples: colors are 6 hex digits without `#`, and temperatures are strings. When reading, FilaScribe also accepts `#RRGGBB` colors and numeric values. If a tag has fields outside this list, FilaScribe lists them and doesn't write them back.
 
-The multi-color fields and `color_type` match PrintTag-Web-Rrrrobert. Saved colors work the same way and use the same data shape. To bring yours over, save the value of the `printtag-saved-colors` localStorage key from that site (for example from Chrome DevTools, under Application, then Local storage) as a `.json` file. Then, in FilaScribe, open Saved colors and choose Import.
+The multi-color fields and `color_type` match PrintTag-Web-Rrrrobert. Saved colors work the same way and use the same data shape. To bring yours over, save the value of the `printtag-saved-colors` localStorage key from that site (for example from Chrome DevTools, under Application, then Local storage) as a `.json` file. Then, in FilaScribe, choose **Import saved colors** under Custom (or Import under Saved).
+
+## Colors
+
+The Colors card shows the current colors at the top: a spool swatch, the color's name and where it came from (a brand color and its line, a saved color, or custom), and the hex values. Below it, three buttons switch between where the colors come from, so the color picker is never far down the page:
+- **Brand** (the default): the brand's colors from the database, below. Off for Generic and brands not in the database.
+- **Saved**: the colors you saved for this brand and material. Off until something is saved.
+- **Custom**: the color picker, Gradient or Segments for 2+ colors, and **Save colors**.
+
+A new brand or material opens the first one that has something (Brand, then Saved, then Custom). Reading a tag opens the one its colors match. Each button shows how many colors it has. Picking in one list lets go of a pick in the other, and changing the colors in Custom lets go of a brand color.
+
+Saved colors belong to a brand and material only; the variant doesn't matter. To change a saved color, tap it and then change the colors in Custom (or tap **Edit colors**). An edit bar appears with **Save changes** (update that saved color), **Save as new** (keep it and add the new colors), and **Cancel**. Writing a tag while editing also saves the change to that saved color.
 
 ## Brand colors
 
-Pick a brand and material, and optionally a variant, then open **Brand colors** to choose a named color from that brand's real lineup, like Bambu Lab PLA Basic "Jade White". It works like Saved colors, but read-only:
+Pick a brand and material, and optionally a variant, then choose a named color under **Brand**, a named color from that brand's real lineup, like Bambu Lab PLA Basic "Jade White". It works like Saved colors, but read-only:
 - **Variant chips follow the brand.** For a brand in the database, the Variant row only shows the variants that brand makes in that material, in the brand's own words. Bambu Lab PLA shows Basic, Matte, Silk, Wood, Marble, Galaxy, Glow, **Metal** and Translucent, with no SnapSpeed or HF. Snapmaker PLA includes SnapSpeed and Support. Sunlu says **High Speed** and **Transparent**, and eSun says **Luminous**. Generic, a Custom brand not in the database, or a material the brand doesn't make shows the full default list:
   - Basic, Plus, Matte, SnapSpeed, Silk, Support, HF, 95A, 95A HF;
   - Wood, Marble, Galaxy, Glow, Metallic, Multi-color, Fluorescent, Translucent, Color change.
@@ -31,7 +42,6 @@ Pick a brand and material, and optionally a variant, then open **Brand colors** 
   None and Custom are always there. When you change the brand or material, the variant stays only if it still fits:
   - a chip the new brand has stays as it is;
   - the same kind of variant switches to the new brand's word, e.g. Bambu "Metal" becomes Polymaker "Metallic";
-  - a variant your Saved colors use for that brand and material stays;
   - anything else goes back to None.
 
   Reading a tag never changes its subtype. One the brand doesn't list, like SnapSpeed on a Bambu tag, shows in the Custom box and is written back unchanged.
@@ -66,7 +76,8 @@ The **Update brand colors** workflow rebuilds the snapshot on the 1st of each mo
 ```
 src/
   App.svelte                 the form, read/update flow and action bar
-  components/                Palette, ColorEditor, HsvPicker, SavedColors,
+  components/                Palette, ColorSection (Brand / Saved / Custom),
+                             BrandColors, SavedColors, ColorEditor, HsvPicker,
                              SpoolPreview, NfcSheet, TagDetails
   lib/formats/openspool.js   build / parse / validate OpenSpool JSON
   lib/ndef.js                NDEF message and Type 2 TLV encoding
@@ -104,8 +115,8 @@ The **Tests** workflow runs on every pull request and on `main`:
 - **Browser tests** (`e2e/`): a phone-sized Chrome, in light and dark mode, goes through the basic features with the NFC tag simulated by `e2e/nfc.js`:
   - **Create:** default tag, standard vs U1 fields, material temperature presets, Custom material/brand/variant, 1 to 5 colors with gradient/segments, color and temperature validation, spool details, the tag data preview, and cancelling a write or a write that fails.
   - **Read & update:** loading U1 and standard tags, updating (undocumented fields dropped), blank, unreadable and non-OpenSpool tags, several records on one tag, Read another, and copying a read tag onto a new one.
-  - **Saved colors:** saving on write, per brand + material, surviving a reload, picking and un-picking, gradient vs segments, variants, rename, editing colors, removing, clearing, picking automatically when a tag is read, and import/export.
-  - **Brand colors:** groups by variant (None = Basic), merged look-alikes (Sunlu Wood), Show all when a group is empty, picking and un-picking (colors and temperatures), gradient spools, search, Edit colors, the variant suggestion, working alongside Saved colors, naming the saved color, and matching a read tag.
+  - **Saved colors:** the Saved button turning on and off, saving on write, per brand + material, surviving a reload, picking and un-picking, gradient vs segments, one row whatever the variant, rename, editing a picked color in Custom (Save changes, Save as new, writing while editing), removing, clearing, picking automatically when a tag is read, and import/export.
+  - **Brand colors:** which color source opens (Generic opens Custom, a brand opens Brand, a read tag opens what it matches), groups by variant (None = Basic), merged look-alikes (Sunlu Wood), Show all when a group is empty, picking and un-picking (colors and temperatures), gradient spools, search, Edit colors opening Custom, changing colors in Custom letting go of the pick, the variant suggestion, working alongside Saved colors, naming the saved color, and matching a read tag.
 - **Brand colors logic** (`tests/brandColors.test.js`): grouping lines (names, finish tags, fiber materials), merging look-alikes, color matching, and that the bundled snapshot is well-formed and covers every FilaScribe brand.
 
 - **U1 reader compatibility** (`tests/compat/`): FilaScribe writes about 160 tags as full NTAG215 memory images. A dozen are hand-picked cases, including a gradient with 5 colors, custom names and the largest possible tag; the rest are random forms. The real OpenSpool readers then read them: paxx12's U1 extended firmware and OpenRFID, fetched at pinned commits by `tests/compat/fetch-readers.sh`. Each check compares what the reader reports against what was entered in the form. Neither project is copied into this repo.

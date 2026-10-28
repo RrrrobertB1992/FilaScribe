@@ -6,7 +6,7 @@
   import { COLOR_TYPES } from '../lib/catalog.js';
 
   // colors: hex strings (no '#'); color 1 is the main color.
-  let { colors = $bindable(['FFFFFF']), colorType = $bindable('1'), max = 5, onchange = () => {} } = $props();
+  let { colors = $bindable(['FFFFFF']), colorType = $bindable('1'), max = 5, showLabel = true, onchange = () => {} } = $props();
 
   let active = $state(0);
   let text = $state('');
@@ -63,8 +63,8 @@
 </script>
 
 <div class="field">
-  <span class="label" id="colors-label">{max > 1 ? 'Colors' : 'Color'}</span>
-  <div class="slots" role="group" aria-labelledby="colors-label">
+  {#if showLabel}<span class="label" id="colors-label">{max > 1 ? 'Colors' : 'Color'}</span>{/if}
+  <div class="slots" role="group" aria-labelledby={showLabel ? 'colors-label' : undefined} aria-label={showLabel ? undefined : max > 1 ? 'Colors' : 'Color'}>
     {#each shown as hex, i}
       <button
         type="button"
