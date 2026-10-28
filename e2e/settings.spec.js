@@ -1,7 +1,12 @@
 import { test, expect, chip, writeTag, lastWrite, status, temps, placeTag } from './nfc.js';
 
 const settings = (page) => page.getByRole('tab', { name: 'Settings' }).click();
-const card = (page, name) => page.locator('section.card', { has: page.getByRole('heading', { name }) });
+// A Settings card, opened (they start closed)
+async function card(page, name) {
+  const c = page.locator('details.card', { has: page.getByRole('heading', { name }) });
+  if (!(await c.evaluate((d) => d.open))) await c.locator('summary').click();
+  return c;
+}
 
 test.describe('Settings', () => {
   test('a Settings tab next to Create and Read & update, with no write button', async ({ page }) => {
@@ -20,10 +25,10 @@ test.describe('Settings', () => {
     await chip(page, 'PETG').click();
     await temps(page, 'Nozzle').max.fill('245');
     await settings(page);
-    await card(page, 'Defaults for new tags').getByRole('button', { name: 'Use the form as it is now' }).click();
+    await (await card(page, 'Defaults for new tags')).getByRole('button', { name: 'Use the form as it is now' }).click();
     await expect(status(page)).toHaveText('Saved. New tags start like this.');
-    await expect(card(page, 'Defaults for new tags')).toContainText('Polymaker');
-    await expect(card(page, 'Defaults for new tags')).toContainText('220–245 °C');
+    await expect((await card(page, 'Defaults for new tags'))).toContainText('Polymaker');
+    await expect((await card(page, 'Defaults for new tags'))).toContainText('220–245 °C');
 
     // a new visit starts like that
     await page.reload();
@@ -37,32 +42,45 @@ test.describe('Settings', () => {
 
     // reset
     await settings(page);
-    await card(page, 'Defaults for new tags').getByRole('button', { name: 'Reset to built-in' }).click();
+    await (await card(page, 'Defaults for new tags')).getByRole('button', { name: 'Reset to built-in' }).click();
     await page.getByRole('tab', { name: 'Create' }).click();
     await page.getByRole('button', { name: 'Start over' }).click();
     await expect(chip(page, 'Generic')).toHaveAttribute('aria-pressed', 'true');
   });
 
-  test('brands: turn brands on and off, add your own, reset', async ({ page }) => {
+  test('brands: × removes, typing finds brands that start with it, a tap adds', async ({ page }) => {
     const brandRow = page.getByRole('group', { name: 'Brand', exact: true });
     await settings(page);
-    const brands = card(page, 'Brands');
+    const brands = (await card(page, 'Brands'));
     const onForm = brands.getByRole('group', { name: 'Brands on the form' });
+    const toAdd = brands.getByRole('list', { name: 'Brands to add' });
     await expect(onForm).toContainText('Generic');
     await expect(onForm).toContainText('SUNLU');
 
-    // hide one
+    // nothing listed until something is typed
+    await expect(toAdd).toHaveCount(0);
+    // one letter: only brands starting with it, at most 12, none already on the form
+    await brands.getByLabel('Find a brand').fill('a');
+    await expect(toAdd.getByRole('listitem')).toHaveCount(12);
+    for (const name of await toAdd.locator('.bname').allTextContents()) expect(name.trim()[0].toLowerCase()).toBe('a');
+    await brands.getByLabel('Find a brand').fill('s');
+    await expect(toAdd).not.toContainText('SUNLU'); // already on the form
+
+    // remove one with ×: it can be found again
     await onForm.getByRole('button', { name: 'Hide SUNLU' }).click();
     await expect(onForm).not.toContainText('SUNLU');
-    // find and turn one on
+    await brands.getByLabel('Find a brand').fill('sun');
+    await expect(toAdd.getByRole('button', { name: 'Add SUNLU' })).toBeVisible();
+
+    // a tap adds it, and it leaves the list
     await brands.getByLabel('Find a brand').fill('elegoo');
-    const elegoo = brands.getByRole('switch', { name: /^Elegoo/ });
-    await expect(elegoo).toHaveAttribute('aria-checked', 'false');
-    await elegoo.click();
-    await expect(elegoo).toHaveAttribute('aria-checked', 'true');
+    await toAdd.getByRole('button', { name: 'Add Elegoo' }).click();
     await expect(onForm).toContainText('Elegoo');
+    await expect(brands.getByRole('button', { name: 'Add Elegoo' })).toHaveCount(0);
+
     // a name nobody lists
     await brands.getByLabel('Find a brand').fill('Zephyr');
+    await expect(brands).toContainText('No other brands start with “Zephyr”.');
     await brands.getByRole('button', { name: 'Add “Zephyr” as your own brand' }).click();
     await expect(onForm).toContainText('Zephyr');
 
@@ -78,15 +96,29 @@ test.describe('Settings', () => {
 
     // reset
     await settings(page);
-    await card(page, 'Brands').getByRole('button', { name: 'Show the default brands' }).click();
+    await (await card(page, 'Brands')).getByRole('button', { name: 'Show the default brands' }).click();
     await page.getByRole('tab', { name: 'Create' }).click();
     await expect(brandRow.getByRole('button', { name: 'SUNLU', exact: true })).toBeVisible();
     await expect(brandRow.getByRole('button', { name: 'Elegoo', exact: true })).toHaveCount(0);
   });
 
+  test('cards start closed, open with a tap, and stay open after a reload', async ({ page }) => {
+    await settings(page);
+    const about = page.locator('details.card', { has: page.getByRole('heading', { name: 'About' }) });
+    await expect(about).not.toHaveAttribute('open', /.*/);
+    await expect(about.getByRole('link', { name: 'Open Filament Database' })).toBeHidden();
+    await about.locator('summary').click();
+    await expect(about.getByRole('link', { name: 'Open Filament Database' })).toBeVisible();
+    await page.reload();
+    await settings(page);
+    await expect(about.getByRole('link', { name: 'Open Filament Database' })).toBeVisible();
+    await about.locator('summary').click();
+    await expect(about.getByRole('link', { name: 'Open Filament Database' })).toBeHidden();
+  });
+
   test('a read tag with a hidden brand shows it under Other…', async ({ page }) => {
     await settings(page);
-    await card(page, 'Brands').getByRole('group', { name: 'Brands on the form' }).getByRole('button', { name: 'Hide SUNLU' }).click();
+    await (await card(page, 'Brands')).getByRole('group', { name: 'Brands on the form' }).getByRole('button', { name: 'Hide SUNLU' }).click();
     await page.getByRole('tab', { name: 'Read & update' }).click();
     await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'PLA', brand: 'SUNLU', color_hex: 'FFFFFF' });
     await page.getByRole('button', { name: 'Read tag' }).click();
@@ -108,7 +140,7 @@ test.describe('Settings', () => {
     await page.getByLabel('Custom material').fill('PLA+');
     await page.getByRole('button', { name: 'Save material as a chip' }).click();
     await settings(page);
-    const chips = card(page, 'Your chips');
+    const chips = (await card(page, 'Your chips'));
     await expect(chips.getByRole('group', { name: 'Your materials' })).toContainText('PLA+');
     await chips.getByRole('button', { name: 'Remove PLA+' }).click();
     await expect(chips).toContainText('None yet');
@@ -121,7 +153,7 @@ test.describe('Settings', () => {
     await page.getByRole('group', { name: 'Color source' }).getByRole('button', { name: /^Custom/ }).click();
     await page.getByRole('button', { name: 'Save colors' }).click();
     await settings(page);
-    const saved = card(page, 'Saved colors');
+    const saved = (await card(page, 'Saved colors'));
     await expect(saved).toContainText('1 saved color');
     await expect(saved).toContainText('Polymaker PLA');
 
@@ -143,6 +175,7 @@ test.describe('Settings', () => {
 
   test('appearance: light, dark or follow the system, kept after a reload', async ({ page }) => {
     await settings(page);
+    await card(page, 'Appearance');
     const bg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
     await chip(page, 'Dark').click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
@@ -150,6 +183,7 @@ test.describe('Settings', () => {
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     await settings(page);
+    await card(page, 'Appearance');
     await chip(page, 'Light').click();
     expect(await bg()).toBe('rgb(230, 233, 237)');
     await chip(page, 'Follow the system').click();
@@ -158,7 +192,7 @@ test.describe('Settings', () => {
 
   test('about: version, specs and data sources', async ({ page }) => {
     await settings(page);
-    const about = card(page, 'About');
+    const about = (await card(page, 'About'));
     await expect(about).toContainText('FilaScribe');
     await expect(about.getByRole('link', { name: 'Open Filament Database' })).toBeVisible();
     await expect(about.getByRole('link', { name: 'OrcaSlicer’s filament profiles' })).toBeVisible();
