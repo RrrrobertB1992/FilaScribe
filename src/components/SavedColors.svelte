@@ -7,7 +7,10 @@
   // variants are still recorded, so an export stays readable by
   // PrintTag-Web-Rrrrobert, but nothing here uses them.)
   import { Capacitor } from '@capacitor/core';
+  import { onMount } from 'svelte';
   import * as SC from '../lib/savedColors.js';
+  import { canonicalBrand } from '../lib/brandColors.js';
+  import { loadBrandColors } from '../lib/brandColorsData.js';
 
   let {
     brand = '',
@@ -77,6 +80,15 @@
       renaming = false;
       userPicked = false;
     }
+  });
+
+  // Saved colors under an old spelling of a database brand ("eSun|PLA")
+  // move to its database name ("eSUN 3D|PLA"), the name the form now uses
+  onMount(async () => {
+    const db = await loadBrandColors().catch(() => null);
+    if (!db) return;
+    const next = SC.renameBrands(all, (b) => canonicalBrand(db, b));
+    if (next !== all) persist(next);
   });
 
   function persist(next) {

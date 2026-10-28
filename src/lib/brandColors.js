@@ -232,6 +232,32 @@ export function findBrand(db, brand) {
   return db.brands.find((b) => b.keys.includes(key)) || null;
 }
 
+/**
+ * The database's spelling of a brand ("esun" -> "eSUN 3D"), or the name as
+ * given (trimmed) when the database doesn't have it.
+ */
+export function canonicalBrand(db, brand) {
+  const b = findBrand(db, brand);
+  return b ? b.name : String(brand ?? '').trim();
+}
+
+/**
+ * Database brands for a typed name, best first: names or keys that start
+ * with it, then ones that contain it. Up to `limit`.
+ */
+export function suggestBrands(db, text, limit = 6) {
+  const q = norm(text);
+  if (!q || !db) return [];
+  const scored = [];
+  for (const b of db.brands) {
+    const all = [norm(b.name), ...b.keys];
+    const rank = all.some((k) => k === q) ? 0 : all.some((k) => k.startsWith(q)) ? 1 : all.some((k) => k.includes(q)) ? 2 : -1;
+    if (rank >= 0) scored.push({ rank, name: b.name });
+  }
+  scored.sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
+  return scored.slice(0, limit).map((s) => s.name);
+}
+
 /** Every line for a brand + material (FilaScribe names), before grouping. */
 export function linesForMaterial(db, brand, type) {
   const b = findBrand(db, brand);

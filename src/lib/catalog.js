@@ -19,7 +19,9 @@ export const MATERIALS = {
   'PA-CF': { minTemp: 250, maxTemp: 280, bedMinTemp: 70, bedMaxTemp: 90 },
 };
 
-export const BRANDS = ['Generic', 'Bambu Lab', 'Hatchbox', 'eSun', 'Overture', 'SUNLU', 'Polymaker', 'Prusament', 'Snapmaker', 'Jayo'];
+// Spelled as in the Open Filament Database (lib/brandColors.js canonicalBrand),
+// so a chip, a typed brand and a read tag all write the same name.
+export const BRANDS = ['Generic', 'Bambu Lab', 'Hatchbox', 'eSUN 3D', 'Overture', 'SUNLU', 'Polymaker', 'Prusament', 'Snapmaker', 'JAYO'];
 
 /**
  * Variants (the U1 "subtype"). '' means none: the field is left out. The

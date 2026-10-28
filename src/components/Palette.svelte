@@ -1,6 +1,9 @@
 <script>
   // A row of choice chips with an optional Custom chip that reveals a text box.
   // `value` is the chosen string; a value not in `items` counts as custom.
+  // With `suggest`, the text box offers matches while typing and only sets
+  // `value` when the text is done (a match tapped, Enter, or leaving the box),
+  // passing it through `commit` (e.g. to fix the spelling).
   let {
     label,
     items,
@@ -10,6 +13,8 @@
     hint = '',
     error = '',
     onpick = () => {},
+    suggest = null, // (text) => matching names, best first
+    commit = (text) => text.trim(),
   } = $props();
 
   const options = $derived(items.map((i) => (typeof i === 'string' ? { value: i, label: i || 'None' } : i)));
@@ -19,6 +24,9 @@
   const custom = $derived(allowCustom && (customOpen || !known));
   const id = `pal-${Math.random().toString(36).slice(2, 8)}`;
   let customInput = $state();
+  let draft = $state(value); // the text box while typing (with `suggest`)
+  let typing = $state(false);
+  const matches = $derived(suggest && typing ? suggest(draft).filter((m) => m !== draft) : []);
 
   // A value set from outside (e.g. a tag was read) closes a Custom box
   // that was only open by choice
@@ -26,6 +34,8 @@
     if (value !== ownValue) {
       ownValue = value;
       customOpen = false;
+      draft = value;
+      typing = false;
     }
   });
 
@@ -40,13 +50,40 @@
     customOpen = true;
     if (known) value = '';
     ownValue = value;
+    draft = value;
     onpick(value, true);
     queueMicrotask(() => customInput?.focus());
   }
 
   function typed() {
+    if (suggest) {
+      typing = true;
+      return;
+    }
     ownValue = value;
     onpick(value, true);
+  }
+
+  function done(text = draft) {
+    typing = false;
+    const v = commit(text);
+    draft = v;
+    if (v === value) return;
+    ownValue = v;
+    value = v;
+    // A typed name that is one of the chips becomes that chip
+    if (options.some((o) => o.value === v)) customOpen = false;
+    onpick(v, !options.some((o) => o.value === v));
+  }
+
+  function keydown(e) {
+    if (!suggest) return;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      done();
+    } else if (e.key === 'Escape') {
+      typing = false;
+    }
   }
 </script>
 
@@ -63,16 +100,40 @@
     {/if}
   </div>
   {#if custom}
-    <input
-      bind:this={customInput}
-      type="text"
-      bind:value
-      placeholder={customPlaceholder}
-      aria-label={`Custom ${label.toLowerCase()}`}
-      aria-invalid={!!error}
-      maxlength="40"
-      oninput={typed}
-    />
+    {#if suggest}
+      <input
+        bind:this={customInput}
+        type="text"
+        bind:value={draft}
+        placeholder={customPlaceholder}
+        aria-label={`Custom ${label.toLowerCase()}`}
+        aria-invalid={!!error}
+        maxlength="40"
+        autocomplete="off"
+        oninput={typed}
+        onkeydown={keydown}
+        onblur={() => done()}
+      />
+      {#if matches.length}
+        <div class="matches" role="group" aria-label="Suggestions">
+          {#each matches as m (m)}
+            <!-- mousedown: pick before the box's blur commits the half-typed text -->
+            <button type="button" class="match" onmousedown={(e) => e.preventDefault()} onclick={() => done(m)}>{m}</button>
+          {/each}
+        </div>
+      {/if}
+    {:else}
+      <input
+        bind:this={customInput}
+        type="text"
+        bind:value
+        placeholder={customPlaceholder}
+        aria-label={`Custom ${label.toLowerCase()}`}
+        aria-invalid={!!error}
+        maxlength="40"
+        oninput={typed}
+      />
+    {/if}
   {/if}
   {#if error}<p class="error-text">{error}</p>{:else if hint}<p class="hint">{hint}</p>{/if}
 </div>
@@ -88,6 +149,16 @@
     font-family: var(--font-label);
     font-weight: 500;
     font-size: 1rem;
+  }
+  .matches { display: flex; flex-wrap: wrap; gap: var(--s1); }
+  .match {
+    min-height: 34px;
+    padding: 0 var(--s3);
+    border-radius: 999px;
+    border: 1px dashed var(--line);
+    background: transparent;
+    font-family: var(--font-label);
+    font-size: 0.9375rem;
   }
   .chip[aria-pressed='true'] {
     background: var(--ink);

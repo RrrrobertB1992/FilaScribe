@@ -136,6 +136,25 @@ export function replaceColors(all, key, id, colors, style) {
   return { all: setEntries(all, key, entries), id: newId };
 }
 
+/**
+ * Rename brands in the keys (e.g. to the database's spelling), merging rows
+ * that end up under the same key. Returns `all` itself when nothing changes.
+ */
+export function renameBrands(all, rename) {
+  const split = (key) => [key.slice(0, key.indexOf('|')), key.slice(key.indexOf('|') + 1)];
+  const target = (brand) => rename(brand) || brand;
+  const keys = Object.keys(all);
+  if (keys.every((k) => target(split(k)[0]) === split(k)[0])) return all;
+  // Keys already spelled right go first, so their rows (and names) win a merge
+  const right = (k) => (target(split(k)[0]) === split(k)[0] ? 1 : 0);
+  let next = {};
+  for (const key of [...keys].sort((a, b) => right(b) - right(a))) {
+    const [brand, type] = split(key);
+    next = importInto(next, { [`${target(brand)}|${type}`]: all[key] }).all;
+  }
+  return next;
+}
+
 export const clearKey = (all, key) => setEntries(all, key, []);
 
 /**
