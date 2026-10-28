@@ -30,6 +30,102 @@ test.describe('Brand colors', () => {
     await expect(brand(page)).toContainText(/Showing Galaxy: \d+ colors from 2 lines/); // PLA Galaxy + PLA Sparkle
   });
 
+  test('variant chips are the ones the brand makes, in its own words', async ({ page }) => {
+    const variants = page.getByRole('group', { name: 'Variant' });
+    // Generic: the full default list
+    await expect(variants.getByRole('button', { name: 'SnapSpeed', exact: true })).toBeVisible();
+    await expect(variants.getByRole('button', { name: 'Metallic', exact: true })).toBeVisible();
+    // Bambu Lab PLA: no SnapSpeed or HF; Bambu calls it "Metal"
+    await chip(page, 'Bambu Lab').click();
+    await expect(variants.getByRole('button', { name: 'SnapSpeed', exact: true })).toHaveCount(0);
+    await expect(variants.getByRole('button', { name: 'HF', exact: true })).toHaveCount(0);
+    await expect(variants.getByRole('button', { name: 'Metallic', exact: true })).toHaveCount(0);
+    await variants.getByRole('button', { name: 'Metal', exact: true }).click();
+    await brand(page).getByRole('button', { name: 'Show' }).click();
+    await expect(brand(page)).toContainText('Brand colors for Bambu Lab PLA Metal');
+    await expect(brand(page)).toContainText('Showing Metal:');
+    await writeTag(page);
+    expect((await lastWrite(page)).subtype).toBe('Metal');
+    // Snapmaker PLA: SnapSpeed is there
+    await chip(page, 'Snapmaker').click();
+    await expect(variants.getByRole('button', { name: 'SnapSpeed', exact: true })).toBeVisible();
+  });
+
+  test('functional variants get their own chips: Aero, Tough+, shore hardness', async ({ page }) => {
+    const variants = page.getByRole('group', { name: 'Variant' });
+    await chip(page, 'Bambu Lab').click();
+    await expect(variants.getByRole('button', { name: 'Tough+', exact: true })).toBeVisible();
+    await variants.getByRole('button', { name: 'Aero', exact: true }).click();
+    await brand(page).getByRole('button', { name: 'Show' }).click();
+    await expect(brand(page)).toContainText('Brand colors for Bambu Lab PLA Aero');
+    await brand(page).locator('.tile').first().click();
+    await writeTag(page);
+    expect((await lastWrite(page)).subtype).toBe('Aero'); // not Basic
+    // TPU: each hardness is a chip
+    await chip(page, 'TPU').click();
+    for (const h of ['85A', '90A', '95A HF']) await expect(variants.getByRole('button', { name: h, exact: true })).toBeVisible();
+  });
+
+  test('PLA+ spools have a Plus chip', async ({ page }) => {
+    const variants = page.getByRole('group', { name: 'Variant' });
+    await chip(page, 'eSun').click();
+    await variants.getByRole('button', { name: 'Plus', exact: true }).click();
+    await brand(page).getByRole('button', { name: 'Show' }).click();
+    await expect(brand(page)).toContainText('Brand colors for eSun PLA Plus');
+    await brand(page).locator('.tile').first().click();
+    await writeTag(page);
+    expect((await lastWrite(page)).subtype).toBe('Plus');
+  });
+
+  test('changing brand keeps the variant only if it still fits', async ({ page }) => {
+    const variants = page.getByRole('group', { name: 'Variant' });
+    const pressed = (name) => variants.getByRole('button', { name, exact: true });
+    // the reported case: Sunlu PLA Rainbow -> Snapmaker (no multi-color PLA) -> None
+    await chip(page, 'SUNLU').click();
+    await pressed('Rainbow').click();
+    await chip(page, 'Snapmaker').click();
+    await expect(pressed('None')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByLabel('Custom variant')).toHaveCount(0);
+    // the same kind under the new brand's word: Bambu "Metal" -> Polymaker "Metallic"
+    await chip(page, 'Bambu Lab').click();
+    await pressed('Metal').click();
+    await chip(page, 'Polymaker').click();
+    await expect(pressed('Metallic')).toHaveAttribute('aria-pressed', 'true');
+    // a chip both brands have stays
+    await pressed('Matte').click();
+    await chip(page, 'Bambu Lab').click();
+    await expect(pressed('Matte')).toHaveAttribute('aria-pressed', 'true');
+    // Generic has the full list
+    await pressed('Metal').click();
+    await chip(page, 'Generic').click();
+    await expect(pressed('Metallic')).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('changing brand keeps a variant your saved colors use for it', async ({ page }) => {
+    const variants = page.getByRole('group', { name: 'Variant' });
+    // save colors for Snapmaker PLA under the Custom variant "Rainbow"
+    await chip(page, 'Snapmaker').click();
+    await variants.getByRole('button', { name: 'Custom' }).click();
+    await page.getByLabel('Custom variant').fill('Rainbow');
+    await page.locator('.saved').getByRole('button', { name: 'Save current colors' }).click();
+    // Sunlu PLA Rainbow -> Snapmaker keeps it
+    await chip(page, 'SUNLU').click();
+    await variants.getByRole('button', { name: 'Rainbow', exact: true }).click();
+    await chip(page, 'Snapmaker').click();
+    await expect(page.getByLabel('Custom variant')).toHaveValue('Rainbow');
+  });
+
+  test('a subtype the brand doesn’t list stays, as Custom', async ({ page }) => {
+    await page.getByRole('tab', { name: 'Read & update' }).click();
+    await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'PLA', brand: 'Bambu Lab', subtype: 'SnapSpeed', color_hex: '000000' });
+    await page.getByRole('button', { name: 'Read tag' }).click();
+    await expect(page.getByRole('dialog')).toBeHidden();
+    await expect(page.getByLabel('Custom variant')).toHaveValue('SnapSpeed');
+    await page.getByRole('button', { name: 'Update tag' }).click();
+    await expect(page.getByRole('dialog')).toBeHidden();
+    expect((await lastWrite(page)).subtype).toBe('SnapSpeed');
+  });
+
   test('no variant shows Basic', async ({ page }) => {
     await open(page, 'Bambu Lab', 'None');
     await expect(brand(page)).toContainText('Showing Basic (no variant)');
@@ -48,7 +144,12 @@ test.describe('Brand colors', () => {
   });
 
   test('when a group is empty, Show all lists every line', async ({ page }) => {
-    await open(page, 'Polymaker', 'Marble');
+    // Polymaker makes no marble PLA, so Marble isn't a chip; typed as Custom it finds nothing
+    await chip(page, 'Polymaker').click();
+    await expect(page.getByRole('group', { name: 'Variant' }).getByRole('button', { name: 'Marble', exact: true })).toHaveCount(0);
+    await page.getByRole('group', { name: 'Variant' }).getByRole('button', { name: 'Custom' }).click();
+    await page.getByLabel('Custom variant').fill('Marble');
+    await brand(page).getByRole('button', { name: 'Show' }).click();
     await expect(brand(page)).toContainText('Polymaker PLA has no Marble colors.');
     await brand(page).getByRole('button', { name: 'Show all Polymaker PLA lines' }).click();
     await expect(brand(page)).toContainText('Showing every line');

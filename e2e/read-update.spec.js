@@ -1,4 +1,4 @@
-import { test, expect, placeTag, lastWrite, writeCount, chip, status, temps } from './nfc.js';
+import { test, expect, colorStyle, placeTag, lastWrite, writeCount, chip, status, temps } from './nfc.js';
 
 const U1_TAG = {
   protocol: 'openspool', version: '1.0', type: 'PETG', subtype: 'Rapid', color_hex: '#AFAFAF',
@@ -28,9 +28,10 @@ test.describe('Read & update', () => {
     await expect(chip(page, 'OpenSpool + Snapmaker U1 fields')).toHaveAttribute('aria-pressed', 'true');
     await expect(chip(page, 'PETG')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByLabel('Custom brand')).toHaveValue('Elegoo');
-    await expect(page.getByLabel('Custom variant')).toHaveValue('Rapid');
+    // Elegoo makes "Rapid" PETG, so it's one of Elegoo's variant chips
+    await expect(page.getByRole('group', { name: 'Variant' }).getByRole('button', { name: 'Rapid', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByRole('button', { name: /^Color \d,/ })).toHaveCount(3);
-    await expect(chip(page, 'Gradient')).toHaveAttribute('aria-pressed', 'true');
+    await expect(colorStyle(page, 'Gradient')).toHaveAttribute('aria-pressed', 'true');
     await expect(temps(page, 'Nozzle').min).toHaveValue('230');
     await expect(temps(page, 'Bed').max).toHaveValue('80');
     await expect(page.locator('.notice')).toContainText('Not in the spec: spool_id.');
@@ -40,7 +41,7 @@ test.describe('Read & update', () => {
   test('updates the tag and drops undocumented fields', async ({ page }) => {
     await placeTag(page, U1_TAG);
     await readTag(page);
-    await chip(page, 'HF').click();
+    await chip(page, 'Translucent').click(); // one of Elegoo's PETG variants
     await page.getByRole('button', { name: 'Update tag' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
     await expect(status(page)).toHaveText('Tag written.');
@@ -48,7 +49,7 @@ test.describe('Read & update', () => {
     expect(data).toEqual({
       protocol: 'openspool', version: '1.0', type: 'PETG', color_hex: 'AFAFAF',
       additional_color_hexes: ['EEFFEE', 'FF00FF'], color_type: 0, brand: 'Elegoo',
-      min_temp: '230', max_temp: '260', bed_min_temp: '70', bed_max_temp: '80', subtype: 'HF',
+      min_temp: '230', max_temp: '260', bed_min_temp: '70', bed_max_temp: '80', subtype: 'Translucent',
     });
     await expect(page.locator('.notice')).toBeHidden();
   });

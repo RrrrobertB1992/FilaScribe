@@ -24,9 +24,30 @@ The multi-color fields and `color_type` match PrintTag-Web-Rrrrobert. Saved colo
 ## Brand colors
 
 Pick a brand and material, and optionally a variant, then open **Brand colors** to choose a named color from that brand's real lineup, like Bambu Lab PLA Basic "Jade White". It works like Saved colors, but read-only:
-- **Grouped by variant.** Every filament line belongs to one group, and each group is a variant chip:
-  - the original chips: Basic, Matte, SnapSpeed, Silk, Support, HF, 95A, 95A HF;
-  - common finishes: Wood, Marble, Galaxy, Glow, Metallic, Multi-color, Fluorescent, Translucent, Color change.
+- **Variant chips follow the brand.** For a brand in the database, the Variant row only shows the variants that brand makes in that material, in the brand's own words. Bambu Lab PLA shows Basic, Matte, Silk, Wood, Marble, Galaxy, Glow, **Metal** and Translucent, with no SnapSpeed or HF. Snapmaker PLA includes SnapSpeed and Support. Sunlu says **High Speed** and **Transparent**, and eSun says **Luminous**. Generic, a Custom brand not in the database, or a material the brand doesn't make shows the full default list:
+  - Basic, Plus, Matte, SnapSpeed, Silk, Support, HF, 95A, 95A HF;
+  - Wood, Marble, Galaxy, Glow, Metallic, Multi-color, Fluorescent, Translucent, Color change.
+
+  None and Custom are always there. When you change the brand or material, the variant stays only if it still fits:
+  - a chip the new brand has stays as it is;
+  - the same kind of variant switches to the new brand's word, e.g. Bambu "Metal" becomes Polymaker "Metallic";
+  - a variant your Saved colors use for that brand and material stays;
+  - anything else goes back to None.
+
+  Reading a tag never changes its subtype. One the brand doesn't list, like SnapSpeed on a Bambu tag, shows in the Custom box and is written back unchanged.
+- **Functional variants get their own chips,** for brands that make them. They aren't in Generic's default list:
+  - **Lightweight:** Aero / LW / Light Weight / Air, foaming filaments;
+  - **Tough** and Tough+;
+  - **CF** and **GF:** carbon and glass fiber, in materials without a -CF chip, like ASA CF or PC-CF;
+  - **FR:** FR / V0 / Flame Retardant;
+  - **ESD:** ESD / static dissipative / conductive;
+  - **HT:** high temp;
+  - **Recycled**;
+  - **Plus** (PLA+, PLA Plus, ABS+, PETG+…). This one is also in Generic's default list;
+  - **every shore hardness:** 85A, 90A, 98A…, with an HF version for high-flow TPU.
+
+  So Bambu Lab PLA Aero writes `"subtype": "Aero"` instead of being lumped in with Basic.
+- **Grouped by variant.** Every filament line belongs to one group, and each chip is a group. A chip uses the brand's own word for its group when the brand's lines in it agree on one, such as Metal, Sparkle, Luminous, Transparent, Neon, High Speed, Rapid or Rainbow. Otherwise it uses the group name. That word is what's written as the subtype, so the U1 names the spool "Bambu Lab PLA Metal".
 - **How lines are grouped:**
   - Lines are grouped by their name ("wood", "sparkle", "neon", "dual-color"…), with the database's finish tags as a fallback.
   - A finish wins over multi-color, so "Silk PLA+ Dual-Color" is Silk, and over high speed, so "High Speed Matte PLA" is Matte.

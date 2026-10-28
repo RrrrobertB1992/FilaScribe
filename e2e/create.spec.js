@@ -1,4 +1,4 @@
-import { test, expect, lastWrite, writeCount, chip, writeTag, status, temps, unpickSaved } from './nfc.js';
+import { test, expect, colorStyle, lastWrite, writeCount, chip, writeTag, status, temps, unpickSaved } from './nfc.js';
 
 test.describe('Create', () => {
   test('writes the default tag', async ({ page }) => {
@@ -58,7 +58,7 @@ test.describe('Create', () => {
     await page.locator('#hex-input').fill('00FF00');
     await page.getByRole('button', { name: 'Add a color' }).click();
     await page.locator('#hex-input').fill('#0000ff');
-    await chip(page, 'Gradient').click();
+    await colorStyle(page, 'Gradient').click();
     await expect(page.getByLabel('Tag preview')).toContainText('3 colors, gradient');
     await writeTag(page);
     expect(await lastWrite(page)).toMatchObject({
@@ -67,7 +67,7 @@ test.describe('Create', () => {
 
     // The write saved and picked these colors, which hides the pickers; un-pick to edit
     await unpickSaved(page);
-    await chip(page, 'Segments').click();
+    await colorStyle(page, 'Segments').click();
     await writeTag(page);
     const data = await lastWrite(page);
     expect(data.additional_color_hexes).toEqual(['00FF00', '0000FF']);

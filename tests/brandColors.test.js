@@ -42,7 +42,7 @@ describe('brand colors: groups', () => {
     const g = (name, traits = '') => BC.groupOf({ name, traits });
     expect(g('PLA Basic')).toBe('Basic');
     expect(g('PLA Basic Gradient')).toBe('Basic');
-    expect(g('PLA+ 2.0')).toBe('Basic');
+    expect(g('PLA+ 2.0')).toBe('Plus');
     expect(g('PLA Wood')).toBe('Wood');
     expect(g('Real Wood Fiber PLA')).toBe('Wood');
     expect(g('Silk PLA+ Dual-Color')).toBe('Silk');
@@ -123,6 +123,177 @@ describe('brand colors: groups', () => {
     expect(BC.findColor(DB, { brand: 'Acme', type: 'PLA', variant: 'Matte' }, ['FFFFFF']).line.name).toBe('PLA Matte');
     expect(BC.findColor(DB, { brand: 'Acme', type: 'PLA', variant: 'Basic' }, ['FFFFFF']).line.name).toBe('PLA Basic');
     expect(BC.findColor(snapshot, { brand: 'Bambu Lab', type: 'PLA', variant: 'Basic' }, ['FFFFFF']).entry[0]).toBe('Jade White'); // not Aero's White
+  });
+});
+
+describe('brand colors: variant chips per brand', () => {
+  const brandDb = (lines) => ({ source: {}, brands: [{ name: 'Acme', keys: ['acme'], materials: { PLA: lines } }] });
+
+  it('only lists the groups the brand has, in the usual order, with None first', () => {
+    expect(BC.variantChoices(DB, 'Acme', 'PLA')).toEqual(['', 'Basic', 'Matte', 'Silk', 'High Speed', 'Galaxy']); // its HF line is "High Speed PLA"
+    expect(BC.variantChoices(DB, 'Acme', 'TPU')).toEqual(['', '95A', '95A HF']);
+  });
+
+  it('falls back to the full default list for unknown brands, materials, or no data', () => {
+    expect(BC.variantChoices(DB, 'Generic', 'PLA')).toBe(VARIANTS);
+    expect(BC.variantChoices(DB, 'Acme', 'ASA')).toBe(VARIANTS);
+    expect(BC.variantChoices(null, 'Acme', 'PLA')).toBe(VARIANTS);
+  });
+
+  it('uses the brand’s own word when its lines in a group agree on one', () => {
+    const db = brandDb([line('PLA Metal'), line('PLA Luminous'), line('Transparent Clear PLA'), line('Neon PLA')]);
+    expect(BC.variantChoices(db, 'Acme', 'PLA')).toEqual(['', 'Luminous', 'Metal', 'Neon', 'Transparent']);
+  });
+
+  it('keeps the group name when lines use different words, or none', () => {
+    const db = brandDb([line('PLA Galaxy'), line('PLA Sparkle'), line('Velvet PLA', 'm')]);
+    expect(BC.variantChoices(db, 'Acme', 'PLA')).toEqual(['', 'Matte', 'Galaxy']);
+  });
+
+  it('a brand word picks its group, as a chip or typed as Custom', () => {
+    const db = brandDb([line('PLA Metal'), line('PLA Basic')]);
+    expect(names(BC.linesFor(db, { brand: 'Acme', type: 'PLA', variant: 'Metal' }))).toEqual(['PLA Metal']);
+    expect(names(BC.linesFor(db, { brand: 'Acme', type: 'PLA', variant: 'metallic' }))).toEqual(['PLA Metal']);
+    expect(BC.suggestedVariant(db.brands[0].materials.PLA[0], db, 'Acme', 'PLA')).toBe('Metal');
+    expect(BC.suggestedVariant(db.brands[0].materials.PLA[0])).toBe('Metallic'); // without data: the group name
+  });
+
+  it('real brands', () => {
+    const chips = (b, m) => BC.variantChoices(snapshot, b, m);
+    expect(chips('Bambu Lab', 'PLA')).toContain('Metal');
+    expect(chips('Bambu Lab', 'PLA')).not.toContain('SnapSpeed');
+    expect(chips('Bambu Lab', 'PLA')).not.toContain('Metallic');
+    expect(chips('Snapmaker', 'PLA')).toContain('SnapSpeed');
+    expect(chips('Bambu Lab', 'PETG')).toEqual(['', 'Basic', 'Matte', 'HF', 'Translucent']);
+    expect(chips('SUNLU', 'PLA')).toContain('Transparent');
+    // every chip shown has colors
+    for (const [b, m] of [['Bambu Lab', 'PLA'], ['SUNLU', 'PLA'], ['eSun', 'PLA'], ['Polymaker', 'PLA']]) {
+      for (const v of chips(b, m).filter(Boolean)) {
+        expect(BC.linesFor(snapshot, { brand: b, type: m, variant: v }).lines.length, `${b} ${m} ${v}`).toBeGreaterThan(0);
+      }
+    }
+  });
+});
+
+describe('brand colors: keeping the variant when the brand changes', () => {
+  const carry = (v, brand, type = 'PLA', keep = []) => BC.carryVariant(snapshot, v, brand, type, keep);
+
+  it('keeps a chip the new brand has', () => {
+    expect(carry('Matte', 'Snapmaker')).toBe('Matte');
+    expect(carry('SnapSpeed', 'Snapmaker')).toBe('SnapSpeed');
+  });
+
+  it('switches to the new brand’s word for the same kind', () => {
+    expect(carry('Metal', 'Polymaker')).toBe('Metallic');
+    expect(carry('Metallic', 'Bambu Lab')).toBe('Metal');
+    expect(carry('Rainbow', 'Generic')).toBe('Multi-color');
+  });
+
+  it('goes to None when the new brand has nothing that matches', () => {
+    expect(carry('Rainbow', 'Snapmaker')).toBe(''); // the reported case
+    expect(carry('SnapSpeed', 'Bambu Lab')).toBe('');
+    expect(carry('PolyTerra', 'Bambu Lab')).toBe('');
+    expect(carry('', 'Bambu Lab')).toBe('');
+  });
+
+  it('keeps a variant saved colors use for the new brand + material', () => {
+    expect(carry('Rainbow', 'Snapmaker', 'PLA', ['Rainbow'])).toBe('Rainbow');
+  });
+});
+
+describe('brand colors: edge cases from the database', () => {
+  const g = (name, traits = '', opts) => BC.groupOf({ name, traits }, opts);
+
+  it('lightweight (foaming) lines are their own group, in the brand’s word', () => {
+    for (const n of ['PLA Aero', 'ASA-Aero', 'PLA-LW', 'LW PolyLite PLA', 'PLA Light Weight', 'ASA Light-Weight', 'PLA Air', 'ASA ApolloX Foaming', 'LW-HT PLA']) {
+      expect(g(n), n).toBe('Lightweight');
+    }
+    expect(g('PETG Graphene Light')).toBe('Basic'); // "light" alone isn't lightweight
+    const chips = BC.variantChoices(snapshot, 'Bambu Lab', 'PLA');
+    expect(chips).toContain('Aero');
+    expect(BC.variantChoices(snapshot, 'eSun', 'PLA')).toContain('LW');
+  });
+
+  it('tough, flame retardant, ESD, high-temp and recycled lines', () => {
+    expect(g('PLA Tough+')).toBe('Tough');
+    expect(g('PETG-Tough')).toBe('Tough');
+    expect(g('PC FR')).toBe('FR');
+    expect(g('PETG V0')).toBe('FR');
+    expect(g('Premium PETG Flame Retardant')).toBe('FR');
+    expect(g('ABS 3DXStat ESD')).toBe('ESD');
+    expect(g('Static Dissipative PLA')).toBe('ESD');
+    expect(g('HT-PLA')).toBe('HT');
+    expect(g('LUVOCOM 3F PAHT 9825')).toBe('HT');
+    expect(g('PLA Recycled')).toBe('Recycled');
+    expect(BC.variantChoices(snapshot, 'Bambu Lab', 'PLA')).toContain('Tough+');
+    expect(BC.variantChoices(snapshot, 'Prusament', 'PETG')).toContain('V0');
+  });
+
+  it('carbon and glass fiber lines in materials without a -CF chip', () => {
+    expect(g('ASA CF')).toBe('CF');
+    expect(g('PC-CF10')).toBe('CF');
+    expect(g('PETG Carbon')).toBe('CF');
+    expect(g('ABS GF10')).toBe('GF');
+    expect(g('PA6 NylonPower Glass Fibre')).toBe('GF');
+    expect(g('Rigid X', 'cf')).toBe('CF'); // by tag
+    // the -CF chips are all fiber already, so fiber isn't a group there
+    expect(g('PLA-CF', 'cf', { skipFiber: true })).toBe('Basic');
+    expect(g('Matte PLA-CF', 'cf', { skipFiber: true })).toBe('Matte');
+    expect(BC.variantChoices(snapshot, 'Bambu Lab', 'PLA-CF')).not.toContain('CF');
+  });
+
+  it('every shore hardness is its own chip, in order', () => {
+    expect(g('TPU 85A')).toBe('85A');
+    expect(g('Flex 93A TPU')).toBe('93A');
+    expect(g('TPU 95A HF')).toBe('95A HF');
+    expect(g('Rapid TPU 95A')).toBe('95A HF');
+    expect(g('95A High Speed TPU')).toBe('95A HF');
+    expect(BC.variantChoices(snapshot, 'Bambu Lab', 'TPU')).toEqual(['', 'Basic', '85A', '90A', '95A HF']);
+    expect(names(BC.linesFor(snapshot, { brand: 'Bambu Lab', type: 'TPU', variant: '90A' }))).toEqual(['TPU 90A']);
+  });
+
+  it('PLA+ / Plus lines are Plus, unless something else matters more', () => {
+    const g = (name) => BC.groupOf({ name, traits: '' });
+    for (const n of ['PLA+', 'PLA Plus', 'Ender PLA+', 'PLA+ 2.0', 'ABS+', 'PETG+', 'Plus PLA']) expect(g(n), n).toBe('Plus');
+    expect(g('Silk PLA+')).toBe('Silk');
+    expect(g('Matte PLA+')).toBe('Matte');
+    expect(g('PLA+ High-Speed')).toBe('HF');
+    expect(g('ePLA+HS')).toBe('HF');
+    expect(g('Tough Pro PLA+')).toBe('Tough');
+    expect(g('ABS+CF')).toBe('CF');
+    for (const b of ['Elegoo', 'Creality', 'eSun', 'SUNLU']) expect(BC.variantChoices(snapshot, b, 'PLA'), b).toContain('Plus');
+    expect(names(BC.linesFor(snapshot, { brand: 'SUNLU', type: 'PLA', variant: 'Plus' }))).toEqual(['PLA+', 'PLA+ 2.0']);
+    expect(names(BC.linesFor(snapshot, { brand: 'SUNLU', type: 'PLA', variant: '' }))).not.toContain('PLA+');
+    expect(VARIANTS).toContain('Plus'); // in Generic's default list too
+  });
+
+  it('"Matt" spelling is Matte', () => {
+    expect(g('PLA MATT')).toBe('Matte');
+    expect(g('PLA NX2 Matt')).toBe('Matte');
+  });
+
+  it('extra groups come after the default chips', () => {
+    const chips = BC.variantChoices(snapshot, 'Bambu Lab', 'PLA');
+    expect(chips.indexOf('Aero')).toBeGreaterThan(chips.indexOf('Translucent'));
+    expect(chips.indexOf('Tough+')).toBeGreaterThan(chips.indexOf('Aero'));
+  });
+
+  it('a brand change carries extra groups across brands’ words', () => {
+    expect(BC.carryVariant(snapshot, 'Aero', 'Polymaker', 'PLA')).toBe('LW');
+    expect(BC.carryVariant(snapshot, 'Aero', 'Snapmaker', 'PLA')).toBe('');
+    expect(BC.carryVariant(snapshot, '85A', 'Bambu Lab', 'TPU')).toBe('85A');
+  });
+
+  it('every chip for every brand and material has colors', () => {
+    for (const b of snapshot.brands) {
+      for (const m of Object.keys(b.materials)) {
+        const chips = BC.variantChoices(snapshot, b.name, m);
+        if (chips === VARIANTS) continue; // no lines for this chip (e.g. only fiber lines): the default list
+        for (const v of chips.filter(Boolean)) {
+          expect(BC.linesFor(snapshot, { brand: b.name, type: m, variant: v }).lines.length, `${b.name} ${m} ${v}`).toBeGreaterThan(0);
+        }
+      }
+    }
   });
 });
 

@@ -124,3 +124,7 @@ export async function unpickSaved(page) {
   await panel.getByRole('button', { pressed: true }).click();
   await expect(page.locator('#hex-input')).toBeVisible();
 }
+
+/** Gradient / Segments under Multi-color style (a brand may also have a "Gradient" variant). */
+export const colorStyle = (page, name) =>
+  page.getByRole('group', { name: 'Multi-color style' }).getByRole('button', { name, exact: true });
