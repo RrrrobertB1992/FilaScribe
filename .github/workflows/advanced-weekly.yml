@@ -1,0 +1,56 @@
+# Weekly (and on demand): harder versions of the advanced tests.
+#  - fuzz tests with 20,000 random inputs each instead of 500
+#  - U1 reader compatibility against the latest firmware and OpenRFID
+#    (main), not the pinned commits. If this fails while the PR tests
+#    pass, an upstream change affects FilaScribe tags: check it, then
+#    update the pins in tests/compat/fetch-readers.sh.
+# GitHub emails the repo owner when a scheduled run fails.
+name: Advanced tests (weekly)
+
+on:
+  schedule:
+    - cron: '17 11 * * 1' # Mondays, 7:17 New York time (during daylight saving)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    name: Fuzz (20,000 runs)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Fuzz and round-trip tests
+        env:
+          FUZZ_RUNS: '20000'
+        run: npx vitest run tests/fuzz.test.js
+
+  readers-latest:
+    name: U1 readers (latest main)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install
+        run: |
+          npm ci
+          pip install pytest
+      - name: Read FilaScribe tags with the latest U1 readers
+        env:
+          FIRMWARE_REF: main
+          OPENRFID_REF: main
+        run: npm run test:readers

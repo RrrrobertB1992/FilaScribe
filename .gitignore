@@ -3,6 +3,9 @@ dist/
 *.log
 test-results/
 playwright-report/
+.readers/
+tests/compat/out/
+__pycache__/
 .DS_Store
 
 # Android build output (the android/ project itself is committed)

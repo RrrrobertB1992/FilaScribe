@@ -8,7 +8,7 @@
   import TagDetails from './components/TagDetails.svelte';
   import * as OpenSpool from './lib/formats/openspool.js';
   import { MATERIALS, BRANDS, VARIANTS } from './lib/catalog.js';
-  import { encodeMessage, mimeRecord, type2Footprint, NTAG, TNF } from './lib/ndef.js';
+  import { encodeMessage, mimeRecord, maxMessageSize, NTAG, TNF } from './lib/ndef.js';
   import { getNfc } from './lib/nfc/index.js';
 
   const nfc = getNfc();
@@ -40,15 +40,9 @@
   // Room on the tag for an NDEF message: what the phone reported, else an
   // NTAG215 (the smallest tag OpenSpool supports)
   const capacity = $derived(
-    loaded?.tag?.maxNdefSize ?? (loaded?.tag?.chip && NTAG[loaded.tag.chip] ? ndefRoom(NTAG[loaded.tag.chip].userBytes) : ndefRoom(NTAG.NTAG215.userBytes)),
+    loaded?.tag?.maxNdefSize ?? maxMessageSize((NTAG[loaded?.tag?.chip] || NTAG.NTAG215).userBytes),
   );
-  const capacityLabel = $derived(loaded?.tag?.maxNdefSize != null ? 'this tag' : loaded?.tag?.chip || 'NTAG215');
-  function ndefRoom(userBytes) {
-    // largest message whose TLV footprint still fits
-    let n = userBytes;
-    while (n > 0 && type2Footprint(n) > userBytes) n--;
-    return n;
-  }
+  const capacityLabel = $derived(loaded?.tag?.maxNdefSize != null ? 'this tag' : NTAG[loaded?.tag?.chip] ? loaded.tag.chip : 'NTAG215');
 
   const visibleColors = $derived(OpenSpool.usedColors(form).map((c, i) => c || form.colors[i] || 'FFFFFF'));
   const gradient = $derived(u1 && visibleColors.length > 1 && form.colorType === '0');
