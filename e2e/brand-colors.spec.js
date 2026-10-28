@@ -51,6 +51,44 @@ test.describe('Brand colors', () => {
     await expect(variants.getByRole('button', { name: 'SnapSpeed', exact: true })).toBeVisible();
   });
 
+  test('changing brand keeps the variant only if it still fits', async ({ page }) => {
+    const variants = page.getByRole('group', { name: 'Variant' });
+    const pressed = (name) => variants.getByRole('button', { name, exact: true });
+    // the reported case: Sunlu PLA Rainbow -> Snapmaker (no multi-color PLA) -> None
+    await chip(page, 'SUNLU').click();
+    await pressed('Rainbow').click();
+    await chip(page, 'Snapmaker').click();
+    await expect(pressed('None')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByLabel('Custom variant')).toHaveCount(0);
+    // the same kind under the new brand's word: Bambu "Metal" -> Polymaker "Metallic"
+    await chip(page, 'Bambu Lab').click();
+    await pressed('Metal').click();
+    await chip(page, 'Polymaker').click();
+    await expect(pressed('Metallic')).toHaveAttribute('aria-pressed', 'true');
+    // a chip both brands have stays
+    await pressed('Matte').click();
+    await chip(page, 'Bambu Lab').click();
+    await expect(pressed('Matte')).toHaveAttribute('aria-pressed', 'true');
+    // Generic has the full list
+    await pressed('Metal').click();
+    await chip(page, 'Generic').click();
+    await expect(pressed('Metallic')).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('changing brand keeps a variant your saved colors use for it', async ({ page }) => {
+    const variants = page.getByRole('group', { name: 'Variant' });
+    // save colors for Snapmaker PLA under the Custom variant "Rainbow"
+    await chip(page, 'Snapmaker').click();
+    await variants.getByRole('button', { name: 'Custom' }).click();
+    await page.getByLabel('Custom variant').fill('Rainbow');
+    await page.locator('.saved').getByRole('button', { name: 'Save current colors' }).click();
+    // Sunlu PLA Rainbow -> Snapmaker keeps it
+    await chip(page, 'SUNLU').click();
+    await variants.getByRole('button', { name: 'Rainbow', exact: true }).click();
+    await chip(page, 'Snapmaker').click();
+    await expect(page.getByLabel('Custom variant')).toHaveValue('Rainbow');
+  });
+
   test('a subtype the brand doesn’t list stays, as Custom', async ({ page }) => {
     await page.getByRole('tab', { name: 'Read & update' }).click();
     await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'PLA', brand: 'Bambu Lab', subtype: 'SnapSpeed', color_hex: '000000' });

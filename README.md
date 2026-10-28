@@ -28,7 +28,13 @@ Pick a brand and material, and optionally a variant, then open **Brand colors** 
   - Basic, Matte, SnapSpeed, Silk, Support, HF, 95A, 95A HF;
   - Wood, Marble, Galaxy, Glow, Metallic, Multi-color, Fluorescent, Translucent, Color change.
 
-  None and Custom are always there. A tag's subtype that the brand doesn't list, like SnapSpeed on a Bambu tag, shows in the Custom box and is written back unchanged.
+  None and Custom are always there. When you change the brand or material, the variant stays only if it still fits:
+  - a chip the new brand has stays as it is;
+  - the same kind of variant switches to the new brand's word, e.g. Bambu "Metal" becomes Polymaker "Metallic";
+  - a variant your Saved colors use for that brand and material stays;
+  - anything else goes back to None.
+
+  Reading a tag never changes its subtype. One the brand doesn't list, like SnapSpeed on a Bambu tag, shows in the Custom box and is written back unchanged.
 - **Grouped by variant.** Every filament line belongs to one group, and each chip is a group. A chip uses the brand's own word for its group when the brand's lines in it agree on one, such as Metal, Sparkle, Luminous, Transparent, Neon, High Speed, Rapid or Rainbow. Otherwise it uses the group name. That word is what's written as the subtype, so the U1 names the spool "Bambu Lab PLA Metal".
 - **How lines are grouped:**
   - Lines are grouped by their name ("wood", "sparkle", "neon", "dual-color"…), with the database's finish tags as a fallback.

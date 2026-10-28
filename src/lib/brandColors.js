@@ -119,6 +119,21 @@ export function variantChoices(db, brand, type) {
   return ['', ...labels];
 }
 
+/**
+ * The variant to keep when the brand or material changes: the same chip if
+ * the new brand has it, the new brand's word for the same group ("Metal" ->
+ * "Metallic"), or one of `keep` (variants saved colors use for the new brand
+ * + material); otherwise '' (None).
+ */
+export function carryVariant(db, variant, brand, type, keep = []) {
+  const v = String(variant ?? '').trim();
+  if (!v) return '';
+  const choices = variantChoices(db, brand, type);
+  if (choices.includes(v) || keep.includes(v)) return v;
+  const group = groupKey(v);
+  return (group && choices.find((c) => c && groupKey(c) === group)) || '';
+}
+
 /** The database brand for a FilaScribe brand name, or null. */
 export function findBrand(db, brand) {
   const key = norm(brand);

@@ -175,6 +175,32 @@ describe('brand colors: variant chips per brand', () => {
   });
 });
 
+describe('brand colors: keeping the variant when the brand changes', () => {
+  const carry = (v, brand, type = 'PLA', keep = []) => BC.carryVariant(snapshot, v, brand, type, keep);
+
+  it('keeps a chip the new brand has', () => {
+    expect(carry('Matte', 'Snapmaker')).toBe('Matte');
+    expect(carry('SnapSpeed', 'Snapmaker')).toBe('SnapSpeed');
+  });
+
+  it('switches to the new brand’s word for the same kind', () => {
+    expect(carry('Metal', 'Polymaker')).toBe('Metallic');
+    expect(carry('Metallic', 'Bambu Lab')).toBe('Metal');
+    expect(carry('Rainbow', 'Generic')).toBe('Multi-color');
+  });
+
+  it('goes to None when the new brand has nothing that matches', () => {
+    expect(carry('Rainbow', 'Snapmaker')).toBe(''); // the reported case
+    expect(carry('SnapSpeed', 'Bambu Lab')).toBe('');
+    expect(carry('PolyTerra', 'Bambu Lab')).toBe('');
+    expect(carry('', 'Bambu Lab')).toBe('');
+  });
+
+  it('keeps a variant saved colors use for the new brand + material', () => {
+    expect(carry('Rainbow', 'Snapmaker', 'PLA', ['Rainbow'])).toBe('Rainbow');
+  });
+});
+
 describe('brand colors: merging look-alikes', () => {
   const lineA = line('PLA Wood', '', [['Walnut', '5C4033', '', ''], ['Pine', 'E3C08D', '', '']]);
   const lineB = line('Real Wood Fiber PLA', '', [['walnut', '604236', '', ''], ['Pine', '3A5F0B', '', ''], ['Oak', 'B5835A', '', '']]);
