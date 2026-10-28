@@ -232,9 +232,36 @@ export function findBrand(db, brand) {
   return db.brands.find((b) => b.keys.includes(key)) || null;
 }
 
+// OrcaSlicer vendor names that the Open Filament Database calls something else
+const ORCA_ALIASES = { prusapolymers: ['prusament'], qidi: ['qiditech'] };
+
 /**
- * The database's spelling of a brand ("esun" -> "eSUN 3D"), or the name as
- * given (trimmed) when the database doesn't have it.
+ * Use OrcaSlicer's vendor names (src/data/orca-vendors.json) for brands, so
+ * a tag's brand matches the slicer's: database brands Orca knows take its
+ * spelling ("eSUN 3D" -> "eSUN", "Prusament" -> "Prusa Polymers"), and Orca
+ * vendors the database doesn't have are added with no colors.
+ */
+export function withOrcaNames(db, vendors = []) {
+  if (!db) return db;
+  const brands = db.brands.map((b) => ({ ...b, keys: [...b.keys] }));
+  for (const vendor of vendors) {
+    const key = norm(vendor);
+    if (!key) continue;
+    const want = [key, ...(ORCA_ALIASES[key] || [])];
+    const b = brands.find((x) => want.some((k) => x.keys.includes(k)));
+    if (b) {
+      b.name = vendor;
+      if (!b.keys.includes(key)) b.keys.push(key);
+    } else {
+      brands.push({ name: vendor, keys: [key], materials: {} });
+    }
+  }
+  return { ...db, brands };
+}
+
+/**
+ * The known spelling of a brand (OrcaSlicer's, else the database's:
+ * "esun" -> "eSUN"), or the name as given (trimmed) when it isn't known.
  */
 export function canonicalBrand(db, brand) {
   const b = findBrand(db, brand);

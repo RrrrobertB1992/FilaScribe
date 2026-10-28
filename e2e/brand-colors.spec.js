@@ -81,7 +81,7 @@ test.describe('Brand colors', () => {
 
   test('PLA+ spools have a Plus chip', async ({ page }) => {
     const variants = page.getByRole('group', { name: 'Variant' });
-    await chip(page, 'eSUN 3D').click();
+    await chip(page, 'eSUN').click();
     await variants.getByRole('button', { name: 'Plus', exact: true }).click();
     await expect(brand(page)).toContainText('Showing Plus:');
     await brand(page).locator('.tile').first().click();

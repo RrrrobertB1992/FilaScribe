@@ -27,7 +27,7 @@ test.describe('Read & update', () => {
     await expect(status(page)).toHaveText('Tag read. Change what you need, then update the tag.');
     await expect(chip(page, 'OpenSpool + Snapmaker U1 fields')).toHaveAttribute('aria-pressed', 'true');
     await expect(chip(page, 'PETG')).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.getByLabel('Custom brand')).toHaveValue('ELEGOO'); // the database's spelling
+    await expect(page.getByLabel('Custom brand')).toHaveValue('Elegoo'); // OrcaSlicer's spelling
     // Elegoo makes "Rapid" PETG, so it's one of Elegoo's variant chips
     await expect(page.getByRole('group', { name: 'Variant' }).getByRole('button', { name: 'Rapid', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByRole('button', { name: /^Color \d,/ })).toHaveCount(3);
@@ -48,7 +48,7 @@ test.describe('Read & update', () => {
     const data = await lastWrite(page);
     expect(data).toEqual({
       protocol: 'openspool', version: '1.0', type: 'PETG', color_hex: 'AFAFAF',
-      additional_color_hexes: ['EEFFEE', 'FF00FF'], color_type: 0, brand: 'ELEGOO',
+      additional_color_hexes: ['EEFFEE', 'FF00FF'], color_type: 0, brand: 'Elegoo',
       min_temp: '230', max_temp: '260', bed_min_temp: '70', bed_max_temp: '80', subtype: 'Translucent',
     });
     await expect(page.locator('.notice')).toBeHidden();
@@ -57,8 +57,17 @@ test.describe('Read & update', () => {
   test('a brand chip spelled differently on the tag reads as that chip', async ({ page }) => {
     await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'PLA', color_hex: 'FFFFFF', brand: 'esun' });
     await readTag(page);
-    await expect(chip(page, 'eSUN 3D')).toHaveAttribute('aria-pressed', 'true');
+    await expect(chip(page, 'eSUN')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByLabel('Custom brand')).toHaveCount(0);
+  });
+
+  test('a Prusament tag reads as OrcaSlicer’s Prusa Polymers', async ({ page }) => {
+    await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'PETG', color_hex: 'FFFFFF', brand: 'Prusament' });
+    await readTag(page);
+    await expect(chip(page, 'Prusa Polymers')).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('button', { name: 'Update tag' }).click();
+    await expect(page.getByRole('dialog')).toBeHidden();
+    expect((await lastWrite(page)).brand).toBe('Prusa Polymers');
   });
 
   test('a standard tag stays standard', async ({ page }) => {
@@ -130,6 +139,6 @@ test.describe('Read & update', () => {
     await page.getByRole('tab', { name: 'Create' }).click();
     await page.getByRole('button', { name: 'Write tag' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
-    expect(await lastWrite(page)).toMatchObject({ type: 'PETG', brand: 'ELEGOO', subtype: 'Rapid' });
+    expect(await lastWrite(page)).toMatchObject({ type: 'PETG', brand: 'Elegoo', subtype: 'Rapid' });
   });
 });

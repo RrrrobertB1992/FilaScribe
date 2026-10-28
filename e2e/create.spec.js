@@ -59,15 +59,15 @@ test.describe('Create', () => {
     await expect(page.getByLabel('Custom brand')).toHaveCount(0);
     await expect(materials.getByRole('button', { name: 'PEEK', exact: true })).toHaveCount(0);
 
-    // a full name in any spelling becomes the database's, on Enter or leaving the box
+    // a full name in any spelling becomes OrcaSlicer's, on Enter or leaving the box
     await brand.getByRole('button', { name: 'Custom' }).click();
     await page.getByLabel('Custom brand').fill('elegoo');
     await page.getByLabel('Custom brand').press('Enter');
-    await expect(page.getByLabel('Custom brand')).toHaveValue('ELEGOO');
+    await expect(page.getByLabel('Custom brand')).toHaveValue('Elegoo');
     await expect(page.getByRole('dialog')).toHaveCount(0); // Enter doesn't write the tag
-    await expect(materials).toContainText('The materials ELEGOO makes.');
+    await expect(materials).toContainText('The materials Elegoo makes.');
     await writeTag(page);
-    expect((await lastWrite(page)).brand).toBe('ELEGOO');
+    expect((await lastWrite(page)).brand).toBe('Elegoo');
 
     // a brand the database doesn't know is written as typed
     await page.getByLabel('Custom brand').fill('My Own Brand ');

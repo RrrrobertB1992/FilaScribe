@@ -19,9 +19,10 @@ export const MATERIALS = {
   'PA-CF': { minTemp: 250, maxTemp: 280, bedMinTemp: 70, bedMaxTemp: 90 },
 };
 
-// Spelled as in the Open Filament Database (lib/brandColors.js canonicalBrand),
-// so a chip, a typed brand and a read tag all write the same name.
-export const BRANDS = ['Generic', 'Bambu Lab', 'Hatchbox', 'eSUN 3D', 'Overture', 'SUNLU', 'Polymaker', 'Prusament', 'Snapmaker', 'JAYO'];
+// Spelled as in OrcaSlicer's filament profiles (lib/brandColors.js
+// canonicalBrand), so a chip, a typed brand and a read tag all write the
+// name the slicer uses.
+export const BRANDS = ['Generic', 'Bambu Lab', 'HATCHBOX', 'eSUN', 'Overture', 'SUNLU', 'Polymaker', 'Prusa Polymers', 'Snapmaker', 'JAYO'];
 
 /**
  * Variants (the U1 "subtype"). '' means none: the field is left out. The
