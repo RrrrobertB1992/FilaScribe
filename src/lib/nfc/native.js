@@ -1,9 +1,9 @@
-// Android app: talks to SpoolScribeNfcPlugin (android/app/src/main/java/.../SpoolScribeNfcPlugin.java).
+// Android app: talks to FilaScribeNfcPlugin (android/app/src/main/java/.../FilaScribeNfcPlugin.java).
 
 import { registerPlugin } from '@capacitor/core';
 import { decodeMessage } from '../ndef.js';
 
-const Plugin = registerPlugin('SpoolScribeNfc');
+const Plugin = registerPlugin('FilaScribeNfc');
 
 export function fromBase64(s) {
   if (!s) return new Uint8Array(0);
