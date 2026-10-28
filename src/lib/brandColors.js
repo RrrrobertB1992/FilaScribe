@@ -202,12 +202,16 @@ export function materialChoices(db, brand, current = '') {
 /**
  * The material to keep when the brand changes: the same one if the new brand
  * has it (or it's a Custom material), otherwise PLA, or the brand's first.
+ * With `shown` (the materials chosen in Settings), the replacement comes from
+ * those the brand makes, if it makes any of them.
  */
-export function carryMaterial(db, brand, type) {
+export function carryMaterial(db, brand, type, shown = null) {
   const t = String(type ?? '').trim();
   const made = materialChoices(db, brand);
   if (!t || !Object.keys(MATERIALS).includes(t) || made.includes(t)) return t;
-  return made.includes('PLA') ? 'PLA' : made[0];
+  const usable = shown ? made.filter((m) => shown.includes(m)) : made;
+  const pool = usable.length ? usable : made;
+  return pool.includes('PLA') ? 'PLA' : pool[0];
 }
 
 /**

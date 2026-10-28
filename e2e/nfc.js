@@ -101,6 +101,15 @@ export async function lastWrite(page) {
 export const writeCount = (page) => page.evaluate(() => window.__writes.length);
 
 /** Click a palette chip by its exact label. */
+// Show every built-in material on the Material row (it starts with PLA, PETG and ABS)
+export async function showAllMaterials(page) {
+  await page.evaluate(() => {
+    const all = ['PLA', 'PETG', 'ABS', 'ASA', 'TPU', 'PA', 'PA12', 'PC', 'PEEK', 'PVA', 'HIPS', 'PCTG', 'PLA-CF', 'PETG-CF', 'PA-CF'];
+    localStorage.setItem('filascribe-materials', JSON.stringify({ shown: all }));
+  });
+  await page.reload();
+}
+
 export const chip = (page, name) => page.getByRole('button', { name, exact: true });
 
 export async function writeTag(page) {

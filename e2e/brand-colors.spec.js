@@ -1,4 +1,4 @@
-import { test, expect, colorTab, openCustom, placeTag, lastWrite, chip, writeTag, temps } from './nfc.js';
+import { test, expect, colorTab, openCustom, placeTag, lastWrite, chip, writeTag, temps, showAllMaterials } from './nfc.js';
 
 // Uses the bundled Open Filament Database snapshot (src/data/brand-colors.json)
 const brand = (page) => page.locator('.brand');
@@ -67,6 +67,7 @@ test.describe('Brand colors', () => {
 
   test('functional variants get their own chips: Aero, Tough+, shore hardness', async ({ page }) => {
     const variants = page.getByRole('group', { name: 'Variant' });
+    await showAllMaterials(page);
     await chip(page, 'Bambu Lab').click();
     await expect(variants.getByRole('button', { name: 'Tough+', exact: true })).toBeVisible();
     await variants.getByRole('button', { name: 'Aero', exact: true }).click();
@@ -297,26 +298,28 @@ test.describe('Brand and material', () => {
   test('the Material row shows what the brand makes', async ({ page }) => {
     const materials = page.getByRole('group', { name: 'Material' });
     const m = (name) => materials.getByRole('button', { name, exact: true });
-    // Generic: every material
+    await showAllMaterials(page);
+    // Generic: every material shown
     await expect(m('ABS')).toBeVisible();
     await expect(m('PEEK')).toBeVisible();
     // JAYO makes PLA, PETG and TPU
     await chip(page, 'JAYO').click();
     for (const name of ['PLA', 'PETG', 'TPU']) await expect(m(name)).toBeVisible();
     await expect(m('ABS')).toHaveCount(0);
-    await expect(materials).toContainText('The materials JAYO makes.');
+    await expect(materials).toContainText('The materials JAYO makes, of the ones you show.');
     await m('PETG').click();
     await writeTag(page);
     expect((await lastWrite(page)).type).toBe('PETG');
-    // Custom still takes anything
-    await materials.getByRole('button', { name: 'Custom' }).click();
-    await page.getByLabel('Custom material').fill('ABS');
+    // Other… still takes anything
+    await materials.getByRole('button', { name: 'Other…' }).click();
+    await page.getByLabel('Other material').fill('ABS');
     await writeTag(page);
     expect((await lastWrite(page)).type).toBe('ABS');
   });
 
   test('a brand that doesn’t make the material switches to PLA', async ({ page }) => {
     const materials = page.getByRole('group', { name: 'Material' });
+    await showAllMaterials(page);
     // the reported case: SUNLU PEEK -> JAYO (no PEEK)
     await chip(page, 'SUNLU').click();
     await materials.getByRole('button', { name: 'PEEK', exact: true }).click();
@@ -330,10 +333,10 @@ test.describe('Brand and material', () => {
     await chip(page, 'Overture').click();
     await expect(materials.getByRole('button', { name: 'TPU', exact: true })).toHaveAttribute('aria-pressed', 'true');
     // a Custom material stays
-    await materials.getByRole('button', { name: 'Custom' }).click();
-    await page.getByLabel('Custom material').fill('PLA+');
+    await materials.getByRole('button', { name: 'Other…' }).click();
+    await page.getByLabel('Other material').fill('PLA+');
     await chip(page, 'JAYO').click();
-    await expect(page.getByLabel('Custom material')).toHaveValue('PLA+');
+    await expect(page.getByLabel('Other material')).toHaveValue('PLA+');
   });
 
   test('a tag with a material its brand doesn’t list still shows it', async ({ page }) => {

@@ -397,6 +397,14 @@ describe('brand colors: keeping the material', () => {
     expect(BC.carryMaterial(DB, 'Generic', 'PEEK')).toBe('PEEK');
   });
 
+  it('takes the replacement from the materials shown in Settings, when the brand makes any of them', () => {
+    // Acme makes PLA, TPU, PA, PLA-CF, PA-CF
+    expect(BC.carryMaterial(DB, 'Acme', 'ABS', ['PETG', 'ABS', 'TPU'])).toBe('TPU');
+    expect(BC.carryMaterial(DB, 'Acme', 'ABS', ['PETG', 'ABS', 'PLA', 'TPU'])).toBe('PLA');
+    expect(BC.carryMaterial(DB, 'Acme', 'ABS', ['PETG', 'ABS'])).toBe('PLA'); // none shown: the brand's own
+    expect(BC.carryMaterial(DB, 'Acme', 'TPU', ['PLA'])).toBe('TPU'); // keeps one it makes, shown or not
+  });
+
   it('switches to PLA (or the brand’s first material) otherwise', () => {
     expect(BC.carryMaterial(DB, 'Acme', 'PEEK')).toBe('PLA');
     expect(BC.carryMaterial(snapshot, 'Jayo', 'PEEK')).toBe('PLA');
