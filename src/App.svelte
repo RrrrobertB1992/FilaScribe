@@ -130,6 +130,8 @@
     loaded = { tag: result.tag, raw: parsed.raw, unknownKeys: parsed.unknownKeys, notes: parsed.notes, empty: false };
     showErrors = true;
     mode = 'update';
+    // The saved-colors panel may only now be on screen; let it mount first
+    await tick();
     saved?.afterLoad();
     say('Tag read. Change what you need, then update the tag.', 'ok');
   }

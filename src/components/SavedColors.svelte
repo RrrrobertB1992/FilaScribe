@@ -248,7 +248,7 @@
             <span class="hex">{entry.colors.join('\n')}</span>
             <span class="name">{entry.name || ' '}</span>
             <span class="vars">
-              {#each entry.variants as v, i}{#if i}, {/if}<span class:current={v === variant}>{v || 'No variant'}</span>{/each}
+              {#each entry.variants as v, i}{#if i}{', '}{/if}<span class:current={v === variant}>{v || 'No variant'}</span>{/each}
             </span>
           </button>
         {/each}
