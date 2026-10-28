@@ -46,11 +46,26 @@ Requires Node 22 or newer. For local APK builds you also need JDK 21 and the And
 ```sh
 npm install
 npm run dev          # local web server (Web NFC needs https on a phone; use the PR builds or Pages)
-npm test
+npm test             # unit tests
+npm run test:e2e     # browser tests (first time: npx playwright install chromium)
 npm run build        # web app into dist/
 npm run cap:sync     # build, then copy into android/
 cd android && ./gradlew assembleDebug
 ```
+
+## Tests
+
+The **Tests** workflow runs on every pull request and on `main`:
+
+- **Unit tests** (`tests/`): OpenSpool build/parse/validate, NDEF encoding, saved-colors rules, and the app's side of native NFC, using a fake plugin.
+- **Browser tests** (`e2e/`): a phone-sized Chrome, in light and dark mode, goes through the basic features with the NFC tag simulated by `e2e/nfc.js`:
+  - **Create:** default tag, standard vs U1 fields, material temperature presets, Custom material/brand/variant, 1 to 5 colors with gradient/segments, color and temperature validation, spool details, the tag data preview, and cancelling a write or a write that fails.
+  - **Read & update:** loading U1 and standard tags, updating (undocumented fields dropped), blank, unreadable and non-OpenSpool tags, several records on one tag, Read another, and copying a read tag onto a new one.
+  - **Saved colors:** saving on write, per brand + material, surviving a reload, picking and un-picking, gradient vs segments, variants, rename, editing colors, removing, clearing, picking automatically when a tag is read, and import/export.
+
+If the browser tests fail, the run has a `playwright-report` artifact with screenshots and a trace of each failure.
+
+The native Android code (the reader-mode plugin) can only be fully tested on a phone. It still gets compiled on every PR by the test-APK build.
 
 ## Builds
 
