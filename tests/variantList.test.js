@@ -158,6 +158,16 @@ describe('what each kind is', () => {
     expect(VARIANT_INFO.CF).toMatch(/carbon fiber/i);
     expect(VARIANT_INFO.GF).toMatch(/glass fiber/i);
     expect(VARIANT_INFO.FR).toMatch(/flame retardant/i);
+    expect(VARIANT_INFO.ESD).toBe('Anti-static');
+    expect(VARIANT_INFO.HT).toBe('High temperature');
+    expect(VARIANT_INFO.Plus).toBe('PLA+');
+    expect(VARIANT_INFO.Fluorescent).toBe('Neon');
+  });
+
+  it('names that explain themselves have no description', () => {
+    for (const n of ['Basic', 'Matte', 'Silk', 'Support', 'Wood', 'Multi-color', 'Color change', 'Lightweight', 'Tough', 'Recycled']) {
+      expect(VARIANT_INFO[n]).toBeUndefined();
+    }
   });
 
   it('every description belongs to a kind that is listed', () => {
@@ -165,7 +175,7 @@ describe('what each kind is', () => {
     for (const name of Object.keys(VARIANT_INFO)) expect(mains).toContain(name);
   });
 
-  it('is one short line', () => {
-    for (const text of Object.values(VARIANT_INFO)) expect(text.length).toBeLessThan(60);
+  it('is a word or two', () => {
+    for (const text of Object.values(VARIANT_INFO)) expect(text.split(' ').length).toBeLessThanOrEqual(2);
   });
 });

@@ -259,6 +259,9 @@ test.describe('Settings', () => {
     await expect(vbtn(variants, 'FR')).toContainText('Flame retardant');
     await expect(vbtn(variants, 'GF')).toContainText('Glass fiber');
     await expect(vbtn(variants, 'GF').getByText('Glass Fiber', { exact: true })).toHaveCount(0);
+    await expect(vbtn(variants, 'Plus')).toContainText('PLA+');
+    await expect(vbtn(variants, 'Fluorescent')).toContainText('Neon');
+    await expect(vbtn(variants, 'Multi-color')).not.toContainText('Several'); // names that explain themselves have no description
     await expect(variants.getByRole('group', { name: 'TPU hardness' })).toHaveCount(0);
     await expect(variants).toContainText('0 hidden');
     // the filter looks at every name on a card
