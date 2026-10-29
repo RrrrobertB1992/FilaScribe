@@ -39,3 +39,21 @@ export const COLOR_TYPES = [
   { value: '0', label: 'Gradient' },
   { value: '1', label: 'Segments' },
 ];
+
+/**
+ * What a kind of variant is, in a word or two, for the tiles in Settings →
+ * Variants: the full name for the short ones (someone new to filament can't
+ * guess CF or HT) and a plainer word where one helps (Neon). Kinds that name
+ * themselves (Matte, Wood, Multi-color, Recycled...) have none.
+ */
+export const VARIANT_INFO = {
+  Plus: 'PLA+',
+  SnapSpeed: 'Fast printing',
+  HF: 'High flow',
+  Fluorescent: 'Neon',
+  CF: 'Carbon fiber',
+  GF: 'Glass fiber',
+  FR: 'Flame retardant',
+  ESD: 'Anti-static',
+  HT: 'High temperature',
+};

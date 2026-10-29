@@ -17,6 +17,7 @@
   import * as CustomChips from './lib/customChips.js';
   import * as BrandList from './lib/brandList.js';
   import * as MaterialList from './lib/materialList.js';
+  import * as VariantList from './lib/variantList.js';
 
   const nfc = getNfc();
   const buildLabel = buildParts(__BUILD__);
@@ -78,7 +79,28 @@
     shownMaterials = next;
     MaterialList.store(shownMaterials);
   }
-  const variantItems = $derived(CustomChips.withSaved(builtInVariants, savedVariants));
+  // Variants hidden in Settings are left off a brand's built-in chips (None,
+  // your saved variants and the selected one stay)
+  let hiddenVariants = $state(VariantList.load());
+  // The default list (Generic, a brand the database doesn't know) shows all of them
+  const variantItems = $derived(
+    CustomChips.withSaved(builtInVariants === VARIANTS ? builtInVariants : VariantList.visible(builtInVariants, hiddenVariants, form.subtype), savedVariants),
+  );
+
+  // Save on the Custom box: typing the exact name of a variant you hid (one of
+  // the brand's chips) turns it back on. A near name like "Matt" is just a new
+  // variant of its own, and the hidden Matte stays hidden.
+  function saveVariant(value) {
+    const v = value.trim().toLowerCase();
+    if (builtInVariants.some((b) => b.toLowerCase() === v)) {
+      const next = VariantList.show(hiddenVariants, value);
+      if (next !== hiddenVariants) {
+        hiddenVariants = next;
+        VariantList.store(hiddenVariants);
+      }
+    }
+    saveChip('variant', value, builtInVariants);
+  }
 
   function saveChip(kind, value, builtIn) {
     const next = CustomChips.add(chips, kind, value, { brand: form.brand, type: form.type, builtIn });
@@ -129,7 +151,7 @@
   // a chip the new brand has, or its word for the same kind; otherwise None.
   // (Reading a tag never changes it.)
   function keepVariantFitting() {
-    form.subtype = carryVariant(brandData, form.subtype, form.brand, form.type, CustomChips.variantsFor(chips, form.brand, form.type));
+    form.subtype = carryVariant(brandData, form.subtype, form.brand, form.type, CustomChips.variantsFor(chips, form.brand, form.type), hiddenVariants);
   }
 
   // A new brand that doesn't make the material switches to PLA (or the
@@ -299,7 +321,7 @@
   {/if}
 
   {#if mode === 'settings'}
-    <Settings {form} bind:defaults bind:chips bind:shownBrands bind:shownMaterials {brandData} onstatus={(t, isError) => say(t, isError ? 'error' : 'ok')} />
+    <Settings {form} bind:defaults bind:chips bind:shownBrands bind:shownMaterials bind:hiddenVariants {brandData} onstatus={(t, isError) => say(t, isError ? 'error' : 'ok')} />
   {:else if mode === 'update' && (!loaded || loaded.empty)}
     <section class="empty">
       <h2>Read a tag to change it</h2>
@@ -363,7 +385,7 @@
           bind:value={form.subtype}
           customPlaceholder="e.g. Rapid"
           hint={builtInVariants === VARIANTS ? 'Written as subtype. None leaves it out.' : `The variants ${form.brand} makes in ${form.type}. Written as subtype. None leaves it out.`}
-          onsave={form.brand.trim() && form.type.trim() ? (v) => saveChip('variant', v, builtInVariants) : null}
+          onsave={form.brand.trim() && form.type.trim() ? saveVariant : null}
           removable={savedVariants}
           onremove={(v) => removeChip('variant', v)}
         />
