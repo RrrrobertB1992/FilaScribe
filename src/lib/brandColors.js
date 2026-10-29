@@ -214,19 +214,50 @@ export function carryMaterial(db, brand, type, shown = null) {
   return pool.includes('PLA') ? 'PLA' : pool[0];
 }
 
+/** Two variant names that are the same chip or the same kind ("Metallic" and "Metal"). */
+export function sameVariant(a, b) {
+  const x = norm(a);
+  const y = norm(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  const g = groupKey(a);
+  return !!g && g === groupKey(b);
+}
+
 /**
  * The variant to keep when the brand or material changes: the same chip if
  * the new brand has it, the new brand's word for the same group ("Metal" ->
  * "Metallic"), or one of `keep` (variants saved colors use for the new brand
  * + material); otherwise '' (None).
  */
-export function carryVariant(db, variant, brand, type, keep = []) {
+export function carryVariant(db, variant, brand, type, keep = [], hidden = []) {
   const v = String(variant ?? '').trim();
   if (!v) return '';
-  const choices = variantChoices(db, brand, type);
+  // Variants hidden in Settings aren't chips, so the same kind of variant
+  // doesn't switch to one (the selected one itself stays)
+  const choices = variantChoices(db, brand, type).filter((c) => !c || c === v || !hidden.some((h) => sameVariant(h, c)));
   if (choices.includes(v) || keep.includes(v)) return v;
   const group = groupKey(v);
   return (group && choices.find((c) => c && groupKey(c) === group)) || '';
+}
+
+/**
+ * Every variant name a chip can have: the default list plus each brand's own
+ * words for each material, default list first, then by how many brands use
+ * the name. For finding a variant to hide in Settings.
+ */
+export function variantNames(db) {
+  const count = new Map();
+  for (const b of db?.brands || []) {
+    const seen = new Set();
+    for (const m of Object.keys(MATERIALS)) {
+      for (const v of variantChoices(db, b.name, m)) if (v) seen.add(v);
+    }
+    for (const v of seen) count.set(v, (count.get(v) || 0) + 1);
+  }
+  const base = VARIANTS.filter(Boolean);
+  const rest = [...count.keys()].filter((v) => !base.includes(v)).sort((a, b) => count.get(b) - count.get(a) || a.localeCompare(b));
+  return [...base, ...rest];
 }
 
 /** The database brand for a FilaScribe brand name, or null. */

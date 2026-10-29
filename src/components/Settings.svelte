@@ -11,8 +11,9 @@
   import { buildParts } from '../lib/buildInfo.js';
   import * as BrandList from '../lib/brandList.js';
   import * as MaterialList from '../lib/materialList.js';
+  import * as VariantList from '../lib/variantList.js';
   import { MATERIALS } from '../lib/catalog.js';
-  import { findBrands, canonicalBrand, findBrand } from '../lib/brandColors.js';
+  import { findBrands, canonicalBrand, findBrand, variantNames } from '../lib/brandColors.js';
   import orca from '../data/orca-vendors.json';
 
   let {
@@ -21,6 +22,7 @@
     chips = $bindable({ brands: [], materials: [], variants: {} }),
     shownBrands = $bindable([...BrandList.DEFAULT]),
     shownMaterials = $bindable([...MaterialList.DEFAULT]),
+    hiddenVariants = $bindable([]),
     brandData = null,
     onstatus = () => {},
   } = $props();
@@ -123,6 +125,24 @@
   function resetMaterials() {
     if (!confirm('Show the default materials again? Materials you turned on are turned off.')) return;
     setMaterials([...MaterialList.DEFAULT]);
+  }
+
+  // --- Variants ---
+
+  let findVariant = $state('');
+  // Every variant name a chip can have, worked out once, when the card is open
+  const allVariants = $derived(brandData && open.includes('variants') ? variantNames(brandData) : []);
+  const variantResults = $derived(VariantList.find(allVariants, hiddenVariants, findVariant));
+
+  function setHiddenVariants(next) {
+    if (next === hiddenVariants) return;
+    hiddenVariants = next;
+    VariantList.store(hiddenVariants);
+  }
+
+  function showAllVariants() {
+    if (!confirm('Show every variant again?')) return;
+    setHiddenVariants([]);
   }
 
   // --- Collapsible cards (closed to start; which are open is remembered) ---
@@ -329,6 +349,45 @@
     {/if}
     <div class="actions">
       <button type="button" class="btn small quiet" onclick={resetMaterials}>Show the default materials</button>
+    </div>
+    </div>
+  </details>
+
+  <details class="card" open={open.includes('variants')} ontoggle={(e) => toggled('variants', e)}>
+    <summary><h2 id="set-variants">Variants</h2></summary>
+    <div class="body">
+    <p class="hint">Variants you’ll never use can be hidden. They’re left off the Variant row for every brand and material; hiding one also hides a brand’s own word for the same kind (Metallic and Metal). None, your saved variants and Custom aren’t affected.</p>
+    <div class="group" role="group" aria-label="Hidden variants">
+      <span class="label">Hidden</span>
+      <div class="chips">
+        {#each hiddenVariants as v (v)}
+          <span class="mine b">{v}<button type="button" class="x" aria-label={`Show ${v}`} onclick={() => setHiddenVariants(VariantList.show(hiddenVariants, v))}>×</button></span>
+        {:else}
+          <span class="hint">Nothing hidden.</span>
+        {/each}
+      </div>
+    </div>
+    <input type="search" bind:value={findVariant} placeholder="Find a variant to hide" aria-label="Find a variant" autocomplete="off" />
+    {#if findVariant.trim()}
+      {#if !brandData}
+        <p class="hint">Loading the variant list…</p>
+      {:else if variantResults.length}
+        <ul class="brand-list" aria-label="Variants to hide">
+          {#each variantResults as v (v)}
+            <li>
+              <button type="button" class="brand-row" aria-label={`Hide ${v}`} onclick={() => setHiddenVariants(VariantList.hide(hiddenVariants, v))}>
+                <span class="plus" aria-hidden="true">−</span>
+                <span class="bname">{v}</span>
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {:else}
+        <p class="hint">No other variants start with “{findVariant.trim()}”.</p>
+      {/if}
+    {/if}
+    <div class="actions">
+      <button type="button" class="btn small quiet" onclick={showAllVariants} disabled={!hiddenVariants.length}>Show all variants</button>
     </div>
     </div>
   </details>
