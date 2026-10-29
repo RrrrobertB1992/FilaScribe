@@ -3,6 +3,8 @@
 //
 // Usage: node scripts/build-brand-colors.js <ofd-checkout> [out-file]
 //        node scripts/build-brand-colors.js --summary <snapshot-file>
+//        node scripts/build-brand-colors.js --apply-overrides <snapshot-file>
+//          (apply scripts/color-overrides.json to a snapshot that is already built)
 //        node scripts/build-brand-colors.js --same <snapshot-a> <snapshot-b>
 //          (exit 0 if they hold the same colors, ignoring the source commit)
 //
@@ -18,12 +20,19 @@
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { applyOverrides, describe } from './color-overrides.js';
 
 function summary(file) {
   const d = JSON.parse(readFileSync(file, 'utf8'));
   let colors = 0;
   for (const b of d.brands) for (const lines of Object.values(b.materials)) for (const l of lines) colors += l.colors.length;
   return `${d.brands.length} brands, ${colors} colors (${String(d.source?.commit).slice(0, 7)}, ${d.source?.date})`;
+}
+const overrides = JSON.parse(readFileSync(new URL('./color-overrides.json', import.meta.url), 'utf8'));
+function reportOverrides(r) {
+  console.log(`Color overrides: ${r.applied.length} applied, ${r.fixedUpstream.length} already right or changed upstream, ${r.missing.length} not found`);
+  for (const o of r.fixedUpstream) console.log(`  upstream changed, can be removed: ${describe(o)}`);
+  for (const o of r.missing) console.log(`  not found (renamed or removed?): ${describe(o)}`);
 }
 const withoutSource = (file) => {
   const d = JSON.parse(readFileSync(file, 'utf8'));
@@ -32,6 +41,13 @@ const withoutSource = (file) => {
 };
 if (process.argv[2] === '--summary') {
   console.log(summary(process.argv[3]));
+  process.exit(0);
+}
+if (process.argv[2] === '--apply-overrides') {
+  const file = process.argv[3];
+  const d = JSON.parse(readFileSync(file, 'utf8'));
+  reportOverrides(applyOverrides(d.brands, overrides));
+  writeFileSync(file, JSON.stringify(d) + '\n');
   process.exit(0);
 }
 if (process.argv[2] === '--same') {
@@ -134,6 +150,8 @@ try {
   commit = execFileSync('git', ['-C', root, 'rev-parse', 'HEAD']).toString().trim();
   date = execFileSync('git', ['-C', root, 'log', '-1', '--format=%cs']).toString().trim();
 } catch { /* not a git checkout */ }
+
+reportOverrides(applyOverrides(brands, overrides));
 
 const out = {
   source: { repo: 'https://github.com/OpenFilamentCollective/open-filament-database', commit, date },
