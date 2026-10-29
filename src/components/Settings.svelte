@@ -12,7 +12,7 @@
   import * as BrandList from '../lib/brandList.js';
   import * as MaterialList from '../lib/materialList.js';
   import * as VariantList from '../lib/variantList.js';
-  import { MATERIALS } from '../lib/catalog.js';
+  import { MATERIALS, VARIANT_INFO } from '../lib/catalog.js';
   import { findBrands, canonicalBrand, findBrand, variantKinds } from '../lib/brandColors.js';
   import orca from '../data/orca-vendors.json';
 
@@ -150,6 +150,8 @@
     VariantList.store(hiddenVariants);
   }
 
+  // The brands' own words, without any the description already says (Glass Fiber under GF)
+  const othersOf = (k) => k.others.filter((o) => !(VARIANT_INFO[k.main] || '').toLowerCase().startsWith(o.toLowerCase()));
   const toggleVariant = (k) => setHiddenVariants(VariantList.toggle(hiddenVariants, k.main));
   const hideEveryVariant = () => setHiddenVariants(VariantList.hideAll(hiddenVariants, kinds.map((k) => k.main)));
   const showEveryVariant = () => setHiddenVariants([]);
@@ -380,13 +382,14 @@
       <div class="vcards" role="group" aria-label="Variants">
         {#each kindCards as k (k.main)}
           {@const off = VariantList.isHidden(hiddenVariants, k.main)}
-          <button type="button" class="vcard" class:off aria-pressed={!off} aria-label={k.main} aria-description={k.others.join(', ')} onclick={() => toggleVariant(k)}>
+          <button type="button" class="vcard" class:off aria-pressed={!off} aria-label={k.main} aria-description={[VARIANT_INFO[k.main], ...othersOf(k)].filter(Boolean).join(', ')} onclick={() => toggleVariant(k)}>
             <span class="vtop">
               <span class="vswitch" aria-hidden="true"><span class="knob"></span></span>
               <span class="vstate">{off ? 'Hidden' : 'Shown'}</span>
             </span>
             <span class="vmain">{k.main}</span>
-            {#each k.others as o (o)}<span class="vsub">{o}</span>{/each}
+            {#if VARIANT_INFO[k.main]}<span class="vinfo">{VARIANT_INFO[k.main]}</span>{/if}
+            {#each othersOf(k) as o (o)}<span class="vsub">{o}</span>{/each}
             {#if k.unused}<span class="vsub note">None of your brands make it</span>{/if}
           </button>
         {/each}
@@ -605,6 +608,7 @@
     transition: left 0.15s;
   }
   .vmain { font-family: var(--font-label); font-weight: 700; font-size: 1.125rem; overflow-wrap: anywhere; }
+  .vinfo { font-size: 0.8125rem; line-height: 1.25; color: var(--ink); opacity: 0.85; margin-bottom: 2px; overflow-wrap: anywhere; }
   .vsub { font-size: 0.875rem; color: var(--muted); overflow-wrap: anywhere; }
   .vsub.note { font-style: italic; }
   .vstate { font-family: var(--font-label); font-weight: 700; font-size: 0.8125rem; color: var(--action); }

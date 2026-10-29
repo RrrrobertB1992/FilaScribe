@@ -39,3 +39,26 @@ export const COLOR_TYPES = [
   { value: '0', label: 'Gradient' },
   { value: '1', label: 'Segments' },
 ];
+
+/**
+ * What each kind of variant is, in plain words, for the tiles in Settings →
+ * Variants (someone new to filament can't guess CF or HT). Kinds that name
+ * themselves (Matte, Silk, Wood, Glow...) have none.
+ */
+export const VARIANT_INFO = {
+  Plus: 'Improved PLA, as in PLA+',
+  SnapSpeed: 'Snapmaker’s fast-printing line',
+  Support: 'Support material, to peel away or dissolve',
+  HF: 'High speed, high flow',
+  Fluorescent: 'Neon, very bright colors',
+  'Multi-color': 'Several colors on one spool',
+  'Color change': 'Changes color with temperature or light',
+  Lightweight: 'Foamed, low density',
+  Tough: 'Impact resistant, less brittle',
+  CF: 'Carbon fiber (stiff, needs a hardened nozzle)',
+  GF: 'Glass fiber (strong, needs a hardened nozzle)',
+  FR: 'Flame retardant',
+  ESD: 'Anti-static, for electronics',
+  HT: 'High temperature, stays rigid near heat',
+  Recycled: 'Made from recycled plastic',
+};

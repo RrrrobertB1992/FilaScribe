@@ -252,8 +252,13 @@ test.describe('Settings', () => {
     // the default brands, PLA/PETG/ABS: no hardness (that's TPU), no nylon-only kinds
     await expect(vbtn(variants, 'Metallic')).toContainText('Metal');
     await expect(vbtn(variants, 'Matte')).toContainText('Matt');
-    await expect(vbtn(variants, 'HF')).toContainText('High Speed');
+    await expect(vbtn(variants, 'HF')).toContainText('Rapid');
     await expect(vbtn(variants, 'Basic')).toHaveAttribute('aria-pressed', 'true');
+    // the short names say what they are, without repeating a brand's word
+    await expect(vbtn(variants, 'CF')).toContainText('Carbon fiber');
+    await expect(vbtn(variants, 'FR')).toContainText('Flame retardant');
+    await expect(vbtn(variants, 'GF')).toContainText('Glass fiber');
+    await expect(vbtn(variants, 'GF').getByText('Glass Fiber', { exact: true })).toHaveCount(0);
     await expect(variants.getByRole('group', { name: 'TPU hardness' })).toHaveCount(0);
     await expect(variants).toContainText('0 hidden');
     // the filter looks at every name on a card

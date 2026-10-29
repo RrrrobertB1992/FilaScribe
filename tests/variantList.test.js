@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as VL from '../src/lib/variantList.js';
 import * as BC from '../src/lib/brandColors.js';
-import { VARIANTS } from '../src/lib/catalog.js';
+import { VARIANTS, VARIANT_INFO } from '../src/lib/catalog.js';
 import snapshot from '../src/data/brand-colors.json' with { type: 'json' };
 
 const memory = () => {
@@ -147,5 +147,25 @@ describe('same kind', () => {
     expect(BC.carryVariant(snapshot, 'Metal', 'Polymaker', 'PLA', [], ['Metallic'])).toBe('');
     // the selected variant itself stays if the brand has it
     expect(BC.carryVariant(snapshot, 'Matte', 'Bambu Lab', 'PLA', [], ['Matte'])).toBe('Matte');
+  });
+});
+
+describe('what each kind is', () => {
+  const all = BC.variantKinds(snapshot, snapshot.brands.map((b) => b.name)).filter((k) => !k.hardness);
+
+  it('the short names (CF, GF, FR, HT, ESD, HF) say what they are', () => {
+    for (const n of ['CF', 'GF', 'FR', 'HT', 'ESD', 'HF']) expect(VARIANT_INFO[n]).toBeTruthy();
+    expect(VARIANT_INFO.CF).toMatch(/carbon fiber/i);
+    expect(VARIANT_INFO.GF).toMatch(/glass fiber/i);
+    expect(VARIANT_INFO.FR).toMatch(/flame retardant/i);
+  });
+
+  it('every description belongs to a kind that is listed', () => {
+    const mains = all.map((k) => k.main);
+    for (const name of Object.keys(VARIANT_INFO)) expect(mains).toContain(name);
+  });
+
+  it('is one short line', () => {
+    for (const text of Object.values(VARIANT_INFO)) expect(text.length).toBeLessThan(60);
   });
 });
