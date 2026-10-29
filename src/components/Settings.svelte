@@ -365,7 +365,7 @@
   <details class="card" open={open.includes('variants')} ontoggle={(e) => toggled('variants', e)}>
     <summary><h2 id="set-variants">Variants</h2></summary>
     <div class="body">
-    <p class="hint">The variants your brands make, in the materials you show. Tap one to hide it from the Variant row, or to show it again. A card is one kind: the names under it are the brands’ own words for it, so they hide together. Generic and brands not in the database always show the default variants. None, your saved variants and Custom aren’t affected.</p>
+    <p class="hint">The variants your brands make, in the materials you show. Tap a tile to hide it from the Variant row, or to show it again. A tile is one kind: the names under it are the brands’ own words for it, so they hide together. Generic and brands not in the database always show the default variants. None, your saved variants and Custom aren’t affected.</p>
     {#if !brandData}
       <p class="hint">Loading the variant list…</p>
     {:else if !kinds.length}
@@ -381,12 +381,13 @@
         {#each kindCards as k (k.main)}
           {@const off = VariantList.isHidden(hiddenVariants, k.main)}
           <button type="button" class="vcard" class:off aria-pressed={!off} aria-label={k.main} aria-description={k.others.join(', ')} onclick={() => toggleVariant(k)}>
-            <span class="vtxt">
-              <span class="vmain">{k.main}</span>
-              {#if k.others.length}<span class="vsub">{k.others.join(', ')}</span>{/if}
-              {#if k.unused}<span class="vsub">None of your brands make it</span>{/if}
+            <span class="vtop">
+              <span class="vswitch" aria-hidden="true"><span class="knob"></span></span>
+              <span class="vstate">{off ? 'Hidden' : 'Shown'}</span>
             </span>
-            <span class="vstate">{off ? 'Hidden' : 'Shown'}</span>
+            <span class="vmain">{k.main}</span>
+            {#each k.others as o (o)}<span class="vsub">{o}</span>{/each}
+            {#if k.unused}<span class="vsub note">None of your brands make it</span>{/if}
           </button>
         {/each}
         {#if !kindCards.length && !hardnessChips.length}
@@ -568,15 +569,14 @@
   }
   .chip-add span { color: var(--action); font-weight: 700; }
 
-  .vcards { display: grid; gap: var(--s2); }
+  .vcards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s2); }
+  @media (min-width: 640px) { .vcards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
   .vcard {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--s3);
-    width: 100%;
-    min-height: 48px;
-    padding: var(--s2) var(--s3);
+    display: grid;
+    align-content: start;
+    gap: 3px;
+    min-width: 0;
+    padding: var(--s2) var(--s3) var(--s3);
     border: 2px solid var(--action);
     border-radius: 12px;
     background: var(--surface);
@@ -584,11 +584,33 @@
     font: inherit;
     color: var(--ink);
   }
-  .vtxt { display: grid; gap: 2px; min-width: 0; }
-  .vmain { font-family: var(--font-label); font-weight: 700; font-size: 1.125rem; }
+  .vtop { display: flex; align-items: center; gap: var(--s2); margin-bottom: 2px; }
+  .vswitch {
+    position: relative;
+    flex: none;
+    width: 40px;
+    height: 24px;
+    border-radius: 999px;
+    background: var(--action);
+    transition: background 0.15s;
+  }
+  .knob {
+    position: absolute;
+    top: 3px;
+    left: 19px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--action-ink);
+    transition: left 0.15s;
+  }
+  .vmain { font-family: var(--font-label); font-weight: 700; font-size: 1.125rem; overflow-wrap: anywhere; }
   .vsub { font-size: 0.875rem; color: var(--muted); overflow-wrap: anywhere; }
-  .vstate { flex: none; font-family: var(--font-label); font-weight: 700; font-size: 0.8125rem; color: var(--action); }
+  .vsub.note { font-style: italic; }
+  .vstate { font-family: var(--font-label); font-weight: 700; font-size: 0.8125rem; color: var(--action); }
   .vcard.off { border-style: dashed; border-color: var(--line); background: transparent; opacity: 0.75; }
+  .vcard.off .vswitch { background: var(--muted); }
+  .vcard.off .knob { left: 3px; }
   .vcard.off .vmain { text-decoration: line-through; }
   .vcard.off .vstate { color: var(--muted); }
   .hchip {
