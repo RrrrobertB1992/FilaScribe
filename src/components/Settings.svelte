@@ -10,6 +10,8 @@
   import { exportJson, readJsonFile } from '../lib/backup.js';
   import { buildParts } from '../lib/buildInfo.js';
   import * as BrandList from '../lib/brandList.js';
+  import * as MaterialList from '../lib/materialList.js';
+  import { MATERIALS } from '../lib/catalog.js';
   import { findBrands, canonicalBrand, findBrand } from '../lib/brandColors.js';
   import orca from '../data/orca-vendors.json';
 
@@ -18,6 +20,7 @@
     defaults = $bindable({}),
     chips = $bindable({ brands: [], materials: [], variants: {} }),
     shownBrands = $bindable([...BrandList.DEFAULT]),
+    shownMaterials = $bindable([...MaterialList.DEFAULT]),
     brandData = null,
     onstatus = () => {},
   } = $props();
@@ -87,6 +90,41 @@
     find = '';
   }
 
+  // --- Materials ---
+
+  let findMaterial = $state('');
+  const isOwnMaterial = (m) => !(m in MATERIALS);
+  // Built-in materials that aren't on the row, narrowed by what's typed
+  const hiddenMaterials = $derived(
+    MaterialList.hidden(shownMaterials).filter((m) => m.toLowerCase().includes(findMaterial.trim().toLowerCase())),
+  );
+  // A typed name that isn't a built-in material can be added as your own
+  const addOwnMaterial = $derived.by(() => {
+    const q = MaterialList.canonical(findMaterial);
+    if (!q || q.length > 40 || !isOwnMaterial(q)) return '';
+    return shownMaterials.includes(q) ? '' : q;
+  });
+
+  function setMaterials(next) {
+    if (next === shownMaterials) return;
+    shownMaterials = next;
+    MaterialList.store(shownMaterials);
+  }
+
+  function addMaterial(name) {
+    setMaterials(MaterialList.add(shownMaterials, name));
+  }
+
+  function addOwnMaterialNow() {
+    addMaterial(addOwnMaterial);
+    findMaterial = '';
+  }
+
+  function resetMaterials() {
+    if (!confirm('Show the default materials again? Materials you turned on are turned off.')) return;
+    setMaterials([...MaterialList.DEFAULT]);
+  }
+
   // --- Collapsible cards (closed to start; which are open is remembered) ---
 
   const OPEN_KEY = 'filascribe-settings-open';
@@ -118,7 +156,7 @@
   // --- Your chips ---
 
   const variantGroups = $derived(Object.entries(chips.variants).map(([key, list]) => ({ key, label: key.replace('|', ' '), list })));
-  const chipCount = $derived(chips.materials.length + variantGroups.reduce((n, g) => n + g.list.length, 0));
+  const chipCount = $derived(variantGroups.reduce((n, g) => n + g.list.length, 0));
 
   function removeChip(kind, value, key = '') {
     const [brand, type] = key ? key.split('|') : ['', ''];
@@ -128,7 +166,7 @@
 
   function clearChips() {
     if (!confirm('Remove all your chips? Built-in chips stay.')) return;
-    chips = { ...chips, materials: [], variants: {} };
+    chips = { ...chips, variants: {} };
     CustomChips.store(chips);
   }
 
@@ -261,23 +299,45 @@
     </div>
   </details>
 
+  <details class="card" open={open.includes('materials')} ontoggle={(e) => toggled('materials', e)}>
+    <summary><h2 id="set-materials">Materials</h2></summary>
+    <div class="body">
+    <p class="hint">The materials on the Material row: × removes one, and the + chips add one back. With a brand picked, the row also leaves out the materials that brand doesn’t make. Anything else can be typed with Other… on the form.</p>
+    <div class="group" role="group" aria-label="Materials on the form">
+      <div class="chips">
+        {#each shownMaterials as m (m)}
+          <span class="mine b" class:own={isOwnMaterial(m)}>{m}<button type="button" class="x" aria-label={`Hide ${m}`} onclick={() => setMaterials(MaterialList.remove(shownMaterials, m))}>×</button></span>
+        {:else}
+          <span class="hint">None. The row only has Other….</span>
+        {/each}
+      </div>
+    </div>
+    <input type="search" bind:value={findMaterial} placeholder="Find a material to add" aria-label="Find a material" autocomplete="off" />
+    {#if hiddenMaterials.length}
+      <div class="group" role="group" aria-label="Materials to add">
+        <div class="chips">
+          {#each hiddenMaterials as m (m)}
+            <button type="button" class="chip-add" aria-label={`Add ${m}`} onclick={() => addMaterial(m)}><span aria-hidden="true">+</span> {m}</button>
+          {/each}
+        </div>
+      </div>
+    {:else if findMaterial.trim()}
+      <p class="hint">No other materials match “{findMaterial.trim()}”.</p>
+    {/if}
+    {#if addOwnMaterial}
+      <button type="button" class="btn small" onclick={addOwnMaterialNow}>Add “{addOwnMaterial}” as your own material</button>
+    {/if}
+    <div class="actions">
+      <button type="button" class="btn small quiet" onclick={resetMaterials}>Show the default materials</button>
+    </div>
+    </div>
+  </details>
+
   <details class="card" open={open.includes('chips')} ontoggle={(e) => toggled('chips', e)}>
     <summary><h2 id="set-chips">Your chips</h2></summary>
     <div class="body">
     {#if chipCount}
-      <p class="hint">Custom values you saved. Tap × to remove one.</p>
-      {#each [['Materials', 'material', chips.materials]] as [title, kind, list]}
-        {#if list.length}
-          <div class="group" role="group" aria-label={`Your ${title.toLowerCase()}`}>
-            <span class="label">{title}</span>
-            <div class="chips">
-              {#each list as v (v)}
-                <span class="mine">{v}<button type="button" class="x" aria-label={`Remove ${v}`} onclick={() => removeChip(kind, v)}>×</button></span>
-              {/each}
-            </div>
-          </div>
-        {/if}
-      {/each}
+      <p class="hint">Variants you saved. Tap × to remove one.</p>
       {#each variantGroups as g (g.key)}
         <div class="group" role="group" aria-label={`Your variants for ${g.label}`}>
           <span class="label">Variants for {g.label}</span>
@@ -292,7 +352,7 @@
         <button type="button" class="btn small quiet danger" onclick={clearChips}>Remove all your chips</button>
       </div>
     {:else}
-      <p class="hint">None yet. Tap Save next to a Custom material or variant, or write a tag with one. Brands are above.</p>
+      <p class="hint">None yet. Tap Save next to a Custom variant, or write a tag with one. Brands and materials are above.</p>
     {/if}
     </div>
   </details>
@@ -419,6 +479,19 @@
     font-size: 1.25rem;
     line-height: 1;
   }
+
+  .chip-add {
+    min-height: 36px;
+    padding: 0 var(--s3);
+    border: 2px solid var(--line);
+    border-radius: 999px;
+    background: transparent;
+    font: inherit;
+    font-family: var(--font-label);
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .chip-add span { color: var(--action); font-weight: 700; }
 
   .brand-list { list-style: none; margin: 0; padding: 0; display: grid; }
   .brand-row {

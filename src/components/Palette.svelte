@@ -89,11 +89,14 @@
     const v = commit(text);
     draft = v;
     if (v === value) return;
+    // Asked before `value` changes: a parent that adds the selected value to
+    // its chips (a built-in material read from a tag) would answer differently after
+    const isChip = options.some((o) => o.value === v);
     ownValue = v;
     value = v;
     // A typed name that is one of the chips becomes that chip
-    if (options.some((o) => o.value === v)) customOpen = false;
-    onpick(v, !options.some((o) => o.value === v));
+    if (isChip) customOpen = false;
+    onpick(v, !isChip);
   }
 
   const typedText = $derived((suggest ? draft : value) ?? '');

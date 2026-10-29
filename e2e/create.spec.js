@@ -1,4 +1,4 @@
-import { test, expect, colorStyle, lastWrite, writeCount, chip, writeTag, status, temps } from './nfc.js';
+import { test, expect, colorStyle, lastWrite, writeCount, chip, writeTag, status, temps, showAllMaterials } from './nfc.js';
 
 test.describe('Create', () => {
   test('writes the default tag', async ({ page }) => {
@@ -33,8 +33,8 @@ test.describe('Create', () => {
 
   test('custom material, brand and variant', async ({ page }) => {
     await chip(page, 'ABS').click(); // temps 230-260
-    await page.getByRole('group', { name: 'Material' }).getByRole('button', { name: 'Custom' }).click();
-    await page.getByLabel('Custom material').fill('PLA+');
+    await page.getByRole('group', { name: 'Material' }).getByRole('button', { name: 'Other…' }).click();
+    await page.getByLabel('Other material').fill('PLA+');
     await expect(temps(page, 'Nozzle').min).toHaveValue('230'); // custom keeps the temps
     await page.getByRole('group', { name: 'Brand' }).getByRole('button', { name: 'Other…' }).click();
     await page.getByLabel('Other brand').fill('Zephyr Filaments');
@@ -49,6 +49,7 @@ test.describe('Create', () => {
     const brand = page.getByRole('group', { name: 'Brand' });
     const materials = page.getByRole('group', { name: 'Material' });
     const matches = page.getByRole('group', { name: 'Suggestions' });
+    await showAllMaterials(page);
     await brand.getByRole('button', { name: 'Other…' }).click();
     // part of a name: suggestions, and the rows wait until the name is done
     await page.getByLabel('Other brand').fill('Anycu');
@@ -71,7 +72,7 @@ test.describe('Create', () => {
     await page.getByLabel('Other brand').press('Enter');
     await expect(page.getByLabel('Other brand')).toHaveValue('Elegoo');
     await expect(page.getByRole('dialog')).toHaveCount(0); // Enter doesn't write the tag
-    await expect(materials).toContainText('The materials Elegoo makes.');
+    await expect(materials).toContainText('The materials Elegoo makes, of the ones you show.');
     await writeTag(page);
     expect((await lastWrite(page)).brand).toBe('Elegoo');
 
@@ -190,8 +191,9 @@ test.describe('Create', () => {
 
   test('data too big for the tag is refused before writing', async ({ page }) => {
     const wide = '€'.repeat(40); // 3 bytes each: long names in some scripts get big fast
-    await page.getByRole('group', { name: 'Material' }).getByRole('button', { name: 'Custom' }).click();
-    await page.getByLabel('Custom material').fill(wide);
+    await page.getByRole('group', { name: 'Material' }).getByRole('button', { name: 'Other…' }).click();
+    await page.getByLabel('Other material').fill(wide);
+    await page.getByLabel('Other material').blur(); // the name is done: the preview grows
     await page.getByRole('group', { name: 'Brand' }).getByRole('button', { name: 'Other…' }).click();
     await page.getByLabel('Other brand').fill(wide);
     await page.getByRole('group', { name: 'Variant' }).getByRole('button', { name: 'Custom' }).click();
@@ -249,9 +251,9 @@ test.describe('Your own chips', () => {
     await expect(group(page, 'Brand').getByRole('button', { name: 'Zephyr', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByLabel('Other brand')).toHaveCount(0);
 
-    await group(page, 'Material').getByRole('button', { name: 'Custom' }).click();
+    await group(page, 'Material').getByRole('button', { name: 'Other…' }).click();
     await expect(page.getByRole('button', { name: 'Save material as a chip' })).toBeDisabled(); // nothing typed
-    await page.getByLabel('Custom material').fill('PLA+');
+    await page.getByLabel('Other material').fill('PLA+');
     await page.getByRole('button', { name: 'Save material as a chip' }).click();
     await expect(group(page, 'Material').getByRole('button', { name: 'PLA+', exact: true })).toHaveAttribute('aria-pressed', 'true');
 
@@ -283,18 +285,15 @@ test.describe('Your own chips', () => {
     await expect(page.getByLabel('Other brand')).toHaveCount(0);
   });
 
-  test('a saved chip can be removed', async ({ page }) => {
-    await group(page, 'Material').getByRole('button', { name: 'Custom' }).click();
-    await page.getByLabel('Custom material').fill('PLA+');
+  test('a saved material turns on with a dashed outline, and is managed in Settings', async ({ page }) => {
+    await group(page, 'Material').getByRole('button', { name: 'Other…' }).click();
+    await page.getByLabel('Other material').fill('PLA+');
     await page.getByRole('button', { name: 'Save material as a chip' }).click();
-    // built-in chips have no Remove
-    await chip(page, 'PLA').click();
-    await expect(page.getByRole('button', { name: /^Remove “/ })).toHaveCount(0);
+    await expect(chip(page, 'PLA+')).toHaveClass(/saved/);
+    await expect(chip(page, 'PLA')).not.toHaveClass(/saved/);
+    // no Remove on the Material row, like Brand
     await chip(page, 'PLA+').click();
-    await page.getByRole('button', { name: 'Remove “PLA+” from your chips' }).click();
-    await expect(chip(page, 'PLA+')).toHaveCount(0);
-    // still the material for this tag, now as a Custom value
-    await expect(page.getByLabel('Custom material')).toHaveValue('PLA+');
+    await expect(page.getByRole('button', { name: /^Remove “/ })).toHaveCount(0);
   });
 
   test('Other… is the brand box; saving turns the brand on, with a dashed outline if nobody lists it', async ({ page }) => {
@@ -317,9 +316,9 @@ test.describe('Your own chips', () => {
 });
 
 test('typing a Custom material letter by letter past a chip name keeps the box open', async ({ page }) => {
-  await page.getByRole('group', { name: 'Material', exact: true }).getByRole('button', { name: 'Custom' }).click();
-  await page.getByLabel('Custom material').pressSequentially('PLA+'); // "PLA" on the way used to close the box
-  await expect(page.getByLabel('Custom material')).toHaveValue('PLA+');
+  await page.getByRole('group', { name: 'Material', exact: true }).getByRole('button', { name: 'Other…' }).click();
+  await page.getByLabel('Other material').pressSequentially('PLA+'); // "PLA" on the way used to close the box
+  await expect(page.getByLabel('Other material')).toHaveValue('PLA+');
   await writeTag(page);
   expect((await lastWrite(page)).type).toBe('PLA+');
 });

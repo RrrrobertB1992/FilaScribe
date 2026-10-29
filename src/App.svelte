@@ -16,6 +16,7 @@
   import { buildParts } from './lib/buildInfo.js';
   import * as CustomChips from './lib/customChips.js';
   import * as BrandList from './lib/brandList.js';
+  import * as MaterialList from './lib/materialList.js';
 
   const nfc = getNfc();
   const buildLabel = buildParts(__BUILD__);
@@ -59,7 +60,24 @@
     shownBrands = next;
     BrandList.store(shownBrands);
   }
-  const materialItems = $derived(CustomChips.withSaved(builtInMaterials, chips.materials));
+  // The Material row: the materials chosen in Settings (the ones the brand
+  // makes). Materials saved as chips before that setting existed move into it once.
+  let shownMaterials = $state(MaterialList.load(undefined, chips.materials));
+  if (chips.materials.length) {
+    MaterialList.store(shownMaterials);
+    chips = { ...chips, materials: [] };
+    CustomChips.store(chips);
+  }
+  const materialItems = $derived(MaterialList.rowFor(shownMaterials, builtInMaterials, form.type));
+  // Materials that aren't built in (your own) get the dashed outline
+  const ownMaterials = $derived(shownMaterials.filter((m) => !(m in MATERIALS)));
+
+  function showMaterial(material) {
+    const next = MaterialList.add(shownMaterials, material);
+    if (next === shownMaterials) return;
+    shownMaterials = next;
+    MaterialList.store(shownMaterials);
+  }
   const variantItems = $derived(CustomChips.withSaved(builtInVariants, savedVariants));
 
   function saveChip(kind, value, builtIn) {
@@ -77,7 +95,7 @@
   // After a write: Custom values on the tag become chips too
   function saveCustomsFromForm() {
     showBrand(form.brand);
-    saveChip('material', form.type, builtInMaterials);
+    showMaterial(form.type);
     if (u1) saveChip('variant', form.subtype, builtInVariants);
   }
 
@@ -117,7 +135,7 @@
   // A new brand that doesn't make the material switches to PLA (or the
   // brand's first material), with its temperatures
   function pickBrand() {
-    const type = carryMaterial(brandData, form.brand, form.type);
+    const type = carryMaterial(brandData, form.brand, form.type, shownMaterials);
     if (type !== form.type) {
       form.type = type;
       fillTemps(type);
@@ -127,7 +145,11 @@
 
   function pickMaterial(value, custom) {
     keepVariantFitting();
-    if (!custom) fillTemps(value);
+    fillTemps(value); // only does anything for a built-in material
+    // A built-in material chosen in Other… (typed or from a suggestion) goes
+    // on the row, so it doesn't vanish when the box closes. Your own ones wait
+    // for Save or a write, like brands.
+    if (custom && value in MATERIALS) showMaterial(value);
   }
 
   function fillTemps(type) {
@@ -277,7 +299,7 @@
   {/if}
 
   {#if mode === 'settings'}
-    <Settings {form} bind:defaults bind:chips bind:shownBrands {brandData} onstatus={(t, isError) => say(t, isError ? 'error' : 'ok')} />
+    <Settings {form} bind:defaults bind:chips bind:shownBrands bind:shownMaterials {brandData} onstatus={(t, isError) => say(t, isError ? 'error' : 'ok')} />
   {:else if mode === 'update' && (!loaded || loaded.empty)}
     <section class="empty">
       <h2>Read a tag to change it</h2>
@@ -327,10 +349,12 @@
         onpick={pickMaterial}
         customPlaceholder="e.g. PLA+"
         error={errorFor('type')}
-        hint={materialsFiltered ? `The materials ${form.brand} makes. Custom for anything else.` : ''}
-        onsave={(v) => saveChip('material', v, builtInMaterials)}
-        removable={chips.materials}
-        onremove={(v) => removeChip('material', v)}
+        hint={materialsFiltered ? `The materials ${form.brand} makes, of the ones you show. Other… for anything else.` : ''}
+        suggest={(t) => MaterialList.suggest(shownMaterials, t)}
+        commit={MaterialList.canonical}
+        customLabel="Other…"
+        onsave={showMaterial}
+        outlined={ownMaterials}
       />
       {#if u1}
         <Palette

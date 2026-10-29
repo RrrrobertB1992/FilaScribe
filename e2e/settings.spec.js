@@ -1,4 +1,4 @@
-import { test, expect, chip, writeTag, lastWrite, status, temps, placeTag } from './nfc.js';
+import { test, expect, chip, writeTag, lastWrite, status, temps, placeTag, showAllMaterials } from './nfc.js';
 
 const settings = (page) => page.getByRole('tab', { name: 'Settings' }).click();
 // A Settings card, opened (they start closed)
@@ -12,7 +12,7 @@ test.describe('Settings', () => {
   test('a Settings tab next to Create and Read & update, with no write button', async ({ page }) => {
     await settings(page);
     await expect(page.getByRole('tab', { name: 'Settings' })).toHaveAttribute('aria-selected', 'true');
-    for (const h of ['Defaults for new tags', 'Your chips', 'Saved colors', 'Appearance', 'About']) {
+    for (const h of ['Defaults for new tags', 'Brands', 'Materials', 'Your chips', 'Saved colors', 'Appearance', 'About']) {
       await expect(page.getByRole('heading', { name: h })).toBeVisible();
     }
     await expect(page.getByRole('button', { name: 'Write tag' })).toHaveCount(0);
@@ -102,6 +102,141 @@ test.describe('Settings', () => {
     await expect(brandRow.getByRole('button', { name: 'Elegoo', exact: true })).toHaveCount(0);
   });
 
+  test('the Material row starts short: PLA, PETG and ABS', async ({ page }) => {
+    const row = page.getByRole('group', { name: 'Material', exact: true });
+    for (const name of ['PLA', 'PETG', 'ABS', 'Other…']) await expect(row.getByRole('button', { name, exact: true })).toBeVisible();
+    for (const name of ['TPU', 'ASA', 'PEEK', 'PVA']) await expect(row.getByRole('button', { name, exact: true })).toHaveCount(0);
+  });
+
+  test('materials: choose what the Material row shows', async ({ page }) => {
+    const row = page.getByRole('group', { name: 'Material', exact: true });
+    await settings(page);
+    const materials = await card(page, 'Materials');
+    const onForm = materials.getByRole('group', { name: 'Materials on the form' });
+    const toAdd = materials.getByRole('group', { name: 'Materials to add' });
+    await expect(onForm).toContainText('PLA');
+    await expect(onForm).toContainText('PETG');
+    await expect(onForm).toContainText('ABS');
+    await expect(onForm).not.toContainText('PEEK');
+
+    // + adds one back, and it leaves the list
+    await toAdd.getByRole('button', { name: 'Add TPU', exact: true }).click();
+    await expect(onForm).toContainText('TPU');
+    await expect(materials.getByRole('button', { name: 'Add TPU', exact: true })).toHaveCount(0);
+
+    // × hides one
+    await onForm.getByRole('button', { name: 'Hide PETG' }).click();
+    await expect(onForm).not.toContainText('PETG');
+    await expect(materials.getByRole('button', { name: 'Add PETG', exact: true })).toBeVisible();
+
+    // narrowing the list, and a name nobody lists
+    await materials.getByLabel('Find a material').fill('pee');
+    await expect(toAdd.getByRole('button')).toHaveCount(1);
+    await materials.getByLabel('Find a material').fill('PLA+');
+    await expect(materials).toContainText('No other materials match “PLA+”.');
+    await materials.getByRole('button', { name: 'Add “PLA+” as your own material' }).click();
+    await expect(onForm).toContainText('PLA+');
+
+    await page.getByRole('tab', { name: 'Create' }).click();
+    await expect(row.getByRole('button', { name: 'TPU', exact: true })).toBeVisible();
+    await expect(row.getByRole('button', { name: 'PETG', exact: true })).toHaveCount(0);
+    await expect(row.getByRole('button', { name: 'PLA+', exact: true })).toHaveClass(/saved/);
+
+    // it sticks
+    await page.reload();
+    await expect(row.getByRole('button', { name: 'TPU', exact: true })).toBeVisible();
+    await expect(row.getByRole('button', { name: 'PETG', exact: true })).toHaveCount(0);
+
+    // reset
+    await settings(page);
+    await (await card(page, 'Materials')).getByRole('button', { name: 'Show the default materials' }).click();
+    await page.getByRole('tab', { name: 'Create' }).click();
+    await expect(row.getByRole('button', { name: 'PETG', exact: true })).toBeVisible();
+    await expect(row.getByRole('button', { name: 'TPU', exact: true })).toHaveCount(0);
+    await expect(row.getByRole('button', { name: 'PLA+', exact: true })).toHaveCount(0);
+  });
+
+  test('Other… suggests hidden materials, fills their temperatures, and puts a built-in one on the row', async ({ page }) => {
+    const row = page.getByRole('group', { name: 'Material', exact: true });
+    const matches = page.getByRole('group', { name: 'Suggestions' });
+    await row.getByRole('button', { name: 'Other…' }).click();
+    await page.getByLabel('Other material').fill('pee');
+    await expect(matches.getByRole('button', { name: 'PEEK' })).toBeVisible();
+    await expect(matches.getByRole('button', { name: 'PLA' })).toHaveCount(0); // already on the row
+    await matches.getByRole('button', { name: 'PEEK' }).click();
+    // it's a chip now (built in: no dashed outline), with its temperatures
+    await expect(page.getByLabel('Other material')).toHaveValue('PEEK');
+    await expect(chip(page, 'PEEK')).toBeVisible();
+    await expect(chip(page, 'PEEK')).not.toHaveClass(/saved/);
+    await expect(temps(page, 'Nozzle').min).toHaveValue('360');
+    await chip(page, 'PLA').click();
+    await expect(chip(page, 'PEEK')).toBeVisible(); // and it stays on the row
+    // a typed built-in name in any case becomes its spelling
+    await row.getByRole('button', { name: 'Other…' }).click();
+    await page.getByLabel('Other material').fill('tpu');
+    await page.getByLabel('Other material').press('Enter');
+    await expect(page.getByLabel('Other material')).toHaveValue('TPU');
+    await expect(chip(page, 'TPU')).toBeVisible();
+    await expect(temps(page, 'Nozzle').min).toHaveValue('210');
+    // Settings lists them
+    await settings(page);
+    const onForm = (await card(page, 'Materials')).getByRole('group', { name: 'Materials on the form' });
+    await expect(onForm).toContainText('PEEK');
+    await expect(onForm).toContainText('TPU');
+  });
+
+  test('writing a tag turns its material on', async ({ page }) => {
+    await page.getByRole('group', { name: 'Material', exact: true }).getByRole('button', { name: 'Other…' }).click();
+    await page.getByLabel('Other material').fill('PLA+');
+    await writeTag(page);
+    expect((await lastWrite(page)).type).toBe('PLA+');
+    await expect(chip(page, 'PLA+')).toHaveAttribute('aria-pressed', 'true');
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('filascribe-materials')).shown)).toContain('PLA+');
+  });
+
+  test('a read tag with a hidden material still shows it selected', async ({ page }) => {
+    await page.getByRole('tab', { name: 'Read & update' }).click();
+    await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'PEEK', brand: 'Generic', color_hex: 'FFFFFF' });
+    await page.getByRole('button', { name: 'Read tag' }).click();
+    await expect(page.getByRole('dialog')).toBeHidden();
+    await expect(chip(page, 'PEEK')).toHaveAttribute('aria-pressed', 'true');
+    // pick something else and it goes away again
+    await chip(page, 'PLA').click();
+    await expect(chip(page, 'PEEK')).toHaveCount(0);
+  });
+
+  test('hiding a material hides it for brands too, and a brand still filters the rest', async ({ page }) => {
+    const row = page.getByRole('group', { name: 'Material', exact: true });
+    await settings(page);
+    await (await card(page, 'Materials')).getByRole('group', { name: 'Materials on the form' }).getByRole('button', { name: 'Hide PETG' }).click();
+    await page.getByRole('tab', { name: 'Create' }).click();
+    await chip(page, 'JAYO').click(); // JAYO makes PLA, PETG and TPU; ABS isn't made
+    await expect(row.getByRole('button', { name: 'PLA', exact: true })).toBeVisible();
+    await expect(row.getByRole('button', { name: 'PETG', exact: true })).toHaveCount(0);
+    await expect(row.getByRole('button', { name: 'ABS', exact: true })).toHaveCount(0);
+  });
+
+  test('a brand that doesn’t make the material switches to a material you show', async ({ page }) => {
+    await showAllMaterials(page);
+    await settings(page);
+    // hide PLA, so the switch has to pick from what's left
+    await (await card(page, 'Materials')).getByRole('group', { name: 'Materials on the form' }).getByRole('button', { name: 'Hide PLA', exact: true }).click();
+    await page.getByRole('tab', { name: 'Create' }).click();
+    await chip(page, 'PEEK').click();
+    await chip(page, 'JAYO').click(); // no PEEK: PETG is the first of its materials that is shown
+    await expect(chip(page, 'PETG')).toHaveAttribute('aria-pressed', 'true');
+    await expect(temps(page, 'Nozzle').min).toHaveValue('220');
+  });
+
+  test('materials saved as chips before move into the material list', async ({ page }) => {
+    await page.evaluate(() => localStorage.setItem('filascribe-custom-chips', JSON.stringify({ brands: [], materials: ['PLA+'], variants: {} })));
+    await page.reload();
+    await expect(chip(page, 'PLA+')).toBeVisible();
+    await expect(chip(page, 'PETG')).toBeVisible();
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('filascribe-materials')).shown)).toEqual(['PLA', 'PETG', 'ABS', 'PLA+']);
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('filascribe-custom-chips')).materials)).toEqual([]);
+  });
+
   test('cards start closed, open with a tap, and stay open after a reload', async ({ page }) => {
     await settings(page);
     const about = page.locator('details.card', { has: page.getByRole('heading', { name: 'About' }) });
@@ -135,17 +270,17 @@ test.describe('Settings', () => {
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('filascribe-custom-chips')).brands)).toEqual([]);
   });
 
-  test('your chips: listed and removable', async ({ page }) => {
-    await page.getByRole('group', { name: 'Material', exact: true }).getByRole('button', { name: 'Custom' }).click();
-    await page.getByLabel('Custom material').fill('PLA+');
-    await page.getByRole('button', { name: 'Save material as a chip' }).click();
+  test('your chips: variants are listed and removable', async ({ page }) => {
+    await page.getByRole('group', { name: 'Variant', exact: true }).getByRole('button', { name: 'Custom' }).click();
+    await page.getByLabel('Custom variant').fill('Rapid');
+    await page.getByRole('button', { name: 'Save variant as a chip' }).click();
     await settings(page);
     const chips = (await card(page, 'Your chips'));
-    await expect(chips.getByRole('group', { name: 'Your materials' })).toContainText('PLA+');
-    await chips.getByRole('button', { name: 'Remove PLA+' }).click();
+    await expect(chips.getByRole('group', { name: 'Your variants for Generic PLA' })).toContainText('Rapid');
+    await chips.getByRole('button', { name: 'Remove Rapid' }).click();
     await expect(chips).toContainText('None yet');
     await page.getByRole('tab', { name: 'Create' }).click();
-    await expect(chip(page, 'PLA+')).toHaveCount(0);
+    await expect(chip(page, 'Rapid')).toHaveCount(0);
   });
 
   test('saved colors: listed per brand + material, cleared, imported and exported', async ({ page }) => {
