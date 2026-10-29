@@ -237,127 +237,179 @@ test.describe('Settings', () => {
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('filascribe-custom-chips')).materials)).toEqual([]);
   });
 
-  test('variants: nothing is hidden to start, and a hidden one leaves the Variant row for every brand', async ({ page }) => {
-    const row = page.getByRole('group', { name: 'Variant', exact: true });
-    const v = (name) => row.getByRole('button', { name, exact: true });
+  const variantRow = (page) => page.getByRole('group', { name: 'Variant', exact: true });
+  const vbtn = (scope, name) => scope.getByRole('button', { name, exact: true });
+  async function hideVariants(page, ...names) {
+    await settings(page);
+    const variants = await card(page, 'Variants');
+    for (const n of names) await vbtn(variants, n).click();
+    await page.getByRole('tab', { name: 'Create' }).click();
+  }
+
+  test('variants: a card per kind, with the brands’ own words under the usual name', async ({ page }) => {
+    await settings(page);
+    const variants = await card(page, 'Variants');
+    // the default brands, PLA/PETG/ABS: no hardness (that's TPU), no nylon-only kinds
+    await expect(vbtn(variants, 'Metallic')).toContainText('Metal');
+    await expect(vbtn(variants, 'Matte')).toContainText('Matt');
+    await expect(vbtn(variants, 'HF')).toContainText('High Speed');
+    await expect(vbtn(variants, 'Basic')).toHaveAttribute('aria-pressed', 'true');
+    await expect(variants.getByRole('group', { name: 'TPU hardness' })).toHaveCount(0);
+    await expect(variants).toContainText('0 hidden');
+    // the filter looks at every name on a card
+    await variants.getByLabel('Find a variant').fill('rapid');
+    await expect(vbtn(variants, 'HF')).toBeVisible();
+    await expect(vbtn(variants, 'Matte')).toHaveCount(0);
+    await variants.getByLabel('Find a variant').fill('zzz');
+    await expect(variants).toContainText('No variants match “zzz”.');
+  });
+
+  test('variants: a hidden one leaves the Variant row for brands, but Generic keeps the default list', async ({ page }) => {
+    const row = variantRow(page);
     await chip(page, 'Bambu Lab').click();
-    for (const name of ['None', 'Matte', 'Silk', 'Glow']) await expect(v(name)).toBeVisible();
+    for (const name of ['None', 'Matte', 'Silk', 'Glow']) await expect(vbtn(row, name)).toBeVisible();
 
     await settings(page);
     const variants = await card(page, 'Variants');
-    const hidden = variants.getByRole('group', { name: 'Hidden variants' });
-    await expect(hidden).toContainText('Nothing hidden.');
-    await expect(variants.getByRole('button', { name: 'Show all variants' })).toBeDisabled();
-    await expect(variants.getByRole('list', { name: 'Variants to hide' })).toHaveCount(0); // nothing until typed
-
-    // find one: starts with, and tap to hide
-    await variants.getByLabel('Find a variant').fill('gl');
-    await expect(variants.getByRole('button', { name: 'Hide Glow', exact: true })).toBeVisible();
-    await expect(variants.getByRole('button', { name: 'Hide Matte', exact: true })).toHaveCount(0);
-    await variants.getByRole('button', { name: 'Hide Glow', exact: true }).click();
-    await expect(hidden).toContainText('Glow');
-    await expect(variants.getByRole('button', { name: 'Hide Glow', exact: true })).toHaveCount(0); // not offered again
-    await variants.getByLabel('Find a variant').fill('zzz');
-    await expect(variants).toContainText('No other variants start with “zzz”.');
+    await vbtn(variants, 'Glow').click();
+    await expect(vbtn(variants, 'Glow')).toHaveAttribute('aria-pressed', 'false');
+    await expect(vbtn(variants, 'Glow')).toContainText('Hidden');
+    await expect(variants).toContainText('1 hidden');
 
     await page.getByRole('tab', { name: 'Create' }).click();
-    await expect(v('Glow')).toHaveCount(0);
-    for (const name of ['None', 'Matte', 'Silk']) await expect(v(name)).toBeVisible();
-    // for another brand and material too
+    await expect(vbtn(row, 'Glow')).toHaveCount(0);
+    for (const name of ['None', 'Matte', 'Silk']) await expect(vbtn(row, name)).toBeVisible();
     await chip(page, 'Snapmaker').click();
-    await expect(v('Glow')).toHaveCount(0);
+    await expect(vbtn(row, 'Glow')).toHaveCount(0);
+    // Generic shows the full default list, hidden or not
+    await chip(page, 'Generic').click();
+    await expect(vbtn(row, 'Glow')).toBeVisible();
 
     // it sticks
     await page.reload();
     await chip(page, 'Bambu Lab').click();
-    await expect(v('Glow')).toHaveCount(0);
-    await expect(v('Matte')).toBeVisible();
+    await expect(vbtn(row, 'Glow')).toHaveCount(0);
+    await expect(vbtn(row, 'Matte')).toBeVisible();
 
-    // × shows it again
+    // tap again to show it
     await settings(page);
-    await (await card(page, 'Variants')).getByRole('button', { name: 'Show Glow', exact: true }).click();
+    await vbtn(await card(page, 'Variants'), 'Glow').click();
     await page.getByRole('tab', { name: 'Create' }).click();
-    await expect(v('Glow')).toBeVisible();
+    await expect(vbtn(row, 'Glow')).toBeVisible();
   });
 
-  test('variants: hiding one kind hides a brand’s own word for it', async ({ page }) => {
-    const row = page.getByRole('group', { name: 'Variant', exact: true });
+  test('variants: hiding a kind hides a brand’s own word for it', async ({ page }) => {
+    const row = variantRow(page);
     await chip(page, 'Bambu Lab').click();
-    await expect(row.getByRole('button', { name: 'Metal', exact: true })).toBeVisible(); // Bambu says Metal
+    await expect(vbtn(row, 'Metal')).toBeVisible(); // Bambu says Metal
+    await hideVariants(page, 'Metallic');
+    await expect(vbtn(row, 'Metal')).toHaveCount(0);
+    await chip(page, 'Polymaker').click(); // says Metallic
+    await expect(vbtn(row, 'Metallic')).toHaveCount(0);
+  });
+
+  test('variants: only what the enabled brands make, in the materials shown', async ({ page }) => {
     await settings(page);
     const variants = await card(page, 'Variants');
-    await variants.getByLabel('Find a variant').fill('metallic');
-    await variants.getByRole('button', { name: 'Hide Metallic', exact: true }).click();
-    await page.getByRole('tab', { name: 'Create' }).click();
-    await expect(row.getByRole('button', { name: 'Metal', exact: true })).toHaveCount(0);
-    // and Show all puts everything back
+    await expect(vbtn(variants, 'SnapSpeed')).toBeVisible(); // Snapmaker's
+    // hide a variant, then turn its only brand off: it's still listed, so it can be shown again
+    await vbtn(variants, 'SnapSpeed').click();
+    await (await card(page, 'Brands')).getByRole('group', { name: 'Brands on the form' }).getByRole('button', { name: 'Hide Snapmaker' }).click();
+    await expect(vbtn(variants, 'SnapSpeed')).toContainText('None of your brands make it');
+    await vbtn(variants, 'SnapSpeed').click(); // shown again
+    await expect(vbtn(variants, 'SnapSpeed')).toHaveCount(0); // and no longer listed
+    // no brands of their own: a hint instead of a list
+    for (const b of ['Bambu Lab', 'HATCHBOX', 'eSUN', 'Overture', 'SUNLU', 'Polymaker', 'Prusa Polymers', 'JAYO']) {
+      await (await card(page, 'Brands')).getByRole('group', { name: 'Brands on the form' }).getByRole('button', { name: `Hide ${b}` }).click();
+    }
+    await expect(variants).toContainText('None of your brands has variants of its own yet');
+    await expect(variants.getByLabel('Find a variant')).toHaveCount(0);
+  });
+
+  test('variants: TPU hardness is listed once TPU is shown', async ({ page }) => {
     await settings(page);
-    await (await card(page, 'Variants')).getByRole('button', { name: 'Show all variants' }).click();
+    const variants = await card(page, 'Variants');
+    await expect(variants.getByRole('group', { name: 'TPU hardness' })).toHaveCount(0);
+    await (await card(page, 'Materials')).getByRole('button', { name: 'Add TPU', exact: true }).click();
+    const hardness = variants.getByRole('group', { name: 'TPU hardness' });
+    await expect(hardness.getByRole('button', { name: '90A', exact: true })).toBeVisible();
+    await hardness.getByRole('button', { name: '85A', exact: true }).click();
+    await expect(hardness.getByRole('button', { name: '85A', exact: true })).toHaveAttribute('aria-pressed', 'false');
     await page.getByRole('tab', { name: 'Create' }).click();
-    await expect(row.getByRole('button', { name: 'Metal', exact: true })).toBeVisible();
+    await chip(page, 'Bambu Lab').click();
+    await chip(page, 'TPU').click();
+    await expect(vbtn(variantRow(page), '85A')).toHaveCount(0);
+    await expect(vbtn(variantRow(page), '90A')).toBeVisible();
+  });
+
+  test('variants: Hide all, then Show all', async ({ page }) => {
+    const row = variantRow(page);
+    await settings(page);
+    const variants = await card(page, 'Variants');
+    await variants.getByRole('button', { name: 'Hide all' }).click();
+    await expect(variants.getByRole('button', { name: 'Hide all' })).toBeDisabled();
+    await page.getByRole('tab', { name: 'Create' }).click();
+    await chip(page, 'Bambu Lab').click();
+    await expect(vbtn(row, 'None')).toBeVisible(); // None never goes
+    await expect(vbtn(row, 'Matte')).toHaveCount(0);
+    await chip(page, 'Generic').click();
+    await expect(vbtn(row, 'Matte')).toBeVisible();
+    await settings(page);
+    await (await card(page, 'Variants')).getByRole('button', { name: 'Show all' }).click();
+    await page.getByRole('tab', { name: 'Create' }).click();
+    await chip(page, 'Bambu Lab').click();
+    await expect(vbtn(row, 'Matte')).toBeVisible();
   });
 
   test('variants: None, a variant read from a tag, and a Save in the Custom box are not lost', async ({ page }) => {
-    const row = page.getByRole('group', { name: 'Variant', exact: true });
-    await settings(page);
-    const variants = await card(page, 'Variants');
-    for (const name of ['glow', 'matte']) {
-      await variants.getByLabel('Find a variant').fill(name);
-      await variants.getByRole('button', { name: `Hide ${name[0].toUpperCase()}${name.slice(1)}`, exact: true }).click();
-    }
+    const row = variantRow(page);
+    await hideVariants(page, 'Glow', 'Matte');
     // None stays; a tag with a hidden variant still shows it selected
     await page.getByRole('tab', { name: 'Read & update' }).click();
-    await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'PLA', brand: 'Generic', color_hex: 'FFFFFF', subtype: 'Glow' });
+    await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'PLA', brand: 'Bambu Lab', color_hex: 'FFFFFF', subtype: 'Glow' });
     await page.getByRole('button', { name: 'Read tag' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
-    await expect(row.getByRole('button', { name: 'None', exact: true })).toBeVisible();
-    await expect(row.getByRole('button', { name: 'Glow', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(vbtn(row, 'None')).toBeVisible();
+    await expect(vbtn(row, 'Glow')).toHaveAttribute('aria-pressed', 'true');
     // pick something else and it goes away again
-    await row.getByRole('button', { name: 'None', exact: true }).click();
-    await expect(row.getByRole('button', { name: 'Glow', exact: true })).toHaveCount(0);
-    await expect(row.getByRole('button', { name: 'Matte', exact: true })).toHaveCount(0);
+    await vbtn(row, 'None').click();
+    await expect(vbtn(row, 'Glow')).toHaveCount(0);
+    await expect(vbtn(row, 'Matte')).toHaveCount(0);
     // typing a hidden one in the Custom box and saving it turns it back on
     await row.getByRole('button', { name: 'Custom' }).click();
     await page.getByLabel('Custom variant').fill('Glow');
     await page.getByRole('button', { name: 'Save variant as a chip' }).click();
-    await expect(row.getByRole('button', { name: 'Glow', exact: true })).toBeVisible();
+    await expect(vbtn(row, 'Glow')).toBeVisible();
     await settings(page);
-    await expect((await card(page, 'Variants')).getByRole('group', { name: 'Hidden variants' })).not.toContainText('Glow');
-    await expect((await card(page, 'Variants')).getByRole('group', { name: 'Hidden variants' })).toContainText('Matte');
+    const variants = await card(page, 'Variants');
+    await expect(vbtn(variants, 'Glow')).toHaveAttribute('aria-pressed', 'true');
+    await expect(vbtn(variants, 'Matte')).toHaveAttribute('aria-pressed', 'false');
   });
 
   test('variants: typing a near name in Custom ("Matt") does not bring the hidden Matte back', async ({ page }) => {
-    const row = page.getByRole('group', { name: 'Variant', exact: true });
+    const row = variantRow(page);
     await chip(page, 'Bambu Lab').click();
-    await settings(page);
-    const variants = await card(page, 'Variants');
-    await variants.getByLabel('Find a variant').fill('matte');
-    await variants.getByRole('button', { name: 'Hide Matte', exact: true }).click();
-    await page.getByRole('tab', { name: 'Create' }).click();
+    await hideVariants(page, 'Matte');
     await row.getByRole('button', { name: 'Custom' }).click();
     await page.getByLabel('Custom variant').fill('Matt');
-    await expect(row.getByRole('button', { name: 'Matte', exact: true })).toHaveCount(0);
+    await expect(vbtn(row, 'Matte')).toHaveCount(0);
     await page.getByRole('button', { name: 'Save variant as a chip' }).click();
     // Matt is a new variant of its own; Matte is still hidden
-    await expect(row.getByRole('button', { name: 'Matt', exact: true })).toHaveAttribute('aria-pressed', 'true');
-    await expect(row.getByRole('button', { name: 'Matte', exact: true })).toHaveCount(0);
+    await expect(vbtn(row, 'Matt')).toHaveAttribute('aria-pressed', 'true');
+    await expect(vbtn(row, 'Matte')).toHaveCount(0);
     await settings(page);
-    await expect((await card(page, 'Variants')).getByRole('group', { name: 'Hidden variants' })).toContainText('Matte');
+    await expect(vbtn(await card(page, 'Variants'), 'Matte')).toHaveAttribute('aria-pressed', 'false');
   });
 
   test('variants: a brand switch does not land on a hidden variant', async ({ page }) => {
-    const row = page.getByRole('group', { name: 'Variant', exact: true });
+    const row = variantRow(page);
     await chip(page, 'Bambu Lab').click();
-    await row.getByRole('button', { name: 'Metal', exact: true }).click();
-    await settings(page);
-    const variants = await card(page, 'Variants');
-    await variants.getByLabel('Find a variant').fill('metallic');
-    await variants.getByRole('button', { name: 'Hide Metallic', exact: true }).click();
-    await page.getByRole('tab', { name: 'Create' }).click();
+    await vbtn(row, 'Metal').click();
+    await hideVariants(page, 'Metallic');
     // Metal is hidden but selected, so it stays until another brand: Polymaker says Metallic (hidden) -> None
     await chip(page, 'Polymaker').click();
-    await expect(row.getByRole('button', { name: 'None', exact: true })).toHaveAttribute('aria-pressed', 'true');
-    await expect(row.getByRole('button', { name: 'Metallic', exact: true })).toHaveCount(0);
+    await expect(vbtn(row, 'None')).toHaveAttribute('aria-pressed', 'true');
+    await expect(vbtn(row, 'Metallic')).toHaveCount(0);
   });
 
   test('cards start closed, open with a tap, and stay open after a reload', async ({ page }) => {

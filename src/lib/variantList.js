@@ -2,12 +2,14 @@
 // brands and materials this is a list of what is *hidden*: variant names
 // come from every brand's own words (Metal, Luminous, Rainbow...), so there
 // is no short list to start from. Nothing is hidden until you hide it.
+// Settings shows one card per kind, for the brands and materials you show.
 //
 // A variant is hidden by kind: hiding "Metallic" also hides a brand's own
 // word for it ("Metal"). Hidden variants are left off the built-in chips for
 // every brand and material. None, your own saved variants and the Custom box
-// are never affected, and a variant that is selected (for example read from
-// a tag) still gets its chip.
+// are never affected, a variant that is selected (for example read from a
+// tag) still gets its chip, and the default list (Generic, brands the
+// database doesn't know) is never filtered: see App.svelte.
 //
 // Data: { hidden: ["Rainbow", "Glow"] }
 import { sameVariant } from './brandColors.js';
@@ -76,9 +78,8 @@ export function visible(choices, hidden, current = '') {
   return choices.filter((c) => !c || !isHidden(hidden, c) || key(c) === key(current)); // the name itself, not the kind: typing "Matt" doesn't bring Matte back
 }
 
-/** Variant names starting with `text`, not hidden yet, best known first. */
-export function find(names, hidden, text, limit = 12) {
-  const q = key(text);
-  if (!q) return [];
-  return names.filter((n) => key(n).startsWith(q) && !isHidden(hidden, n)).slice(0, limit);
-}
+/** Hide a kind that is shown, show one that is hidden. */
+export const toggle = (hidden, variant) => (isHidden(hidden, variant) ? show(hidden, variant) : hide(hidden, variant));
+
+/** Hide every one of `names` (kinds, by their main name). */
+export const hideAll = (hidden, names) => names.reduce((h, n) => hide(h, n), hidden);

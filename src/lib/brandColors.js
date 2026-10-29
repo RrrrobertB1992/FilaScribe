@@ -235,29 +235,65 @@ export function carryVariant(db, variant, brand, type, keep = [], hidden = []) {
   if (!v) return '';
   // Variants hidden in Settings aren't chips, so the same kind of variant
   // doesn't switch to one (the selected one itself stays)
-  const choices = variantChoices(db, brand, type).filter((c) => !c || c === v || !hidden.some((h) => sameVariant(h, c)));
+  const all = variantChoices(db, brand, type);
+  // The default list (Generic, an unknown brand) is never filtered
+  const choices = all === VARIANTS ? all : all.filter((c) => !c || c === v || !hidden.some((h) => sameVariant(h, c)));
   if (choices.includes(v) || keep.includes(v)) return v;
   const group = groupKey(v);
   return (group && choices.find((c) => c && groupKey(c) === group)) || '';
 }
 
+const SHORE_NAME = /^\d{2}A( HF)?$/i;
+
 /**
- * Every variant name a chip can have: the default list plus each brand's own
- * words for each material, default list first, then by how many brands use
- * the name. For finding a variant to hide in Settings.
+ * The variants you can hide, as one card per kind (the names that mean the
+ * same thing under different brands): `main` is the usual name (Metallic),
+ * `others` the brands' own words for it (Metal), A to Z. Shore hardness
+ * (85A, 95A HF) is a kind of its own each, with `hardness: true`, and comes
+ * last. Kinds are in the usual chip order.
+ *
+ * Only what the enabled `brands` make in the `materials` shown is listed;
+ * Generic and brands the database doesn't know show the default list, which
+ * nothing hides, so they add nothing. `keep` names (variants already hidden)
+ * are always listed, with `unused: true` when no enabled brand has them, so
+ * a hidden variant can always be shown again.
  */
-export function variantNames(db) {
-  const count = new Map();
-  for (const b of db?.brands || []) {
-    const seen = new Set();
-    for (const m of Object.keys(MATERIALS)) {
-      for (const v of variantChoices(db, b.name, m)) if (v) seen.add(v);
+export function variantKinds(db, brands = [], materials = Object.keys(MATERIALS), keep = []) {
+  const used = new Set();
+  for (const b of brands) {
+    if (!findBrand(db, b)) continue;
+    for (const m of materials) {
+      if (!(m in MATERIALS)) continue;
+      const choices = variantChoices(db, b, m);
+      if (choices === VARIANTS) continue; // the brand doesn't make this material
+      for (const v of choices) if (v) used.add(v);
     }
-    for (const v of seen) count.set(v, (count.get(v) || 0) + 1);
   }
-  const base = VARIANTS.filter(Boolean);
-  const rest = [...count.keys()].filter((v) => !base.includes(v)).sort((a, b) => count.get(b) - count.get(a) || a.localeCompare(b));
-  return [...base, ...rest];
+  const kinds = kindsFrom([...used]);
+  for (const k of kindsFrom(keep.filter((n) => n && !kinds.some((c) => [c.main, ...c.others].some((x) => sameVariant(x, n)))))) {
+    kinds.push({ ...k, unused: true });
+  }
+  return kinds.sort((a, b) => a.order - b.order || a.main.localeCompare(b.main, undefined, { numeric: true })).map(({ order, ...k }) => k);
+}
+
+function kindsFrom(names) {
+  const groups = [];
+  for (const n of names) {
+    const g = groups.find((x) => sameVariant(x[0], n));
+    if (g) g.push(n);
+    else groups.push([n]);
+  }
+  const usual = [...VARIANTS.filter(Boolean), ...EXTRA_GROUPS];
+  return groups.map((g) => {
+    const hardness = SHORE_NAME.test(g[0]);
+    const main = hardness ? g[0] : usual.find((u) => g.some((x) => sameVariant(x, u))) || [...g].sort((a, b) => a.localeCompare(b))[0];
+    const seen = new Set([main.toLowerCase()]);
+    const others = g
+      .filter((x) => !seen.has(x.toLowerCase()) && seen.add(x.toLowerCase()))
+      .sort((a, b) => a.localeCompare(b));
+    const i = usual.indexOf(main);
+    return { main, others, hardness, order: hardness ? 1000 : i < 0 ? 500 : i };
+  });
 }
 
 /** The database brand for a FilaScribe brand name, or null. */

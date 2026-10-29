@@ -74,25 +74,66 @@ describe('variant row', () => {
     expect(VL.visible(choices, ['Matte'], 'matte')).toEqual(['', 'Basic', 'Matte', 'Glow', 'Metal']); // the name itself, any case
   });
 
-  it('finds variants to hide: starts with, not hidden yet, at most 12', () => {
-    const names = ['Basic', 'Matte', 'Metal', 'Metallic', 'Marble', 'Glow'];
-    expect(VL.find(names, [], 'ma')).toEqual(['Matte', 'Marble']);
-    expect(VL.find(names, ['Metallic'], 'me')).toEqual([]); // Metal is the same kind as the hidden Metallic
-    expect(VL.find(names, [], '')).toEqual([]);
-    expect(VL.find(names, [], 'm', 2)).toHaveLength(2);
+  it('toggles a kind, and hides several at once', () => {
+    let h = VL.toggle([], 'Metallic');
+    expect(h).toEqual(['Metallic']);
+    expect(VL.toggle(h, 'Metal')).toEqual([]); // the same kind
+    expect(VL.hideAll(['Glow'], ['Matte', 'Glow', 'Silk'])).toEqual(['Glow', 'Matte', 'Silk']);
   });
 });
 
 describe('variants in the brand data', () => {
-  it('lists every variant name a chip can have, default list first', () => {
-    const names = BC.variantNames(snapshot);
-    expect(names.slice(0, VARIANTS.filter(Boolean).length)).toEqual(VARIANTS.filter(Boolean));
-    expect(names).toEqual(expect.arrayContaining(['Metal', 'High Speed', '85A']));
-    expect(new Set(names).size).toBe(names.length);
-    expect(names).not.toContain('');
-    expect(BC.variantNames(null)).toEqual(VARIANTS.filter(Boolean));
+  const kinds = (brands, materials) => BC.variantKinds(snapshot, brands, materials);
+  const describeKind = (k) => `${k.main}${k.others.length ? ': ' + k.others.join(', ') : ''}`;
+
+  it('lists one kind per card, the usual name first and the brands’ words A to Z', () => {
+    const all = kinds(snapshot.brands.map((b) => b.name)).map(describeKind);
+    expect(all).toContain('Metallic: Metal');
+    expect(all).toContain('HF: High Speed, HS, Hyper, Rapid');
+    expect(all).toContain('Lightweight: Aero, Air, Light Weight, LW');
+    expect(all).toContain('Matte: Matt');
+    expect(all.find((l) => l.startsWith('Multi-color'))).toBe('Multi-color: Gradient, Rainbow'); // no spelling-only duplicates
+    // usual order: Basic, Plus, Matte, then SnapSpeed...
+    expect(all.slice(0, 4).map((l) => l.split(':')[0])).toEqual(['Basic', 'Plus', 'Matte', 'SnapSpeed']);
+    // shore hardness is last, one kind each
+    const last = BC.variantKinds(snapshot, snapshot.brands.map((b) => b.name)).slice(-3);
+    expect(last.every((k) => k.hardness)).toBe(true);
   });
 
+  it('only lists what the enabled brands make', () => {
+    const one = kinds(['Bambu Lab'], ['PLA']).map((k) => k.main);
+    expect(one).toEqual(expect.arrayContaining(['Basic', 'Matte', 'Silk']));
+    expect(one).not.toContain('SnapSpeed'); // Snapmaker's
+    const bambuMetal = kinds(['Bambu Lab'], ['PLA']).find((k) => k.main === 'Metallic');
+    expect(bambuMetal.others).toEqual(['Metal']);
+    // Generic, a brand the database doesn't know, or no brands: nothing of their own
+    expect(kinds(['Zephyr'], ['PLA'])).toEqual([]);
+    expect(kinds([], ['PLA'])).toEqual([]);
+    expect(kinds(['Generic'], ['PLA'])).toEqual([]);
+  });
+
+  it('only lists the materials shown: hardness comes with TPU', () => {
+    expect(kinds(['Bambu Lab'], ['PLA']).some((k) => k.hardness)).toBe(false);
+    expect(kinds(['Bambu Lab'], ['PLA', 'TPU']).some((k) => k.hardness)).toBe(true);
+    expect(kinds(['Bambu Lab'], ['PLA', 'PLA+']).length).toBe(kinds(['Bambu Lab'], ['PLA']).length); // your own material adds nothing
+  });
+
+  it('always lists what is already hidden, flagged when no enabled brand has it', () => {
+    const k = BC.variantKinds(snapshot, ['Bambu Lab'], ['PLA'], ['Rainbow', 'Matte']);
+    expect(k.find((c) => c.main === 'Multi-color')).toMatchObject({ unused: true });
+    expect(k.find((c) => c.main === 'Matte').unused).toBeUndefined();
+    expect(BC.variantKinds(snapshot, [], [], ['Glow'])).toEqual([{ main: 'Glow', others: [], hardness: false, unused: true }]);
+  });
+});
+
+describe('the default list', () => {
+  it('a brand switch to Generic keeps the variant even when hidden', () => {
+    expect(BC.carryVariant(snapshot, 'Matte', 'Generic', 'PLA', [], ['Matte'])).toBe('Matte');
+    expect(BC.carryVariant(snapshot, 'Metal', 'Zephyr', 'PLA', [], ['Metallic'])).toBe('Metallic'); // the default list's word, not blanked by the hidden one
+  });
+});
+
+describe('same kind', () => {
   it('sameVariant: the same chip, or the same kind', () => {
     expect(BC.sameVariant('Matte', 'matt')).toBe(true);
     expect(BC.sameVariant('Metallic', 'Metal')).toBe(true);

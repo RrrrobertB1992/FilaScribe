@@ -79,10 +79,13 @@
     shownMaterials = next;
     MaterialList.store(shownMaterials);
   }
-  // Variants hidden in Settings are left off the built-in chips (None, your
-  // saved variants and the selected one stay)
+  // Variants hidden in Settings are left off a brand's built-in chips (None,
+  // your saved variants and the selected one stay)
   let hiddenVariants = $state(VariantList.load());
-  const variantItems = $derived(CustomChips.withSaved(VariantList.visible(builtInVariants, hiddenVariants, form.subtype), savedVariants));
+  // The default list (Generic, a brand the database doesn't know) shows all of them
+  const variantItems = $derived(
+    CustomChips.withSaved(builtInVariants === VARIANTS ? builtInVariants : VariantList.visible(builtInVariants, hiddenVariants, form.subtype), savedVariants),
+  );
 
   // Save on the Custom box: typing the exact name of a variant you hid (one of
   // the brand's chips) turns it back on. A near name like "Matt" is just a new

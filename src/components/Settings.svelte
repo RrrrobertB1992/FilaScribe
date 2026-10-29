@@ -13,7 +13,7 @@
   import * as MaterialList from '../lib/materialList.js';
   import * as VariantList from '../lib/variantList.js';
   import { MATERIALS } from '../lib/catalog.js';
-  import { findBrands, canonicalBrand, findBrand, variantNames } from '../lib/brandColors.js';
+  import { findBrands, canonicalBrand, findBrand, variantKinds } from '../lib/brandColors.js';
   import orca from '../data/orca-vendors.json';
 
   let {
@@ -130,9 +130,19 @@
   // --- Variants ---
 
   let findVariant = $state('');
-  // Every variant name a chip can have, worked out once, when the card is open
-  const allVariants = $derived(brandData && open.includes('variants') ? variantNames(brandData) : []);
-  const variantResults = $derived(VariantList.find(allVariants, hiddenVariants, findVariant));
+  // One card per kind of variant your enabled brands make in the materials you
+  // show (worked out when the card is open). Already-hidden ones are always listed.
+  const kinds = $derived(
+    brandData && open.includes('variants') ? variantKinds(brandData, shownBrands, shownMaterials, hiddenVariants) : [],
+  );
+  const kindMatch = (k) => {
+    const q = findVariant.trim().toLowerCase();
+    return !q || [k.main, ...k.others].some((n) => n.toLowerCase().includes(q));
+  };
+  const kindCards = $derived(kinds.filter((k) => !k.hardness && kindMatch(k)));
+  const hardnessChips = $derived(kinds.filter((k) => k.hardness && kindMatch(k)));
+  const hiddenCount = $derived(kinds.filter((k) => VariantList.isHidden(hiddenVariants, k.main)).length);
+  const hasOwnBrand = $derived(shownBrands.some((b) => brandData && findBrand(brandData, b)));
 
   function setHiddenVariants(next) {
     if (next === hiddenVariants) return;
@@ -140,10 +150,9 @@
     VariantList.store(hiddenVariants);
   }
 
-  function showAllVariants() {
-    if (!confirm('Show every variant again?')) return;
-    setHiddenVariants([]);
-  }
+  const toggleVariant = (k) => setHiddenVariants(VariantList.toggle(hiddenVariants, k.main));
+  const hideEveryVariant = () => setHiddenVariants(VariantList.hideAll(hiddenVariants, kinds.map((k) => k.main)));
+  const showEveryVariant = () => setHiddenVariants([]);
 
   // --- Collapsible cards (closed to start; which are open is remembered) ---
 
@@ -356,39 +365,46 @@
   <details class="card" open={open.includes('variants')} ontoggle={(e) => toggled('variants', e)}>
     <summary><h2 id="set-variants">Variants</h2></summary>
     <div class="body">
-    <p class="hint">Variants you’ll never use can be hidden. They’re left off the Variant row for every brand and material; hiding one also hides a brand’s own word for the same kind (Metallic and Metal). None, your saved variants and Custom aren’t affected.</p>
-    <div class="group" role="group" aria-label="Hidden variants">
-      <span class="label">Hidden</span>
-      <div class="chips">
-        {#each hiddenVariants as v (v)}
-          <span class="mine b">{v}<button type="button" class="x" aria-label={`Show ${v}`} onclick={() => setHiddenVariants(VariantList.show(hiddenVariants, v))}>×</button></span>
-        {:else}
-          <span class="hint">Nothing hidden.</span>
-        {/each}
+    <p class="hint">The variants your brands make, in the materials you show. Tap one to hide it from the Variant row, or to show it again. A card is one kind: the names under it are the brands’ own words for it, so they hide together. Generic and brands not in the database always show the default variants. None, your saved variants and Custom aren’t affected.</p>
+    {#if !brandData}
+      <p class="hint">Loading the variant list…</p>
+    {:else if !kinds.length}
+      <p class="hint">{hasOwnBrand ? 'Your brands have no variants in the materials you show.' : 'None of your brands has variants of its own yet. Add a brand under Brands, and the variants it makes are listed here.'}</p>
+    {:else}
+      <input type="search" bind:value={findVariant} placeholder="Find a variant" aria-label="Find a variant" autocomplete="off" />
+      <div class="actions">
+        <button type="button" class="btn small quiet" onclick={showEveryVariant} disabled={!hiddenVariants.length}>Show all</button>
+        <button type="button" class="btn small quiet" onclick={hideEveryVariant} disabled={hiddenCount === kinds.length}>Hide all</button>
       </div>
-    </div>
-    <input type="search" bind:value={findVariant} placeholder="Find a variant to hide" aria-label="Find a variant" autocomplete="off" />
-    {#if findVariant.trim()}
-      {#if !brandData}
-        <p class="hint">Loading the variant list…</p>
-      {:else if variantResults.length}
-        <ul class="brand-list" aria-label="Variants to hide">
-          {#each variantResults as v (v)}
-            <li>
-              <button type="button" class="brand-row" aria-label={`Hide ${v}`} onclick={() => setHiddenVariants(VariantList.hide(hiddenVariants, v))}>
-                <span class="plus" aria-hidden="true">−</span>
-                <span class="bname">{v}</span>
-              </button>
-            </li>
-          {/each}
-        </ul>
-      {:else}
-        <p class="hint">No other variants start with “{findVariant.trim()}”.</p>
+      <p class="hint small" aria-live="polite">{kinds.length} {kinds.length === 1 ? 'kind' : 'kinds'} · {hiddenCount} hidden</p>
+      <div class="vcards" role="group" aria-label="Variants">
+        {#each kindCards as k (k.main)}
+          {@const off = VariantList.isHidden(hiddenVariants, k.main)}
+          <button type="button" class="vcard" class:off aria-pressed={!off} aria-label={k.main} aria-description={k.others.join(', ')} onclick={() => toggleVariant(k)}>
+            <span class="vtxt">
+              <span class="vmain">{k.main}</span>
+              {#if k.others.length}<span class="vsub">{k.others.join(', ')}</span>{/if}
+              {#if k.unused}<span class="vsub">None of your brands make it</span>{/if}
+            </span>
+            <span class="vstate">{off ? 'Hidden' : 'Shown'}</span>
+          </button>
+        {/each}
+        {#if !kindCards.length && !hardnessChips.length}
+          <p class="hint">No variants match “{findVariant.trim()}”.</p>
+        {/if}
+      </div>
+      {#if hardnessChips.length}
+        <div class="group" role="group" aria-label="TPU hardness">
+          <span class="label">Hardness</span>
+          <div class="chips">
+            {#each hardnessChips as k (k.main)}
+              {@const off = VariantList.isHidden(hiddenVariants, k.main)}
+              <button type="button" class="hchip" class:off aria-pressed={!off} aria-label={k.main} onclick={() => toggleVariant(k)}>{k.main}</button>
+            {/each}
+          </div>
+        </div>
       {/if}
     {/if}
-    <div class="actions">
-      <button type="button" class="btn small quiet" onclick={showAllVariants} disabled={!hiddenVariants.length}>Show all variants</button>
-    </div>
     </div>
   </details>
 
@@ -551,6 +567,42 @@
     color: var(--ink);
   }
   .chip-add span { color: var(--action); font-weight: 700; }
+
+  .vcards { display: grid; gap: var(--s2); }
+  .vcard {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s3);
+    width: 100%;
+    min-height: 48px;
+    padding: var(--s2) var(--s3);
+    border: 2px solid var(--action);
+    border-radius: 12px;
+    background: var(--surface);
+    text-align: left;
+    font: inherit;
+    color: var(--ink);
+  }
+  .vtxt { display: grid; gap: 2px; min-width: 0; }
+  .vmain { font-family: var(--font-label); font-weight: 700; font-size: 1.125rem; }
+  .vsub { font-size: 0.875rem; color: var(--muted); overflow-wrap: anywhere; }
+  .vstate { flex: none; font-family: var(--font-label); font-weight: 700; font-size: 0.8125rem; color: var(--action); }
+  .vcard.off { border-style: dashed; border-color: var(--line); background: transparent; opacity: 0.75; }
+  .vcard.off .vmain { text-decoration: line-through; }
+  .vcard.off .vstate { color: var(--muted); }
+  .hchip {
+    min-height: 36px;
+    padding: 0 var(--s3);
+    border: 2px solid var(--action);
+    border-radius: 999px;
+    background: var(--surface);
+    font: inherit;
+    font-family: var(--font-label);
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .hchip.off { border-style: dashed; border-color: var(--line); background: transparent; opacity: 0.75; text-decoration: line-through; font-weight: 500; }
 
   .brand-list { list-style: none; margin: 0; padding: 0; display: grid; }
   .brand-row {
