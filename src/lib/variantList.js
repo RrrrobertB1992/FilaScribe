@@ -73,7 +73,7 @@ export function show(hidden, variant) {
  */
 export function visible(choices, hidden, current = '') {
   if (!hidden.length) return choices;
-  return choices.filter((c) => !c || !isHidden(hidden, c) || sameVariant(c, current));
+  return choices.filter((c) => !c || !isHidden(hidden, c) || key(c) === key(current)); // the name itself, not the kind: typing "Matt" doesn't bring Matte back
 }
 
 /** Variant names starting with `text`, not hidden yet, best known first. */

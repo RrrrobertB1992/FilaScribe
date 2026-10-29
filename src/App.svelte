@@ -84,12 +84,17 @@
   let hiddenVariants = $state(VariantList.load());
   const variantItems = $derived(CustomChips.withSaved(VariantList.visible(builtInVariants, hiddenVariants, form.subtype), savedVariants));
 
-  // Save on the Custom box: a variant you hid and then typed is wanted again
+  // Save on the Custom box: typing the exact name of a variant you hid (one of
+  // the brand's chips) turns it back on. A near name like "Matt" is just a new
+  // variant of its own, and the hidden Matte stays hidden.
   function saveVariant(value) {
-    const next = VariantList.show(hiddenVariants, value);
-    if (next !== hiddenVariants) {
-      hiddenVariants = next;
-      VariantList.store(hiddenVariants);
+    const v = value.trim().toLowerCase();
+    if (builtInVariants.some((b) => b.toLowerCase() === v)) {
+      const next = VariantList.show(hiddenVariants, value);
+      if (next !== hiddenVariants) {
+        hiddenVariants = next;
+        VariantList.store(hiddenVariants);
+      }
     }
     saveChip('variant', value, builtInVariants);
   }

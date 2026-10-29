@@ -326,6 +326,25 @@ test.describe('Settings', () => {
     await expect((await card(page, 'Variants')).getByRole('group', { name: 'Hidden variants' })).toContainText('Matte');
   });
 
+  test('variants: typing a near name in Custom ("Matt") does not bring the hidden Matte back', async ({ page }) => {
+    const row = page.getByRole('group', { name: 'Variant', exact: true });
+    await chip(page, 'Bambu Lab').click();
+    await settings(page);
+    const variants = await card(page, 'Variants');
+    await variants.getByLabel('Find a variant').fill('matte');
+    await variants.getByRole('button', { name: 'Hide Matte', exact: true }).click();
+    await page.getByRole('tab', { name: 'Create' }).click();
+    await row.getByRole('button', { name: 'Custom' }).click();
+    await page.getByLabel('Custom variant').fill('Matt');
+    await expect(row.getByRole('button', { name: 'Matte', exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Save variant as a chip' }).click();
+    // Matt is a new variant of its own; Matte is still hidden
+    await expect(row.getByRole('button', { name: 'Matt', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(row.getByRole('button', { name: 'Matte', exact: true })).toHaveCount(0);
+    await settings(page);
+    await expect((await card(page, 'Variants')).getByRole('group', { name: 'Hidden variants' })).toContainText('Matte');
+  });
+
   test('variants: a brand switch does not land on a hidden variant', async ({ page }) => {
     const row = page.getByRole('group', { name: 'Variant', exact: true });
     await chip(page, 'Bambu Lab').click();

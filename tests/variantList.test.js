@@ -69,6 +69,11 @@ describe('variant row', () => {
     expect(VL.visible(choices, ['Glow'], 'Custom thing')).toEqual(['', 'Basic', 'Matte', 'Metal']);
   });
 
+  it('a Custom name that is only the same kind does not bring the chip back', () => {
+    expect(VL.visible(choices, ['Matte'], 'Matt')).toEqual(['', 'Basic', 'Glow', 'Metal']);
+    expect(VL.visible(choices, ['Matte'], 'matte')).toEqual(['', 'Basic', 'Matte', 'Glow', 'Metal']); // the name itself, any case
+  });
+
   it('finds variants to hide: starts with, not hidden yet, at most 12', () => {
     const names = ['Basic', 'Matte', 'Metal', 'Metallic', 'Marble', 'Glow'];
     expect(VL.find(names, [], 'ma')).toEqual(['Matte', 'Marble']);
