@@ -72,7 +72,7 @@ test.describe('Create', () => {
     await page.getByLabel('Other brand').press('Enter');
     await expect(page.getByLabel('Other brand')).toHaveValue('Elegoo');
     await expect(page.getByRole('dialog')).toHaveCount(0); // Enter doesn't write the tag
-    await expect(materials).toContainText('The materials Elegoo makes, of the ones you show.');
+    await expect(materials).toContainText('What Elegoo makes');
     await writeTag(page);
     expect((await lastWrite(page)).brand).toBe('Elegoo');
 
@@ -162,7 +162,6 @@ test.describe('Create', () => {
   });
 
   test('spool details: weight, diameter and opacity', async ({ page }) => {
-    await page.getByText('Spool details', { exact: true }).click();
     await page.getByLabel('Weight, g').fill('1000');
     await page.getByLabel('Diameter, mm').fill('1.75');
     await page.getByLabel('Opacity (hex)').fill('80');
@@ -182,8 +181,7 @@ test.describe('Create', () => {
 
   test('the tag data preview matches what is written', async ({ page }) => {
     await chip(page, 'Polymaker').click();
-    await page.getByText(/^Tag data \(\d+ bytes\)/).click();
-    const shown = JSON.parse(await page.locator('details.more pre').last().innerText());
+    const shown = JSON.parse(await page.locator('[data-fold="tagdata"] pre').innerText());
     await writeTag(page);
     expect(await lastWrite(page)).toEqual(shown);
     await expect(page.getByLabel('Tag preview')).toContainText(/\d+ of 499 bytes on NTAG215/);
@@ -321,4 +319,39 @@ test('typing a Custom material letter by letter past a chip name keeps the box o
   await expect(page.getByLabel('Other material')).toHaveValue('PLA+');
   await writeTag(page);
   expect((await lastWrite(page)).type).toBe('PLA+');
+});
+
+test.describe('Create › collapsible cards', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.evaluate(() => localStorage.removeItem('filascribe-create-open'));
+    await page.reload();
+  });
+
+  const card = (page, id) => page.locator(`[data-fold="${id}"]`);
+
+  test('Filament and Colors fold away, show a summary, and are remembered', async ({ page }) => {
+    await expect(card(page, 'filament')).toHaveJSProperty('open', true);
+    await expect(card(page, 'colors')).toHaveJSProperty('open', true);
+
+    await card(page, 'filament').locator('summary').click();
+    await card(page, 'colors').locator('summary').click();
+    await expect(card(page, 'filament')).toHaveJSProperty('open', false);
+    await expect(card(page, 'filament').locator('.sum')).toContainText('PLA');
+    await expect(card(page, 'colors')).toHaveJSProperty('open', false);
+
+    await page.reload();
+    await expect(card(page, 'filament')).toHaveJSProperty('open', false);
+    await expect(card(page, 'colors')).toHaveJSProperty('open', false);
+
+    await card(page, 'filament').locator('summary').click();
+    await expect(card(page, 'filament')).toHaveJSProperty('open', true);
+  });
+
+  test('a card with a problem opens itself', async ({ page }) => {
+    await card(page, 'temps').locator('summary').click();
+    await temps(page, 'Nozzle').min.fill('900');
+    await card(page, 'temps').locator('summary').click(); // shut it
+    await page.getByRole('button', { name: 'Write tag' }).click();
+    await expect(card(page, 'temps')).toHaveJSProperty('open', true);
+  });
 });

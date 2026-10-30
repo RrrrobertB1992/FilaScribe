@@ -21,6 +21,15 @@ Value formats follow the spec examples: colors are 6 hex digits without `#`, and
 
 The multi-color fields and `color_type` match PrintTag-Web-Rrrrobert. Saved colors work the same way and use the same data shape. To bring yours over, save the value of the `printtag-saved-colors` localStorage key from that site (for example from Chrome DevTools, under Application, then Local storage) as a `.json` file. Then, in FilaScribe, choose **Import saved colors** under Custom (or Import under Saved).
 
+## Create screen
+
+The Create screen is a set of cards: a compact tag preview at the top, an
+OpenSpool / + Snapmaker U1 fields switch, then Filament, Colors, Temperatures,
+and (U1 only) Spool details, with the raw Tag data last. Every card folds
+shut and shows a one-line summary when it does. Which cards are open is
+remembered on the device (`filascribe-create-open`); a card with a problem
+opens itself.
+
 ## Settings
 
 The **Settings** tab sits next to Create and Read & update. Each section starts closed (just its heading); tap one to open it, and it stays open next time:

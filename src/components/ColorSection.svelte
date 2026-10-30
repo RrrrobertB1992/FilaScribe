@@ -10,6 +10,7 @@
   import BrandColors from './BrandColors.svelte';
   import SavedColors from './SavedColors.svelte';
   import ColorEditor from './ColorEditor.svelte';
+  import Fold from './Fold.svelte';
   import { loadBrandColors } from '../lib/brandColorsData.js';
 
   let {
@@ -133,16 +134,18 @@
   }
 </script>
 
-<div class="colorsec" role="group" aria-labelledby="colorsec-label">
-  <div class="current">
-    <span class="swatch" style:background={swatch} aria-hidden="true"></span>
-    <div class="what">
-      <span class="label" id="colorsec-label">{max > 1 ? 'Colors' : 'Color'}</span>
-      <span class="now-name">{summary.name}</span>
-      <span class="now-from">{summary.from}</span>
-      <span class="now-hex">{hexes}{colors.length > 1 && max > 1 ? ` · ${style}` : ''}</span>
-    </div>
-  </div>
+<Fold id="colors" defaultOpen forceOpen={errors.length > 0} cls="colorsec">
+  {#snippet head()}
+    <span class="current" role="group" aria-labelledby="colorsec-label">
+      <span class="swatch" style:background={swatch} aria-hidden="true"></span>
+      <span class="what">
+        <span class="label" id="colorsec-label">{max > 1 ? 'Colors' : 'Color'}</span>
+        <span class="now-name">{summary.name}</span>
+        <span class="now-from">{summary.from}</span>
+        <span class="now-hex">{hexes}{colors.length > 1 && max > 1 ? ` · ${style}` : ''}</span>
+      </span>
+    </span>
+  {/snippet}
 
   <div class="tabs" role="group" aria-label="Color source">
     {#each tabs as t (t.id)}
@@ -210,18 +213,10 @@
   </div>
 
   {#each errors as e}<p class="error-text">{e.message}</p>{/each}
-</div>
+</Fold>
 
 <style>
-  .colorsec {
-    display: grid;
-    gap: var(--s3);
-    padding: var(--s3);
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    background: var(--surface);
-  }
-  .current { display: flex; align-items: center; gap: var(--s3); }
+  .current { display: flex; align-items: center; gap: var(--s3); min-width: 0; }
   .swatch {
     flex: none;
     width: 64px;
@@ -239,7 +234,14 @@
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
   }
   .what { display: grid; gap: 1px; min-width: 0; }
-  .what .label { margin: 0; }
+  .what .label {
+    margin: 0;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--action);
+  }
   .now-name { font-family: var(--font-label); font-weight: 700; font-size: 1.25rem; line-height: 1.15; overflow-wrap: anywhere; }
   .now-from { font-size: 0.8125rem; color: var(--muted); }
   .now-hex { font-family: var(--font-label); font-size: 0.875rem; letter-spacing: 0.04em; color: var(--muted); overflow-wrap: anywhere; }

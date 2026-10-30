@@ -306,7 +306,7 @@ test.describe('Brand and material', () => {
     await chip(page, 'JAYO').click();
     for (const name of ['PLA', 'PETG', 'TPU']) await expect(m(name)).toBeVisible();
     await expect(m('ABS')).toHaveCount(0);
-    await expect(materials).toContainText('The materials JAYO makes, of the ones you show.');
+    await expect(materials).toContainText('What JAYO makes');
     await m('PETG').click();
     await writeTag(page);
     expect((await lastWrite(page)).type).toBe('PETG');
