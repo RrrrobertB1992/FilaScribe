@@ -68,7 +68,12 @@ export const test = base.extend({
     page.on('dialog', (d) => d.accept()); // confirm() prompts: say yes
     await page.addInitScript(installFakeNfc);
     await page.goto('/');
-    await page.evaluate(() => localStorage.clear());
+    // Start with the Temperatures, Spool details and Tag data cards open so
+    // tests can reach their fields; fold tests clear this themselves.
+    await page.evaluate(() => {
+      localStorage.clear();
+      localStorage.setItem('filascribe-create-open', JSON.stringify({ temps: true, spool: true, tagdata: true }));
+    });
     await page.reload();
     await use(page);
     expect(problems, 'page errors').toEqual([]);
