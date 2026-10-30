@@ -72,7 +72,7 @@ test.describe('Create', () => {
     await page.getByLabel('Other brand').press('Enter');
     await expect(page.getByLabel('Other brand')).toHaveValue('Elegoo');
     await expect(page.getByRole('dialog')).toHaveCount(0); // Enter doesn't write the tag
-    await expect(materials).toContainText('The materials Elegoo makes, of the ones you show.');
+    await expect(materials).toContainText('What Elegoo makes');
     await writeTag(page);
     expect((await lastWrite(page)).brand).toBe('Elegoo');
 

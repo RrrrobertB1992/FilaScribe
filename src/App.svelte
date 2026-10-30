@@ -399,7 +399,7 @@
           onpick={pickMaterial}
           customPlaceholder="e.g. PLA+"
           error={errorFor('type')}
-          hint={materialsFiltered ? `The materials ${form.brand} makes, of the ones you show. Other… for anything else.` : ''}
+          hint={materialsFiltered ? `What ${form.brand} makes` : ''}
           suggest={(t) => MaterialList.suggest(shownMaterials, t)}
           commit={MaterialList.canonical}
           customLabel="Other…"
@@ -412,7 +412,7 @@
             items={variantItems}
             bind:value={form.subtype}
             customPlaceholder="e.g. Rapid"
-            hint={builtInVariants === VARIANTS ? 'Written as subtype. None leaves it out.' : `The variants ${form.brand} makes in ${form.type}. Written as subtype. None leaves it out.`}
+            hint={builtInVariants === VARIANTS ? 'Written as subtype' : `What ${form.brand} makes in ${form.type}`}
             onsave={form.brand.trim() && form.type.trim() ? saveVariant : null}
             removable={savedVariants}
             onremove={(v) => removeChip('variant', v)}

@@ -135,7 +135,10 @@
 {/snippet}
 
 <div class="field" role="group" aria-labelledby={id}>
-  <span class="label" {id}>{label}</span>
+  <div class="head">
+    <span class="label" {id}>{label}</span>
+    {#if hint && !error}<span class="hint">– {hint}</span>{/if}
+  </div>
   <div class="chips">
     {#each options as o (o.value)}
       <button type="button" class="chip" class:saved={dashed.includes(o.value)} aria-pressed={!custom && value === o.value} onclick={() => pick(o.value)}>
@@ -193,10 +196,12 @@
   {:else if removable.includes(value)}
     <button type="button" class="btn small quiet danger remove" onclick={() => onremove(value)}>Remove “{value}” from your chips</button>
   {/if}
-  {#if error}<p class="error-text">{error}</p>{:else if hint}<p class="hint">{hint}</p>{/if}
+  {#if error}<p class="error-text">{error}</p>{/if}
 </div>
 
 <style>
+  .head { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--s2); }
+  .head .hint { margin: 0; }
   .chips { display: flex; flex-wrap: wrap; gap: var(--s2); }
   .chip {
     min-height: 40px;
