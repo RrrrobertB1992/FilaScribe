@@ -1,0 +1,11 @@
+[
+  { "brand": "SUNLU", "material": "ASA", "line": "ASA", "color": "White", "was": "000000", "hex": "FFFFFF", "why": "White; every other SUNLU White except one PLA+ line is FFFFFF" },
+  { "brand": "SUNLU", "material": "TPU", "line": "TPU95A", "color": "White", "was": "000000", "hex": "FFFFFF", "why": "White; every other SUNLU White except one PLA+ line is FFFFFF" },
+  { "brand": "SUNLU", "material": "PLA", "line": "APLA", "color": "Cream White", "was": "000000", "hex": "E6E2C7", "why": "SUNLU's other Cream White (PLA-Meta, TPU Silk) is E6E2C7" },
+  { "brand": "Geeetech", "material": "PLA", "line": "PLA", "color": "Red", "was": "000000", "hex": "FF0000", "why": "Geeetech's ABS+ Red is FF0000" },
+  { "brand": "JAYO", "material": "PLA", "line": "PLA", "color": "Cherry Red", "was": "000000", "hex": "CD001A", "why": "JAYO's PETG Cherry Red is CD001A" },
+  { "brand": "Devil Design", "material": "PETG", "line": "PETG", "color": "BEIGE", "was": "000000", "hex": "D4B6A3", "why": "Devil Design's PLA BEIGE is D4B6A3" },
+  { "brand": "Atomic Filament", "material": "PLA", "line": "PLA", "color": "Cosmic Graphite v2", "was": "000000", "hex": "26272B", "why": "Atomic Filament's PETG Cosmic Graphite v2 is 26272B" },
+  { "brand": "Cookiecad", "material": "PETG", "line": "PETG", "color": "Pixie Dust", "was": "000000", "hex": "FF00A2", "why": "Cookiecad's ABS Pixie Dust is FF00A2" },
+  { "brand": "Spectrum", "material": "PLA", "line": "High Speed PLA", "color": "Telegrey", "was": "000000", "hex": "EAEBED", "why": "Spectrum's PLA Premium HighSpeed Telegrey is EAEBED" }
+]
