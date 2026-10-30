@@ -33,13 +33,43 @@ describe('color overrides', () => {
   });
 });
 
+describe('multi-color overrides', () => {
+  const dual = (hex, traits) => [
+    { name: 'Acme', keys: ['acme'], materials: { PLA: [{ name: 'Dual', temps: [], traits: '', colors: [['Red Gold', hex, traits, '']] }] } },
+  ];
+  const m = { brand: 'Acme', material: 'PLA', line: 'Dual', color: 'Red Gold', was: 'FF0000', hex: 'ff0000,ffd700' };
+
+  it('fills in the missing colors', () => {
+    const brands = dual('FF0000', '');
+    expect(applyOverrides(brands, [m]).applied).toEqual([m]);
+    expect(brands[0].materials.PLA[0].colors[0][1]).toBe('FF0000,FFD700');
+  });
+
+  it('leaves a color alone once the database lists its own', () => {
+    const brands = dual('FF0000,FFC800', '');
+    expect(applyOverrides(brands, [m]).fixedUpstream).toEqual([m]);
+    expect(brands[0].materials.PLA[0].colors[0][1]).toBe('FF0000,FFC800');
+  });
+
+  it('only changes the tags when they are still what was seen', () => {
+    const shift = { ...m, hex: 'FF0000', wasTraits: 'c,s', traits: 's' };
+    const a = dual('FF0000', 'c,s');
+    expect(applyOverrides(a, [shift]).applied).toEqual([shift]);
+    expect(a[0].materials.PLA[0].colors[0].slice(1, 3)).toEqual(['FF0000', 's']);
+    const b = dual('FF0000', 's'); // the database already dropped the tag
+    expect(applyOverrides(b, [shift]).fixedUpstream).toEqual([shift]);
+  });
+});
+
 describe('the override list', () => {
-  it('is valid: six-digit hexes, a different value from the wrong one, a reason', () => {
+  it('is valid: one to five six-digit hexes, a real change from what the database has, a reason', () => {
     expect(overrides.length).toBeGreaterThan(0);
+    const list = /^[0-9A-F]{6}(,[0-9A-F]{6}){0,4}$/;
     for (const x of overrides) {
-      expect(x.hex).toMatch(/^[0-9A-F]{6}$/);
-      expect(x.was).toMatch(/^[0-9A-F]{6}$/);
-      expect(x.hex).not.toBe(x.was);
+      expect(x.hex).toMatch(list);
+      expect(x.was).toMatch(list);
+      expect(x.hex !== x.was || (x.traits !== undefined && x.traits !== x.wasTraits)).toBe(true);
+      if (x.traits !== undefined) expect(typeof x.wasTraits).toBe('string'); // tag changes name what they replace
       expect(x.why).toBeTruthy();
     }
   });
