@@ -6,6 +6,7 @@
   import * as Defaults from '../lib/defaults.js';
   import * as CustomChips from '../lib/customChips.js';
   import * as SC from '../lib/savedColors.js';
+  import * as Filaments from '../lib/filaments.js';
   import * as Theme from '../lib/theme.js';
   import { exportJson, readJsonFile } from '../lib/backup.js';
   import { buildParts } from '../lib/buildInfo.js';
@@ -23,6 +24,8 @@
     shownBrands = $bindable([...BrandList.DEFAULT]),
     shownMaterials = $bindable([...MaterialList.DEFAULT]),
     hiddenVariants = $bindable([]),
+    filaments = $bindable([]),
+    autoFilaments = $bindable(false),
     brandData = null,
     onstatus = () => {},
   } = $props();
@@ -249,6 +252,40 @@
     return `linear-gradient(to right, ${list.map((c, i) => `${c} ${i * step}% ${(i + 1) * step}%`).join(', ')})`;
   };
 
+  // --- My filaments ---
+
+  let filamentsInput = $state();
+
+  function setAuto(e) {
+    autoFilaments = e.currentTarget.checked;
+    Filaments.storeAuto(autoFilaments);
+  }
+
+  function clearFilaments() {
+    if (!confirm(`Remove all ${filaments.length} saved ${filaments.length === 1 ? 'filament' : 'filaments'} from My filaments?`)) return;
+    filaments = [];
+    Filaments.store(filaments);
+  }
+
+  async function exportFilaments() {
+    const r = await exportJson(filaments, 'filascribe-my-filaments.json');
+    if (r.message) onstatus(r.ok ? `My filaments copied. ${r.message.replace(/^Copied\. /, '')}` : 'Couldn’t copy My filaments.', !r.ok);
+  }
+
+  async function importFilaments(e) {
+    const file = e.currentTarget.files?.[0];
+    e.currentTarget.value = '';
+    if (!file) return;
+    try {
+      const r = Filaments.importInto(filaments, await readJsonFile(file));
+      filaments = r.list;
+      Filaments.store(filaments);
+      onstatus(r.added ? `Imported ${r.added} ${r.added === 1 ? 'filament' : 'filaments'}.` : 'Nothing new to import.');
+    } catch {
+      onstatus('That file isn’t a My filaments export.', true);
+    }
+  }
+
   // --- Appearance ---
 
   let theme = $state(Theme.load());
@@ -436,6 +473,28 @@
     </div>
   </details>
 
+  <details class="card" open={open.includes('filaments')} ontoggle={(e) => toggled('filaments', e)}>
+    <summary><h2 id="set-filaments">My filaments</h2></summary>
+    <div class="body">
+    <p class="hint">
+      {filaments.length ? `${filaments.length} saved ${filaments.length === 1 ? 'filament' : 'filaments'}. ` : 'None yet. '}They are listed on Create, where you can search them, fill the form from one, or remove it.
+    </p>
+    <label class="check">
+      <input type="checkbox" checked={autoFilaments} onchange={setAuto} />
+      <span>
+        <strong>Save every write automatically</strong>
+        <span class="hint small">Adds the spool after each written tag, skipping one you already have. Off: you are asked after each write.</span>
+      </span>
+    </label>
+    <div class="actions">
+      <button type="button" class="btn small" onclick={exportFilaments} disabled={!filaments.length}>Export My filaments</button>
+      <button type="button" class="btn small" onclick={() => filamentsInput?.click()}>Import My filaments</button>
+      {#if filaments.length}<button type="button" class="btn small quiet danger" onclick={clearFilaments}>Clear all</button>{/if}
+      <input bind:this={filamentsInput} type="file" accept="application/json,.json" class="visually-hidden" tabindex="-1" aria-label="My filaments file" onchange={importFilaments} />
+    </div>
+    </div>
+  </details>
+
   <details class="card" open={open.includes('saved')} ontoggle={(e) => toggled('saved', e)}>
     <summary><h2 id="set-saved">Saved colors</h2></summary>
     <div class="body">
@@ -525,6 +584,9 @@
   h2 { margin: 0; font-family: var(--font-label); font-size: 1.25rem; }
   .body > .hint, .body > p { margin: 0; }
   .small { font-size: 0.8125rem; }
+  .check { display: flex; gap: var(--s3); align-items: flex-start; cursor: pointer; }
+  .check input { width: 22px; height: 22px; margin-top: 2px; flex: none; accent-color: var(--action); }
+  .check span { display: grid; gap: 2px; }
   .actions { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
 
   .rows { display: grid; gap: 2px; margin: 0; }
