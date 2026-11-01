@@ -6,6 +6,7 @@
   import NfcSheet from './components/NfcSheet.svelte';
   import TagDetails from './components/TagDetails.svelte';
   import Settings from './components/Settings.svelte';
+  import Fold from './components/Fold.svelte';
   import * as Defaults from './lib/defaults.js';
   import * as OpenSpool from './lib/formats/openspool.js';
   import { MATERIALS, VARIANTS } from './lib/catalog.js';
@@ -132,6 +133,26 @@
   const errors = $derived(OpenSpool.validate(form));
   const errorFor = (field) => (showErrors ? errors.find((e) => e.field === field)?.message || '' : '');
   const colorErrors = $derived(showErrors ? errors.filter((e) => e.field.startsWith('color')) : []);
+
+  // The folding cards on Create: what each says while it's shut, and when an
+  // error inside it needs it open
+  const range = (a, b) => (a && b ? `${a}–${b}` : a || b || '');
+  const filamentSummary = $derived([form.brand, form.type, u1 ? form.subtype : ''].filter(Boolean).join(' · ') || 'Nothing chosen');
+  const nozzleRange = $derived(range(form.minTemp, form.maxTemp));
+  const bedRange = $derived(u1 ? range(form.bedMinTemp, form.bedMaxTemp) : '');
+  const tempsSummary = $derived(
+    [nozzleRange && `${nozzleRange} °C`, bedRange && `bed ${bedRange} °C`].filter(Boolean).join(' · ') || 'Not set',
+  );
+  const spoolSummary = $derived(
+    [form.weight && `${form.weight} g`, form.diameter && `${form.diameter} mm`, form.alpha && form.alpha.toUpperCase() !== 'FF' && `opacity ${form.alpha}`]
+      .filter(Boolean)
+      .join(' · ') || 'Not set',
+  );
+  const hasSpoolValues = $derived(!!(form.weight || form.diameter || form.alpha !== 'FF'));
+  const errorIn = (test) => showErrors && errors.some((e) => test(e.field));
+  const filamentError = $derived(errorIn((f) => f === 'type'));
+  const tempsError = $derived(errorIn((f) => /Temp$/.test(f)));
+  const spoolError = $derived(errorIn((f) => ['weight', 'diameter', 'alpha'].includes(f)));
 
   // What goes on the tag, and how much room it takes
   const data = $derived(errors.some((e) => e.field.startsWith('color')) ? null : OpenSpool.build(form));
@@ -335,61 +356,69 @@
       type={form.type}
       brand={form.brand}
       variant={u1 ? form.subtype : ''}
-      nozzle={form.minTemp && form.maxTemp ? `${form.minTemp}–${form.maxTemp}` : form.minTemp || form.maxTemp}
+      nozzle={nozzleRange}
+      bed={bedRange}
       bytes={message.length}
       {capacity}
       {capacityLabel}
     />
 
     <form class="form" onsubmit={(e) => { e.preventDefault(); writeTag(); }} novalidate>
-      <Palette
-        label="Fields"
-        items={Object.entries(OpenSpool.PROFILES).map(([value, p]) => ({ value, label: p.label }))}
-        bind:value={form.profile}
-        allowCustom={false}
-        hint={u1
+      <div
+        class="seg"
+        role="group"
+        aria-label="Fields"
+        title={u1
           ? 'Adds the Snapmaker U1 fields: extra colors, variant, bed temperatures and spool details.'
           : 'Only the fields in the OpenSpool spec. Extra colors, variant and bed temperatures aren’t written.'}
-      />
+      >
+        {#each Object.entries(OpenSpool.PROFILES) as [value, p] (value)}
+          <button type="button" aria-label={p.label} aria-pressed={form.profile === value} onclick={() => (form.profile = value)}>
+            {value === 'u1' ? '+ Snapmaker U1 fields' : 'OpenSpool'}
+          </button>
+        {/each}
+      </div>
 
-      <Palette
-        label="Brand"
-        items={brandItems}
-        bind:value={form.brand}
-        customPlaceholder="e.g. Elegoo"
-        onpick={pickBrand}
-        suggest={(t) => suggestBrands(brandData, t, 6, shownBrands)}
-        commit={(t) => canonicalBrand(brandData, t)}
-        customLabel="Other…"
-        onsave={showBrand}
-        outlined={ownBrands}
-      />
-      <Palette
-        label="Material"
-        items={materialItems}
-        bind:value={form.type}
-        onpick={pickMaterial}
-        customPlaceholder="e.g. PLA+"
-        error={errorFor('type')}
-        hint={materialsFiltered ? `The materials ${form.brand} makes, of the ones you show. Other… for anything else.` : ''}
-        suggest={(t) => MaterialList.suggest(shownMaterials, t)}
-        commit={MaterialList.canonical}
-        customLabel="Other…"
-        onsave={showMaterial}
-        outlined={ownMaterials}
-      />
-      {#if u1}
+      <Fold id="filament" title="Filament" summary={filamentSummary} defaultOpen forceOpen={filamentError}>
         <Palette
-          label="Variant"
-          items={variantItems}
-          bind:value={form.subtype}
-          customPlaceholder="e.g. Rapid"
-          hint={builtInVariants === VARIANTS ? 'Written as subtype. None leaves it out.' : `The variants ${form.brand} makes in ${form.type}. Written as subtype. None leaves it out.`}
-          onsave={form.brand.trim() && form.type.trim() ? saveVariant : null}
-          removable={savedVariants}
-          onremove={(v) => removeChip('variant', v)}
+          label="Brand"
+          items={brandItems}
+          bind:value={form.brand}
+          customPlaceholder="e.g. Elegoo"
+          onpick={pickBrand}
+          suggest={(t) => suggestBrands(brandData, t, 6, shownBrands)}
+          commit={(t) => canonicalBrand(brandData, t)}
+          customLabel="Other…"
+          onsave={showBrand}
+          outlined={ownBrands}
         />
-      {/if}
+        <Palette
+          label="Material"
+          items={materialItems}
+          bind:value={form.type}
+          onpick={pickMaterial}
+          customPlaceholder="e.g. PLA+"
+          error={errorFor('type')}
+          hint={materialsFiltered ? `What ${form.brand} makes` : ''}
+          suggest={(t) => MaterialList.suggest(shownMaterials, t)}
+          commit={MaterialList.canonical}
+          customLabel="Other…"
+          onsave={showMaterial}
+          outlined={ownMaterials}
+        />
+        {#if u1}
+          <Palette
+            label="Variant"
+            items={variantItems}
+            bind:value={form.subtype}
+            customPlaceholder="e.g. Rapid"
+            hint={builtInVariants === VARIANTS ? 'Written as subtype' : `What ${form.brand} makes in ${form.type}`}
+            onsave={form.brand.trim() && form.type.trim() ? saveVariant : null}
+            removable={savedVariants}
+            onremove={(v) => removeChip('variant', v)}
+          />
+        {/if}
+      </Fold>
 
       <ColorSection
         bind:this={colorSection}
@@ -407,27 +436,30 @@
         errors={colorErrors}
       />
 
-      <fieldset>
-        <legend class="label">Nozzle temperature, °C</legend>
-        <div class="pair">
-          <label>Min <input type="text" inputmode="numeric" bind:value={form.minTemp} aria-invalid={!!errorFor('minTemp')} /></label>
-          <label>Max <input type="text" inputmode="numeric" bind:value={form.maxTemp} aria-invalid={!!errorFor('maxTemp')} /></label>
-        </div>
-        {#if errorFor('minTemp') || errorFor('maxTemp')}<p class="error-text">{errorFor('minTemp') || errorFor('maxTemp')}</p>{/if}
-      </fieldset>
-
-      {#if u1}
+      <Fold id="temps" title="Temperatures" summary={tempsSummary} forceOpen={tempsError}>
         <fieldset>
-          <legend class="label">Bed temperature, °C</legend>
+          <legend class="label">Nozzle temperature, °C</legend>
           <div class="pair">
-            <label>Min <input type="text" inputmode="numeric" bind:value={form.bedMinTemp} aria-invalid={!!errorFor('bedMinTemp')} /></label>
-            <label>Max <input type="text" inputmode="numeric" bind:value={form.bedMaxTemp} aria-invalid={!!errorFor('bedMaxTemp')} /></label>
+            <label>Min <input type="text" inputmode="numeric" bind:value={form.minTemp} aria-invalid={!!errorFor('minTemp')} /></label>
+            <label>Max <input type="text" inputmode="numeric" bind:value={form.maxTemp} aria-invalid={!!errorFor('maxTemp')} /></label>
           </div>
-          {#if errorFor('bedMinTemp') || errorFor('bedMaxTemp')}<p class="error-text">{errorFor('bedMinTemp') || errorFor('bedMaxTemp')}</p>{/if}
+          {#if errorFor('minTemp') || errorFor('maxTemp')}<p class="error-text">{errorFor('minTemp') || errorFor('maxTemp')}</p>{/if}
         </fieldset>
 
-        <details class="more" open={!!(form.weight || form.diameter || form.alpha !== 'FF')}>
-          <summary>Spool details</summary>
+        {#if u1}
+          <fieldset>
+            <legend class="label">Bed temperature, °C</legend>
+            <div class="pair">
+              <label>Min <input type="text" inputmode="numeric" bind:value={form.bedMinTemp} aria-invalid={!!errorFor('bedMinTemp')} /></label>
+              <label>Max <input type="text" inputmode="numeric" bind:value={form.bedMaxTemp} aria-invalid={!!errorFor('bedMaxTemp')} /></label>
+            </div>
+            {#if errorFor('bedMinTemp') || errorFor('bedMaxTemp')}<p class="error-text">{errorFor('bedMinTemp') || errorFor('bedMaxTemp')}</p>{/if}
+          </fieldset>
+        {/if}
+      </Fold>
+
+      {#if u1}
+        <Fold id="spool" title="Spool details" summary={spoolSummary} forceOpen={hasSpoolValues || spoolError} cls="more">
           <div class="trio">
             <label>Weight, g <input type="text" inputmode="numeric" bind:value={form.weight} placeholder="1000" aria-invalid={!!errorFor('weight')} /></label>
             <label>Diameter, mm <input type="text" inputmode="decimal" bind:value={form.diameter} placeholder="1.75" aria-invalid={!!errorFor('diameter')} /></label>
@@ -435,13 +467,12 @@
           </div>
           {#each ['weight', 'diameter', 'alpha'] as f}{#if errorFor(f)}<p class="error-text">{errorFor(f)}</p>{/if}{/each}
           <p class="hint">Leave a box empty to leave it off the tag. Opacity FF means fully opaque and isn’t written.</p>
-        </details>
+        </Fold>
       {/if}
 
-      <details class="more">
-        <summary>Tag data ({message.length} bytes)</summary>
+      <Fold id="tagdata" title="Tag data" summary={`${message.length} bytes`} cls="more">
         <pre>{data ? JSON.stringify(data, null, 2) : 'Fix the colors to see the data.'}</pre>
-      </details>
+      </Fold>
 
       {#if mode === 'update' && loaded && !loaded.empty}
         <TagDetails tag={loaded.tag} raw={loaded.raw} unknownKeys={loaded.unknownKeys} notes={loaded.notes} />
@@ -524,17 +555,29 @@
   .empty h2 { font-size: 2rem; }
   .empty p { margin: 0; max-width: 46ch; }
 
-  .form { display: grid; gap: var(--s5); }
+  .form { display: grid; gap: var(--s3); }
   fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: var(--s2); }
   legend { padding: 0; margin-bottom: var(--s2); }
   .pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s3); }
   .trio { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s3); margin-top: var(--s3); }
   .pair label, .trio label { display: grid; gap: var(--s1); font-size: 0.875rem; color: var(--muted); }
   .pair input, .trio input { color: var(--ink); font-variant-numeric: tabular-nums; }
-  .more summary { font-family: var(--font-label); font-weight: 600; cursor: pointer; min-height: 32px; }
-  .more .hint { margin-top: var(--s2); }
+  .seg { display: flex; padding: 3px; border-radius: 10px; background: var(--chip); }
+  .seg button {
+    flex: 1;
+    min-height: 40px;
+    padding: 0 var(--s2);
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    font-family: var(--font-label);
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--muted);
+  }
+  .seg button[aria-pressed='true'] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18); }
   pre {
-    margin: var(--s2) 0 0;
+    margin: 0;
     padding: var(--s3);
     background: var(--surface);
     border-radius: 6px;
