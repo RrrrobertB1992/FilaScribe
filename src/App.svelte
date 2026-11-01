@@ -7,18 +7,20 @@
   import TagDetails from './components/TagDetails.svelte';
   import Settings from './components/Settings.svelte';
   import Fold from './components/Fold.svelte';
+  import MyFilaments from './components/MyFilaments.svelte';
   import * as Defaults from './lib/defaults.js';
   import * as OpenSpool from './lib/formats/openspool.js';
   import { MATERIALS, VARIANTS } from './lib/catalog.js';
   import { encodeMessage, mimeRecord, maxMessageSize, NTAG, TNF } from './lib/ndef.js';
   import { getNfc } from './lib/nfc/index.js';
-  import { variantChoices, carryVariant, materialChoices, carryMaterial, canonicalBrand, suggestBrands, findBrand } from './lib/brandColors.js';
+  import { variantChoices, carryVariant, materialChoices, carryMaterial, canonicalBrand, suggestBrands, findBrand, findColor } from './lib/brandColors.js';
   import { loadBrandColors } from './lib/brandColorsData.js';
   import { buildParts } from './lib/buildInfo.js';
   import * as CustomChips from './lib/customChips.js';
   import * as BrandList from './lib/brandList.js';
   import * as MaterialList from './lib/materialList.js';
   import * as VariantList from './lib/variantList.js';
+  import * as Filaments from './lib/filaments.js';
 
   const nfc = getNfc();
   const buildLabel = buildParts(__BUILD__);
@@ -32,6 +34,11 @@
   let status = $state(null); // { kind: 'ok' | 'error' | 'info', text }
   let showErrors = $state(false);
   let colorSection = $state();
+
+  // My filaments: whole spools you saved, to fill the form in one tap
+  let filaments = $state(Filaments.load());
+  let autoFilaments = $state(Filaments.loadAuto()); // save every write (Settings)
+  let offer = $state(null); // the spool just written, offered for saving
 
   // Variant chips: the groups this brand has for this material, in its own
   // words; the full default list until the data loads or for other brands
@@ -205,6 +212,54 @@
     }
   }
 
+  // --- My filaments ---
+
+  // The brand's name for the colors on the form, when the database has them
+  function colorNameFor() {
+    const colors = OpenSpool.usedColors(form);
+    if (!brandData || !colors.length || colors.some((c) => !c)) return '';
+    return findColor(brandData, { brand: form.brand, type: form.type, variant: u1 ? form.subtype : '' }, colors)?.entry[0] || '';
+  }
+  const currentEntry = $derived(Filaments.fromForm(form));
+  const currentKey = $derived(currentEntry ? Filaments.keyOf(currentEntry) : '');
+  // The offer to save a written spool goes away once the form no longer matches it
+  const offerNow = $derived(offer && offer.key === currentKey ? offer.entry : null);
+
+  function keepFilament(entry) {
+    filaments = Filaments.add(filaments, entry);
+    Filaments.store(filaments);
+  }
+
+  function saveFilament() {
+    if (errors.length) {
+      showErrors = true;
+      say(`Fix ${errors.length === 1 ? 'the highlighted field' : `the ${errors.length} highlighted fields`} first.`, 'error');
+      focusFirstError();
+      return;
+    }
+    const entry = Filaments.fromForm(form, colorNameFor());
+    if (!entry) return say('Pick a brand and material first.', 'error');
+    if (Filaments.has(filaments, entry)) return say('That spool is already in My filaments.', 'info');
+    if (filaments.length >= Filaments.MAX) return say(`My filaments is full (${Filaments.MAX}). Remove one first.`, 'error');
+    keepFilament(entry);
+    offer = null;
+    say(`Saved ${Filaments.title(entry)} to My filaments.`, 'ok');
+  }
+
+  async function useFilament(entry) {
+    Object.assign(form, Filaments.toForm(entry));
+    showErrors = false;
+    offer = null;
+    say(`Filled in ${Filaments.title(entry)}.`, 'ok');
+    await tick();
+    colorSection?.afterLoad();
+  }
+
+  function removeFilament(entry) {
+    filaments = Filaments.remove(filaments, entry);
+    Filaments.store(filaments);
+  }
+
   function say(text, kind = 'info') {
     status = text ? { text, kind } : null;
   }
@@ -212,12 +267,14 @@
   function startOver() {
     form = Defaults.newForm(defaults);
     showErrors = false;
+    offer = null;
     say(null);
   }
 
   function switchMode(next) {
     if (next === mode) return;
     mode = next;
+    offer = null;
     say(null);
   }
 
@@ -294,6 +351,7 @@
       return;
     }
     say(null);
+    offer = null;
     const updating = mode === 'update' && loaded && !loaded.empty;
     sheet = { mode: 'write', wrongUid: '' };
     try {
@@ -311,7 +369,17 @@
       if (nfc.kind === 'native' && !r.verified) {
         say('Tag written, but reading it back didn’t match. Read the tag to check it.', 'error');
       } else {
-        say(nfc.kind === 'native' ? 'Tag written and checked.' : 'Tag written.', 'ok');
+        // My filaments: save it for you, or offer to
+        const entry = Filaments.fromForm(form, colorNameFor());
+        const isNew = entry && !Filaments.has(filaments, entry) && filaments.length < Filaments.MAX;
+        const written = nfc.kind === 'native' ? 'Tag written and checked.' : 'Tag written.';
+        if (isNew && autoFilaments) {
+          keepFilament(entry);
+          say(`${written} Saved to My filaments.`, 'ok');
+        } else {
+          say(written, 'ok');
+          if (isNew) offer = { entry, key: Filaments.keyOf(entry) };
+        }
       }
       if (updating) loaded = { ...loaded, raw: data, unknownKeys: [], notes: [], tag: { ...loaded.tag, ...(r.tag?.uid ? r.tag : {}) } };
     } catch (e) {
@@ -342,7 +410,7 @@
   {/if}
 
   {#if mode === 'settings'}
-    <Settings {form} bind:defaults bind:chips bind:shownBrands bind:shownMaterials bind:hiddenVariants {brandData} onstatus={(t, isError) => say(t, isError ? 'error' : 'ok')} />
+    <Settings {form} bind:defaults bind:chips bind:shownBrands bind:shownMaterials bind:hiddenVariants bind:filaments bind:autoFilaments {brandData} onstatus={(t, isError) => say(t, isError ? 'error' : 'ok')} />
   {:else if mode === 'update' && (!loaded || loaded.empty)}
     <section class="empty">
       <h2>Read a tag to change it</h2>
@@ -378,6 +446,10 @@
           </button>
         {/each}
       </div>
+
+      {#if mode === 'create'}
+        <MyFilaments list={filaments} current={currentKey} onuse={useFilament} onremove={removeFilament} />
+      {/if}
 
       <Fold id="filament" title="Filament" summary={filamentSummary} defaultOpen forceOpen={filamentError}>
         <Palette
@@ -478,6 +550,8 @@
         <TagDetails tag={loaded.tag} raw={loaded.raw} unknownKeys={loaded.unknownKeys} notes={loaded.notes} />
       {/if}
 
+      <button type="button" class="btn save-spool" onclick={saveFilament}>+ Save this spool as a filament</button>
+
       {#if mode === 'create'}
         <button type="button" class="btn quiet start-over" onclick={startOver}>Start over</button>
       {/if}
@@ -494,6 +568,13 @@
 {#if mode !== 'settings' || status}
 <div class="dock">
   <div class="dock-inner">
+    {#if offerNow}
+      <div class="offer" role="group" aria-label="Save this spool">
+        <p>Save this spool to My filaments?</p>
+        <button type="button" class="btn small" onclick={saveFilament}>Save</button>
+        <button type="button" class="btn small quiet" onclick={() => (offer = null)}>Not now</button>
+      </div>
+    {/if}
     {#if status}
       <p class="status {status.kind}" role={status.kind === 'error' ? 'alert' : 'status'}>{status.text}</p>
     {/if}
@@ -585,6 +666,17 @@
     font-size: 0.8125rem;
   }
   .start-over { justify-self: start; }
+  .save-spool { justify-self: stretch; border-style: dashed; color: var(--action); font-weight: 600; }
+  .offer {
+    display: flex;
+    align-items: center;
+    gap: var(--s2);
+    padding: var(--s2) var(--s3);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+  }
+  .offer p { margin: 0; flex: 1; font-size: 0.9375rem; }
 
   footer { margin-top: var(--s6); color: var(--muted); font-size: 0.8125rem; }
   footer a { color: inherit; }
