@@ -94,22 +94,30 @@ jobs:
           git add src/data/brand-colors.json src/data/orca-vendors.json
           git commit -q -m "Update brand colors and names" -m "Before: $OLD" -m "After: $NEW, $ORCA"
           git push -f origin "$BRANCH"
-          body=$(printf '%s\n' \
-            "Monthly refresh of the Brand colors snapshot (\`src/data/brand-colors.json\`) from the [Open Filament Database](https://github.com/OpenFilamentCollective/open-filament-database), and the brand names (\`src/data/orca-vendors.json\`) from [OrcaSlicer's filament profiles](https://github.com/SoftFever/OrcaSlicer/tree/main/resources/profiles)." \
-            "" \
-            "- Before: $OLD" \
-            "- After: $NEW" \
-            "- Brand names: $ORCA" \
-            "" \
-            "The snapshot passed the brand-colors tests (well-formed, all FilaScribe brands present, real-brand filtering)." \
-            "" \
-            "**To run the full checks** (Tests, test APK): close and reopen this PR. PRs opened by a workflow don't start other workflows by themselves." \
-            "" \
-            "Spot-check a brand you use in the test APK, then merge.")
+          # What changed, grouped by brand in collapsible sections
+          node scripts/snapshot-changes.js "$RUNNER_TEMP/old.json" src/data/brand-colors.json \
+            "$RUNNER_TEMP/old-orca.json" src/data/orca-vendors.json > "$RUNNER_TEMP/changes.md"
+          {
+            printf '%s\n' \
+              "Monthly refresh of the Brand colors snapshot (\`src/data/brand-colors.json\`) from the [Open Filament Database](https://github.com/OpenFilamentCollective/open-filament-database), and the brand names (\`src/data/orca-vendors.json\`) from [OrcaSlicer's filament profiles](https://github.com/SoftFever/OrcaSlicer/tree/main/resources/profiles)." \
+              "" \
+              "- Before: $OLD" \
+              "- After: $NEW" \
+              "- Brand names: $ORCA" \
+              "" \
+              "The snapshot passed the brand-colors tests (well-formed, all FilaScribe brands present, real-brand filtering)." \
+              ""
+            cat "$RUNNER_TEMP/changes.md"
+            printf '%s\n' \
+              "" \
+              "**To run the full checks** (Tests, test APK): close and reopen this PR. PRs opened by a workflow don't start other workflows by themselves." \
+              "" \
+              "Spot-check a brand you use in the test APK, then merge."
+          } > "$RUNNER_TEMP/body.md"
           if gh pr view "$BRANCH" --json state -q .state 2>/dev/null | grep -q OPEN; then
-            gh pr edit "$BRANCH" --body "$body"
+            gh pr edit "$BRANCH" --body-file "$RUNNER_TEMP/body.md"
           else
-            gh pr create --base main --head "$BRANCH" --title "Update brand colors" --body "$body"
+            gh pr create --base main --head "$BRANCH" --title "Update brand colors" --body-file "$RUNNER_TEMP/body.md"
           fi
 
       - name: Nothing new

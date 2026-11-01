@@ -1,0 +1,125 @@
+// Lists what changed between two Brand colors snapshots (and, optionally, two
+// OrcaSlicer vendor lists) as Markdown for the monthly pull request: a
+// summary line, then one collapsible section per brand.
+//
+// Usage: node scripts/snapshot-changes.js <old-colors> <new-colors> [<old-orca> <new-orca>]
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+// GitHub caps a PR description at 65,536 characters; stay well under it
+const LIMIT = 60000;
+
+/** Every color in a snapshot's brand list as Map("brand|material|line|name" -> { brand, where, name, hex, traits }) */
+function flatten(brands) {
+  const map = new Map();
+  for (const b of brands) {
+    for (const [material, lines] of Object.entries(b.materials)) {
+      for (const l of lines) {
+        for (const [name, hex, traits] of l.colors) {
+          const key = [b.name, material, l.name, name].join('|');
+          map.set(key, { brand: b.name, where: `${material} · ${l.name}`, name, hex: hex || '', traits: traits || '' });
+        }
+      }
+    }
+  }
+  return map;
+}
+
+/** { brands: Map(brand -> { added, removed, changed }), newBrands, goneBrands } */
+export function diffColors(oldBrands, newBrands) {
+  const before = flatten(oldBrands);
+  const after = flatten(newBrands);
+  const byBrand = new Map();
+  const slot = (brand) => {
+    if (!byBrand.has(brand)) byBrand.set(brand, { added: [], removed: [], changed: [] });
+    return byBrand.get(brand);
+  };
+  for (const [key, c] of after) {
+    const old = before.get(key);
+    if (!old) slot(c.brand).added.push(c);
+    else if (old.hex !== c.hex || old.traits !== c.traits) slot(c.brand).changed.push({ ...c, oldHex: old.hex, oldTraits: old.traits });
+  }
+  for (const [key, c] of before) if (!after.has(key)) slot(c.brand).removed.push(c);
+  const oldNames = new Set(oldBrands.map((b) => b.name));
+  const newNames = new Set(newBrands.map((b) => b.name));
+  return {
+    brands: byBrand,
+    newBrands: [...newNames].filter((n) => !oldNames.has(n)).sort(),
+    goneBrands: [...oldNames].filter((n) => !newNames.has(n)).sort(),
+  };
+}
+
+export function diffNames(oldNames = [], newNames = []) {
+  const a = new Set(oldNames);
+  const b = new Set(newNames);
+  return { added: newNames.filter((n) => !a.has(n)), removed: oldNames.filter((n) => !b.has(n)) };
+}
+
+const count = (n, word) => (n ? `${n} ${word}` : '');
+const join = (...parts) => parts.filter(Boolean).join(', ');
+const hexes = (h) => (h ? `\`${h.replaceAll(',', ' ')}\`` : 'no color');
+const tags = (t) => (t ? ` [${t}]` : '');
+const esc = (s) => String(s).replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' })[c]);
+
+function brandLines(d) {
+  const sort = (a, b) => a.where.localeCompare(b.where) || a.name.localeCompare(b.name);
+  const out = [];
+  for (const c of d.added.sort(sort)) out.push(`- ➕ ${esc(c.where)}: ${esc(c.name)} ${hexes(c.hex)}`);
+  for (const c of d.removed.sort(sort)) out.push(`- ➖ ${esc(c.where)}: ${esc(c.name)}`);
+  for (const c of d.changed.sort(sort)) {
+    const tagChange = c.oldTraits !== c.traits ? ` (tags${tags(c.oldTraits) || ' none'} →${tags(c.traits) || ' none'})` : '';
+    out.push(`- ✏️ ${esc(c.where)}: ${esc(c.name)} ${c.oldHex !== c.hex ? `${hexes(c.oldHex)} → ${hexes(c.hex)}` : 'same colors'}${tagChange}`);
+  }
+  return out;
+}
+
+/** The Markdown section for the PR description. Empty string when nothing changed. */
+export function renderChanges(colors, names, limit = LIMIT) {
+  let added = 0;
+  let removed = 0;
+  let changed = 0;
+  for (const d of colors.brands.values()) {
+    added += d.added.length;
+    removed += d.removed.length;
+    changed += d.changed.length;
+  }
+  const summary = [];
+  const colorSummary = join(count(added, 'added'), count(removed, 'removed'), count(changed, 'changed'));
+  if (colorSummary) summary.push(`**Colors:** ${colorSummary} in ${colors.brands.size} brand${colors.brands.size === 1 ? '' : 's'}`);
+  if (colors.newBrands.length) summary.push(`**New brands:** ${colors.newBrands.map(esc).join(', ')}`);
+  if (colors.goneBrands.length) summary.push(`**Brands gone:** ${colors.goneBrands.map(esc).join(', ')}`);
+  const nameSummary = join(count(names.added.length, 'added'), count(names.removed.length, 'removed'));
+  if (nameSummary) summary.push(`**Brand names (OrcaSlicer):** ${nameSummary}`);
+  if (!summary.length) return '';
+
+  const parts = ['### What changed', '', summary.join('  \n'), '', '➕ new color · ➖ removed · ✏️ color or tags changed', ''];
+  let size = parts.join('\n').length;
+  let skipped = 0;
+  const brands = [...colors.brands].sort((a, b) => a[0].localeCompare(b[0]));
+  for (const [brand, d] of brands) {
+    const head = `<summary><b>${esc(brand)}</b>: ${join(count(d.added.length, 'added'), count(d.removed.length, 'removed'), count(d.changed.length, 'changed'))}</summary>`;
+    const section = `<details>\n${head}\n\n${brandLines(d).join('\n')}\n\n</details>\n`;
+    if (size + section.length > limit) { skipped++; continue; }
+    parts.push(section);
+    size += section.length;
+  }
+  if (skipped) parts.push(`_${skipped} more brand${skipped === 1 ? '' : 's'} not listed: the list got too long for a description. See the Files changed tab._`, '');
+  if (names.added.length || names.removed.length) {
+    const lines = [...names.added.map((n) => `- ➕ ${esc(n)}`), ...names.removed.map((n) => `- ➖ ${esc(n)}`)];
+    parts.push(`<details>\n<summary><b>Brand names (OrcaSlicer)</b>: ${nameSummary}</summary>\n\n${lines.join('\n')}\n\n</details>\n`);
+  }
+  return parts.join('\n');
+}
+
+const read = (f) => JSON.parse(readFileSync(f, 'utf8'));
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const [oldColors, newColors, oldOrca, newOrca] = process.argv.slice(2);
+  if (!oldColors || !newColors) {
+    console.error('Usage: node scripts/snapshot-changes.js <old-colors> <new-colors> [<old-orca> <new-orca>]');
+    process.exit(1);
+  }
+  const colors = diffColors(read(oldColors).brands, read(newColors).brands);
+  const names = oldOrca && newOrca ? diffNames(read(oldOrca).vendors, read(newOrca).vendors) : { added: [], removed: [] };
+  process.stdout.write(renderChanges(colors, names));
+}
