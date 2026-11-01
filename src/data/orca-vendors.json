@@ -1,10 +1,11 @@
 {
  "source": {
   "repo": "SoftFever/OrcaSlicer",
-  "commit": "3322f6101c467635a774da104eaabe98c7ce5fc7",
-  "date": "2026-10-27"
+  "commit": "533d4c3e9e917779b78ba986756bc0725ce82bb1",
+  "date": "2026-11-01"
  },
  "vendors": [
+  "3D-Fuel",
   "addnorth",
   "Afinia",
   "Aliz",
@@ -54,7 +55,7 @@
   "PlastAR",
   "Polymaker",
   "Pragostroj",
-  "Printalot",
+  "PrintaLot",
   "Prusa Polymers",
   "QIDI",
   "RatRig",
