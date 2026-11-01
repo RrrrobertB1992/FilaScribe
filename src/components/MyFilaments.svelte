@@ -6,8 +6,12 @@
 
   let { list = [], current = '', onuse = () => {}, onremove = () => {} } = $props();
 
+  // The list shows about five rows before it scrolls, so searching only
+  // helps once there are clearly more than that
+  const SEARCH_FROM = 8;
   let query = $state('');
-  const shown = $derived(Filaments.search(list, query));
+  const searchable = $derived(list.length >= SEARCH_FROM);
+  const shown = $derived(searchable ? Filaments.search(list, query) : list);
 
   const summary = $derived(list.length ? `${list.length} saved` : 'None yet');
 
@@ -28,7 +32,7 @@
 
 <Fold id="filaments" title="My filaments" {summary} cls="filaments">
   {#if list.length}
-    {#if list.length > 1}
+    {#if searchable}
       <input
         type="search"
         class="find"
@@ -44,11 +48,11 @@
       <ul class="rows" aria-label="Saved filaments">
         {#each shown as e (Filaments.keyOf(e))}
           <li class:on={Filaments.keyOf(e) === current}>
-            <button type="button" class="use" onclick={() => onuse(e)} aria-label={`Use ${Filaments.title(e)}, ${Filaments.colorLabel(e)}`}>
+            <button type="button" class="use" onclick={() => onuse(e)} aria-label={`Use ${Filaments.title(e)}, ${Filaments.colorLabel(e)}${Filaments.isCustom(e) ? ' (custom color)' : ''}`}>
               <span class="dot" style:background={swatch(e)} aria-hidden="true"></span>
               <span class="text">
                 <span class="name">{Filaments.title(e)} · {Filaments.colorLabel(e)}</span>
-                <span class="meta">{Filaments.meta(e)}</span>
+                <span class="meta">{#if Filaments.isCustom(e)}<span class="custom">Custom color</span>{/if}{Filaments.meta(e)}</span>
               </span>
             </button>
             <button type="button" class="x" aria-label={`Remove ${Filaments.title(e)}, ${Filaments.colorLabel(e)}`} onclick={() => remove(e)}>×</button>
@@ -125,6 +129,16 @@
     overflow-wrap: anywhere;
   }
   .meta { color: var(--muted); font-size: 0.8125rem; }
+  .custom {
+    display: inline-block;
+    margin-right: var(--s2);
+    padding: 0 var(--s2);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--ink);
+  }
   .x {
     flex: none;
     width: 48px;

@@ -80,6 +80,11 @@ describe('My filaments', () => {
     expect(F.colorLabel(F.fromForm(form({ colors: ['000000', 'D4AF37'] })))).toBe('Black & Yellow');
   });
 
+  it('knows a color you picked yourself from one the database named', () => {
+    expect(F.isCustom(F.fromForm(form()))).toBe(true);
+    expect(F.isCustom(F.fromForm(form(), 'Blue'))).toBe(false);
+  });
+
   it('searches by every word: brand, material, variant, color name, rough color, hex', () => {
     const list = [
       F.fromForm(form({ colors: ['FFFFFF'] })),

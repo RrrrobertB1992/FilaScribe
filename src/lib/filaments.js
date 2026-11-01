@@ -154,6 +154,9 @@ export function colorLabel(entry) {
   return words.map((w) => w[0].toUpperCase() + w.slice(1)).join(' & ');
 }
 
+/** True when the color has no name from the brand's database: you picked it yourself, so its name is only a rough word for the hex. */
+export const isCustom = (e) => !e.colorName;
+
 export const title = (e) => [e.brand, e.type, e.subtype].filter(Boolean).join(' ');
 
 const range = (a, b) => (a && b ? `${a}–${b}` : a || b || '');

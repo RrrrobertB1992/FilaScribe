@@ -73,24 +73,51 @@ test.describe('My filaments', () => {
     await expect(fold(page, 'filaments').locator('.sum')).toHaveText('None yet');
   });
 
-  test('search narrows the list; white finds a white spool', async ({ page }) => {
-    await saveSpool(page, 'Overture', 'PLA'); // Generic white default colors
-    await chip(page, 'SUNLU').click();
-    await openCustom(page);
-    await page.locator('#hex-input').fill('2A49C7');
-    await page.locator('#hex-input').blur();
-    await saveButton(page).click();
+  /** Put `n` saved spools straight into storage: the first white, the rest colorful. */
+  async function seed(page, n) {
+    await page.evaluate((count) => {
+      const base = { profile: 'u1', minTemp: '190', maxTemp: '220', bedMinTemp: '50', bedMaxTemp: '60', colorType: '1' };
+      const list = Array.from({ length: count }, (_, i) => ({
+        ...base,
+        brand: i === 0 ? 'Polymaker' : 'Overture',
+        type: 'PLA',
+        subtype: '',
+        maxTemp: String(221 + i),
+        colors: [i === 0 ? 'E8E8E8' : '2A49C7'],
+        colorName: i === 0 ? 'Cotton White' : i === 1 ? '' : 'Blue',
+      }));
+      localStorage.setItem('filascribe-filaments', JSON.stringify(list));
+    }, n);
+    await page.reload();
     await openCard(page);
-    await expect(rows(page)).toHaveCount(2);
+  }
 
+  test('search only shows up once there are too many to scan', async ({ page }) => {
+    await seed(page, 7);
+    await expect(rows(page)).toHaveCount(7);
+    await expect(page.getByRole('searchbox', { name: 'Search your filaments' })).toHaveCount(0);
+    await seed(page, 8);
+    await expect(page.getByRole('searchbox', { name: 'Search your filaments' })).toBeVisible();
+  });
+
+  test('search narrows the list; white finds a white spool', async ({ page }) => {
+    await seed(page, 9);
     const find = page.getByRole('searchbox', { name: 'Search your filaments' });
     await find.fill('white');
     await expect(rows(page)).toHaveCount(1);
-    await expect(rows(page).first()).toContainText('Overture');
+    await expect(rows(page).first()).toContainText('Polymaker');
     await find.fill('zzz');
     await expect(fold(page, 'filaments')).toContainText('No filament matches');
     await find.fill('');
-    await expect(rows(page)).toHaveCount(2);
+    await expect(rows(page)).toHaveCount(9);
+  });
+
+  test('a color you picked yourself says so, a brand color does not', async ({ page }) => {
+    await seed(page, 3);
+    await expect(rows(page).nth(0)).not.toContainText('Custom color'); // Cotton White: from the database
+    await expect(rows(page).nth(1)).toContainText('Custom color'); // no name of its own: just a rough word
+    await expect(rows(page).nth(1).getByRole('button', { name: /^Use/ })).toHaveAccessibleName(/custom color/);
+    await expect(rows(page).nth(2)).not.toContainText('Custom color');
   });
 
   test('the × asks first: cancel keeps it, OK removes it', async ({ page }) => {
