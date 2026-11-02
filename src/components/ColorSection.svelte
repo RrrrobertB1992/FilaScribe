@@ -178,6 +178,7 @@
       {canSetVariant}
       bind:colors
       bind:colorType
+      {max}
       bind:available={brandAvailable}
       bind:count={brandCount}
       bind:pickedName={brandName}

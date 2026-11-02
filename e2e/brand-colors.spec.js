@@ -236,6 +236,32 @@ test.describe('Brand colors', () => {
     await expect(tile(page, 'Jade White')).toHaveAttribute('aria-pressed', 'false');
   });
 
+  test('Clone can rename it and add or remove colors for a two-color spool', async ({ page }) => {
+    await open(page, 'Bambu Lab', 'Basic');
+    await tile(page, 'Jade White').click();
+    await brand(page).getByRole('button', { name: 'Clone' }).click();
+    const box = page.getByRole('group', { name: 'Clone this color' });
+    await expect(box.getByRole('button', { name: /^Remove color/ })).toHaveCount(0); // one color: nothing to remove
+    await box.getByLabel('Clone hex').fill('1E64FF');
+    await box.getByRole('button', { name: 'Add a color' }).click();
+    await box.getByLabel('Color 2 hex').fill('FF2020');
+    await box.getByRole('button', { name: 'Add a color' }).click();
+    await expect(box.getByLabel('Color 3 hex')).toBeVisible();
+    await box.getByRole('button', { name: 'Remove color 3' }).click();
+    await expect(box.getByLabel('Color 3 hex')).toHaveCount(0);
+    await box.getByRole('button', { name: 'Gradient' }).click();
+    await box.getByLabel('Saved color name').fill('Blue Red');
+    await box.getByRole('button', { name: 'Save as saved color' }).click();
+    await expect(colorTab(page, 'Saved')).toHaveAttribute('aria-pressed', 'true');
+    await expect(nowName(page)).toHaveText('Blue Red');
+    await expect(page.locator('.colorsec .now-hex')).toHaveText('#1E64FF + #FF2020 · Gradient');
+    await writeTag(page);
+    const data = await lastWrite(page);
+    expect(data.color_hex).toBe('1E64FF');
+    expect(data.additional_color_hexes).toEqual(['FF2020']);
+    expect(data.color_type).toBe(0);
+  });
+
   test('Clone can be cancelled', async ({ page }) => {
     await open(page, 'Bambu Lab', 'Basic');
     await tile(page, 'Jade White').click();

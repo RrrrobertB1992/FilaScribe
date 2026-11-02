@@ -19,6 +19,7 @@
     canSetVariant = false,
     colors = $bindable(['FFFFFF']),
     colorType = $bindable('1'),
+    max = 5, // most colors a tag can hold (1 when the profile only has one)
     count = $bindable(0), // colors shown for this brand + material + variant
     available = $bindable(false), // the brand has colors for this material
     pickedName = $bindable(''), // name of the picked color, for Saved colors
@@ -223,7 +224,7 @@
 
   function openClone() {
     if (!pickedTile) return;
-    editor = { mode: 'clone', hexes: [...pickedTile.info.colors], all: false, error: '' };
+    editor = { mode: 'clone', hexes: [...pickedTile.info.colors].slice(0, max), all: false, error: '', name: pickedTile.info.name, style: colorType === '0' ? '0' : '1' };
   }
 
   // Save the colors in the box as a new saved color named after the brand color
@@ -235,8 +236,8 @@
       editor.error = 'Each color needs 6 hex digits, like 212121.';
       return;
     }
-    const name = tile.info.name;
-    const gradient = colorType === '0' ? '0' : '1';
+    const name = (editor.name || '').trim().slice(0, 32);
+    const gradient = editor.style;
     editor = null;
     picked = null;
     snapshot = null;
@@ -275,6 +276,18 @@
     removeEdit(edit);
     editor = null;
     repick(tile.line.name, name);
+  }
+
+  function addColor() {
+    if (editor.hexes.length >= max) return;
+    editor.hexes.push(editor.hexes[editor.hexes.length - 1] || 'FFFFFF');
+    editor.error = '';
+  }
+
+  function removeColor(i) {
+    if (editor.hexes.length < 2) return;
+    editor.hexes.splice(i, 1);
+    editor.error = '';
   }
 
   function setHex(i, value) {
@@ -337,8 +350,27 @@
               <span class="hexbox">#<input type="text" value={h} maxlength="7" autocapitalize="characters" spellcheck="false" aria-label={editor.hexes.length > 1 ? `Color ${i + 1} hex` : editor.mode === 'clone' ? 'Clone hex' : 'Override hex'} oninput={(e) => setHex(i, e.currentTarget.value)} /></span>
             </label>
             <button type="button" class="btn small" aria-label={editor.hexes.length > 1 ? `Pick color ${i + 1}` : 'Pick a color'} onclick={() => (popup = i)}>Pick</button>
+            {#if editor.mode === 'clone' && editor.hexes.length > 1}
+              <button type="button" class="btn small quiet danger" aria-label={`Remove color ${i + 1}`} onclick={() => removeColor(i)}>Remove</button>
+            {/if}
           </div>
         {/each}
+        {#if editor.mode === 'clone'}
+          {#if editor.hexes.length < max}
+            <button type="button" class="btn small" onclick={addColor}>Add a color</button>
+          {/if}
+          {#if editor.hexes.length > 1}
+            <div class="style" role="group" aria-label="Multi-color style">
+              {#each [['0', 'Gradient'], ['1', 'Segments']] as [v, text]}
+                <button type="button" class="btn small" aria-pressed={editor.style === v} onclick={() => (editor.style = v)}>{text}</button>
+              {/each}
+            </div>
+          {/if}
+          <label class="namebox">
+            Name
+            <input type="text" bind:value={editor.name} maxlength="32" autocomplete="off" aria-label="Saved color name" />
+          </label>
+        {/if}
         {#if editor.mode === 'override' && (result.lines.length > 1 || allLines.length > 1)}
           <label class="all">
             <input type="checkbox" bind:checked={editor.all} />
@@ -465,6 +497,10 @@
     background: var(--bg);
   }
   .override .what { margin: 0; }
+  .override .style { display: flex; gap: var(--s2); }
+  .override .style .btn[aria-pressed='true'] { background: var(--ink); color: var(--bg); }
+  .namebox { display: grid; gap: 2px; font-size: 0.8125rem; color: var(--muted); }
+  .namebox input { min-height: 40px; padding: 0 var(--s2); border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; }
   .override .db { display: block; color: var(--muted); font-size: 0.8125rem; }
   .hexrow { display: flex; align-items: center; gap: var(--s3); }
   .hexrow .chip { flex: none; width: 34px; height: 34px; border-radius: 8px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25); }

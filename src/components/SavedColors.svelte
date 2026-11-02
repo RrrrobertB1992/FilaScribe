@@ -138,6 +138,7 @@
     if (!key) return;
     const id = SC.idFor(newColors, newStyle);
     persist(SC.save(all, key, newColors, newStyle, variant, name));
+    if (name) persist(SC.rename(all, key, id, name)); // the name typed in Clone wins
     const entry = SC.entriesFor(all, key).find((e) => SC.entryId(e) === id);
     if (entry) select(entry);
     onstatus('Saved as a new color');
