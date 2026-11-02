@@ -241,7 +241,7 @@
     position: relative;
   }
   /* A brand color you overrode: dashed ring around the spool */
-  .swatch.edited { outline: 2px dashed var(--action); outline-offset: 3px; }
+  .swatch.edited { outline: 2px dashed var(--muted); outline-offset: 3px; }
   .swatch::after {
     content: '';
     position: absolute;

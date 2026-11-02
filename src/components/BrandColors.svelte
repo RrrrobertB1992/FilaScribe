@@ -504,14 +504,14 @@
   }
   .tile[aria-pressed='true'] { border-color: var(--ink); }
   /* A color you overrode: a dashed outline, like your own chips */
-  .tile.edited { border-style: dashed; border-color: var(--action); }
+  .tile.edited { border-style: dashed; border-color: var(--muted); }
   .tile.edited[aria-pressed='true'] { border-color: var(--ink); }
-  .edited-tag { font-size: 0.6875rem; font-weight: 700; color: var(--action); line-height: 1.2; }
+  .edited-tag { font-size: 0.6875rem; font-weight: 700; color: var(--muted); line-height: 1.2; }
   .override {
     display: grid;
     gap: var(--s2);
     padding: var(--s3);
-    border: 1px dashed var(--action);
+    border: 1px dashed var(--muted);
     border-radius: 10px;
     background: var(--bg);
   }
