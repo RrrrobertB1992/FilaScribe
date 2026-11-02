@@ -5,7 +5,7 @@ const brand = (page) => page.locator('.brand');
 const tile = (page, name) => brand(page).locator('.tile', { hasText: name }).first();
 const header = (page) => page.locator('.colorsec');
 const box = (page) => page.getByRole('group', { name: 'Override this color' });
-const overrideBtn = (page) => brand(page).getByRole('button', { name: /^(Override this color|Edit override)$/ });
+const overrideBtn = (page) => brand(page).getByRole('button', { name: /^(Override|Edit override)$/ });
 
 async function pickBlack(page) {
   await chip(page, 'Bambu Lab').click();

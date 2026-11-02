@@ -301,8 +301,9 @@
         {/if}
         {#if pickedTile}
           <button type="button" class="btn small" aria-expanded={!!editor} onclick={() => (editor ? (editor = null) : openEditor())}>
-            {pickedEdit ? 'Edit override' : 'Override this color'}
+            {pickedEdit ? 'Edit override' : 'Override'}
           </button>
+          <button type="button" class="btn small" onclick={editColors}>Edit colors</button>
         {/if}
       </div>
     {/if}
@@ -391,12 +392,9 @@
       {/if}
     {/if}
 
-    {#if pickedTile}
+    {#if pickedTile && suggestion && suggestion !== variant}
       <div class="actions">
-        <button type="button" class="btn small" onclick={editColors}>Edit colors</button>
-        {#if suggestion && suggestion !== variant}
-          <button type="button" class="btn small" onclick={() => setVariant(suggestion)}>Set variant to {suggestion}</button>
-        {/if}
+        <button type="button" class="btn small" onclick={() => setVariant(suggestion)}>Set variant to {suggestion}</button>
       </div>
     {/if}
 
