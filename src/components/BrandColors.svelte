@@ -7,6 +7,10 @@
   import { onMount } from 'svelte';
   import * as BC from '../lib/brandColors.js';
   import { loadBrandColors } from '../lib/brandColorsData.js';
+  import ColorPopup from './ColorPopup.svelte';
+  import { normalizeHex } from '../lib/formats/openspool.js';
+  import * as Manual from '../lib/manualColors.js';
+  import { getEdits, setEdit, removeEdit, withManual } from '../lib/manualColorsStore.svelte.js';
 
   let {
     brand = '',
@@ -19,6 +23,7 @@
     available = $bindable(false), // the brand has colors for this material
     pickedName = $bindable(''), // name of the picked color, for Saved colors
     pickedLine = $bindable(''), // its filament line
+    pickedOriginal = $bindable(''), // the database's hex for it, when you overrode it ('' when not)
     getTemps = () => ({}),
     setTemps = () => {},
     setVariant = () => {},
@@ -28,7 +33,9 @@
   } = $props();
 
   const PAGE = 30;
-  let db = $state(null);
+  // The database with your overrides on top (Settings lists them)
+  let rawDb = $state(null);
+  const db = $derived(rawDb && withManual(rawDb));
   let showAll = $state(false);
   let lineFilter = $state(''); // Show all: a line name, or '' for every line
   let search = $state('');
@@ -40,7 +47,7 @@
   let matchWhenLoaded = false; // a tag was loaded before the data arrived
 
   onMount(async () => {
-    db = await loadBrandColors();
+    rawDb = await loadBrandColors();
     if (matchWhenLoaded) {
       matchWhenLoaded = false;
       selectMatching();
@@ -94,11 +101,16 @@
       }
     }
   });
+  // The override box belongs to the picked color
+  $effect(() => {
+    if (!pickedTile) { editor = null; popup = null; }
+  });
   $effect(() => {
     available = !!db && result.total > 0;
     count = colorCount;
     pickedName = pickedTile ? pickedTile.info.name : '';
     pickedLine = pickedTile ? pickedTile.line.name : '';
+    pickedOriginal = pickedTile?.info.original ? pickedTile.info.original.map((h) => `#${h}`).join(' + ') : '';
   });
   // The colors were changed elsewhere (Saved colors, the pickers): let go of the pick
   $effect(() => {
@@ -176,6 +188,87 @@
     picked = { id: BC.colorId(hit.line, hit.entry), lineName: hit.line.name };
   }
 
+  // --- Overriding a color's hex ---
+
+  let popup = $state(null); // index of the color being picked in the pop-up, or null
+  let editor = $state(null); // { hexes: ['212121'], all: false, error: '' } while the override box is open
+  // The override on the picked color (its line's own, or the all-lines one)
+  const pickedEdit = $derived.by(() => {
+    if (!pickedTile || !db) return null;
+    return Manual.find(getEdits(), { brand: dbBrandName, material: materialOf(pickedTile.line), line: pickedTile.line.name, color: pickedTile.info.name });
+  });
+  const dbBrandName = $derived(BC.findBrand(db, brand)?.name || '');
+
+  function materialOf(line) {
+    const b = BC.findBrand(db, brand);
+    return Object.entries(b?.materials || {}).find(([, lines]) => lines.includes(line))?.[0] || '';
+  }
+
+  // The tile for a color name in a line, after the database changed under it
+  function tileNamed(lineName, colorName) {
+    for (const line of linesAll()) {
+      if (line.name !== lineName) continue;
+      const entry = line.colors.find((c) => c[0] === colorName);
+      if (entry) return { line, entry, id: BC.colorId(line, entry), info: BC.colorInfo(entry) };
+    }
+    return null;
+  }
+  const linesAll = () => (db ? BC.linesForMaterial(db, brand, type) : []);
+
+  // Keep the pick, with the colors the override gave it
+  function repick(lineName, colorName) {
+    const tile = tileNamed(lineName, colorName);
+    if (!tile) return;
+    picked = { id: tile.id, lineName };
+    apply(tile);
+  }
+
+  function openEditor() {
+    if (!pickedTile) return;
+    editor = { hexes: [...pickedTile.info.colors], all: pickedEdit?.line === Manual.ALL_LINES, error: '' };
+  }
+
+  function saveEditor() {
+    const tile = pickedTile;
+    if (!tile || !editor) return;
+    const hexes = editor.hexes.map((h) => normalizeHex(h));
+    if (hexes.some((h) => !h)) {
+      editor.error = 'Each color needs 6 hex digits, like 212121.';
+      return;
+    }
+    const { name } = tile.info;
+    setEdit({
+      brand: dbBrandName,
+      material: materialOf(tile.line),
+      line: editor.all ? Manual.ALL_LINES : tile.line.name,
+      color: name,
+      hex: hexes.join(','),
+      was: (tile.info.original || tile.info.colors).join(','),
+    });
+    editor = null;
+    repick(tile.line.name, name);
+  }
+
+  function resetEditor() {
+    const tile = pickedTile;
+    const edit = pickedEdit;
+    if (!tile || !edit) return;
+    const orig = (tile.info.original || tile.info.colors).map((h) => `#${h}`).join(' + ');
+    const where = edit.line === Manual.ALL_LINES ? ` in every ${label} line` : '';
+    if (!confirm(`Put ${tile.info.name}${where} back to the database color ${orig}?`)) return;
+    const name = tile.info.name;
+    removeEdit(edit);
+    editor = null;
+    repick(tile.line.name, name);
+  }
+
+  function setHex(i, value) {
+    editor.hexes[i] = value.replace(/[^0-9a-fA-F#]/g, '').replace('#', '').slice(0, 6).toUpperCase();
+    editor.error = '';
+  }
+
+  const previewHex = (h) => (normalizeHex(h) ? `#${normalizeHex(h)}` : 'transparent');
+
   function bar(info) {
     const list = info.colors.map((h) => `#${h}`);
     if (list.length > 1 && info.gradient) return `linear-gradient(to right, ${list.join(', ')})`;
@@ -199,12 +292,60 @@
       <p class="hint">Showing {filterNote()}.</p>
     {/if}
 
-    {#if result.filter !== 'all' || showAll}
+    {#if result.filter !== 'all' || showAll || pickedTile}
       <div class="filters">
-        <button type="button" class="btn small" onclick={() => { showAll = !showAll; lineFilter = ''; shown = PAGE; }}>
-          {showAll ? `Show only ${groupName}` : `Show all ${label} lines`}
-        </button>
+        {#if result.filter !== 'all' || showAll}
+          <button type="button" class="btn small" onclick={() => { showAll = !showAll; lineFilter = ''; shown = PAGE; }}>
+            {showAll ? `Show only ${groupName}` : `Show all ${label} lines`}
+          </button>
+        {/if}
+        {#if pickedTile}
+          <button type="button" class="btn small" aria-expanded={!!editor} onclick={() => (editor ? (editor = null) : openEditor())}>
+            {pickedEdit ? 'Edit override' : 'Override'}
+          </button>
+          <button type="button" class="btn small" onclick={editColors}>Edit colors</button>
+        {/if}
       </div>
+    {/if}
+
+    {#if editor && pickedTile}
+      <div class="override" role="group" aria-label="Override this color">
+        <p class="what">
+          <strong>{pickedTile.info.name}</strong>, {pickedTile.line.name}
+          <span class="db">Database: {(pickedTile.info.original || pickedTile.info.colors).map((h) => `#${h}`).join(' + ')}</span>
+        </p>
+        {#each editor.hexes as h, i}
+          <div class="hexrow">
+            <span class="chip" style:background={previewHex(h)} aria-hidden="true"></span>
+            <label>
+              {editor.hexes.length > 1 ? `Color ${i + 1}` : 'Hex'}
+              <span class="hexbox">#<input type="text" value={h} maxlength="7" autocapitalize="characters" spellcheck="false" aria-label={editor.hexes.length > 1 ? `Color ${i + 1} hex` : 'Override hex'} oninput={(e) => setHex(i, e.currentTarget.value)} /></span>
+            </label>
+            <button type="button" class="btn small" aria-label={editor.hexes.length > 1 ? `Pick color ${i + 1}` : 'Pick a color'} onclick={() => (popup = i)}>Pick</button>
+          </div>
+        {/each}
+        {#if result.lines.length > 1 || allLines.length > 1}
+          <label class="all">
+            <input type="checkbox" bind:checked={editor.all} />
+            <span>Also change “{pickedTile.info.name}” in the other {label} lines</span>
+          </label>
+        {/if}
+        {#if editor.error}<p class="error-text">{editor.error}</p>{/if}
+        <div class="actions">
+          <button type="button" class="btn small primary" onclick={saveEditor}>Save override</button>
+          <button type="button" class="btn small quiet" onclick={() => (editor = null)}>Cancel</button>
+          {#if pickedEdit}<button type="button" class="btn small quiet danger" onclick={resetEditor}>Reset to database</button>{/if}
+        </div>
+      </div>
+    {/if}
+
+    {#if popup !== null && editor}
+      <ColorPopup
+        hex={editor.hexes[popup]}
+        label={editor.hexes.length > 1 ? `Color ${popup + 1}` : 'Override color'}
+        onuse={(h) => { setHex(popup, h); popup = null; }}
+        oncancel={() => (popup = null)}
+      />
     {/if}
 
     {#if showAll && result.lines.length > 1}
@@ -226,8 +367,9 @@
           <button
             type="button"
             class="tile"
+            class:edited={!!tile.info.original}
             aria-pressed={isPicked}
-            title={`${tile.info.name}, ${[tile.line.name, ...tile.alsoIn].join(' / ')}: ${tile.info.colors.map((h) => '#' + h).join(' + ')}`}
+            title={`${tile.info.name}, ${[tile.line.name, ...tile.alsoIn].join(' / ')}: ${tile.info.colors.map((h) => '#' + h).join(' + ')}${tile.info.original ? ` (your override; database: ${tile.info.original.map((h) => '#' + h).join(' + ')})` : ''}`}
             onclick={() => (isPicked ? unpick() : pick(tile))}
           >
             <span class="bar" style:background={bar(tile.info)} aria-hidden="true">
@@ -235,6 +377,7 @@
             </span>
             <span class="name">{tile.info.name}</span>
             <span class="hex">{tile.info.colors.join('\n')}</span>
+            {#if tile.info.original}<span class="edited-tag">Edited</span>{/if}
             {#if tile.info.colors.length > 1}<span class="multi">{tile.info.colors.length} colors{tile.info.gradient ? ', gradient' : ''}</span>{/if}
             {#if !lineFilter && result.lines.length > 1}
               <span class="line-name">{tile.line.name}{tile.alsoIn.length ? ` +${tile.alsoIn.length}` : ''}</span>
@@ -249,12 +392,9 @@
       {/if}
     {/if}
 
-    {#if pickedTile}
+    {#if pickedTile && suggestion && suggestion !== variant}
       <div class="actions">
-        <button type="button" class="btn small" onclick={editColors}>Edit colors</button>
-        {#if suggestion && suggestion !== variant}
-          <button type="button" class="btn small" onclick={() => setVariant(suggestion)}>Set variant to {suggestion}</button>
-        {/if}
+        <button type="button" class="btn small" onclick={() => setVariant(suggestion)}>Set variant to {suggestion}</button>
       </div>
     {/if}
 
@@ -293,6 +433,27 @@
     text-align: center;
   }
   .tile[aria-pressed='true'] { border-color: var(--ink); }
+  /* A color you overrode: a dashed outline, like your own chips */
+  .tile.edited { border-style: dashed; border-color: var(--action); }
+  .tile.edited[aria-pressed='true'] { border-color: var(--ink); }
+  .edited-tag { font-size: 0.6875rem; font-weight: 700; color: var(--action); line-height: 1.2; }
+  .override {
+    display: grid;
+    gap: var(--s2);
+    padding: var(--s3);
+    border: 1px dashed var(--action);
+    border-radius: 10px;
+    background: var(--bg);
+  }
+  .override .what { margin: 0; }
+  .override .db { display: block; color: var(--muted); font-size: 0.8125rem; }
+  .hexrow { display: flex; align-items: center; gap: var(--s3); }
+  .hexrow .chip { flex: none; width: 34px; height: 34px; border-radius: 8px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25); }
+  .hexrow label { flex: 1; display: grid; gap: 2px; font-size: 0.8125rem; color: var(--muted); }
+  .hexbox { display: flex; align-items: center; gap: 2px; font-family: var(--font-label); font-size: 1.0625rem; color: var(--ink); }
+  .hexbox input { flex: 1; min-width: 0; min-height: 40px; letter-spacing: 0.06em; }
+  .all { display: flex; gap: var(--s2); align-items: flex-start; font-size: 0.9375rem; }
+  .all input { width: 20px; height: 20px; margin-top: 2px; flex: none; accent-color: var(--action); }
   .bar {
     display: flex;
     height: 22px;

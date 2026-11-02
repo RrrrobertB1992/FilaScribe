@@ -21,6 +21,7 @@
   import * as MaterialList from './lib/materialList.js';
   import * as VariantList from './lib/variantList.js';
   import * as Filaments from './lib/filaments.js';
+  import { withManual } from './lib/manualColorsStore.svelte.js';
 
   const nfc = getNfc();
   const buildLabel = buildParts(__BUILD__);
@@ -42,7 +43,9 @@
 
   // Variant chips: the groups this brand has for this material, in its own
   // words; the full default list until the data loads or for other brands
-  let brandData = $state(null);
+  // The database's brand colors with your own overrides on top
+  let rawBrandData = $state(null);
+  const brandData = $derived(withManual(rawBrandData));
   const builtInVariants = $derived(variantChoices(brandData, form.brand, form.type));
   // The materials the brand has colors for (every material for Generic or a brand not in the database)
   const builtInMaterials = $derived(materialChoices(brandData, form.brand, form.type));
@@ -133,7 +136,7 @@
     nfcState = await nfc.status();
   });
   onMount(async () => {
-    brandData = await loadBrandColors();
+    rawBrandData = await loadBrandColors();
   });
 
   const u1 = $derived(form.profile === 'u1');
@@ -328,7 +331,7 @@
     form = parsed.form;
     // The database's spelling of a known brand ("eSun" -> "eSUN 3D"), so an
     // update writes the same name as a new tag would
-    if (!brandData) brandData = await loadBrandColors().catch(() => null);
+    if (!brandData) rawBrandData = await loadBrandColors().catch(() => null);
     form.brand = canonicalBrand(brandData, form.brand);
     loaded = { tag: result.tag, raw: parsed.raw, unknownKeys: parsed.unknownKeys, notes: parsed.notes, empty: false };
     showErrors = true;

@@ -434,12 +434,16 @@ export function linesFor(db, { brand, type, variant = '', showAll = false }) {
   return lines.length ? { lines, filter: 'name', group: null, total } : { lines: [], filter: 'nomatch', group: null, total };
 }
 
-/** A color entry as { name, colors: [hex], gradient, traits, alt: [hex] }. */
+/**
+ * A color entry as { name, colors: [hex], gradient, traits, alt: [hex],
+ * original: [hex] | null }. `original` is the database's own hex for a color
+ * you overrode (lib/manualColors.js), null for the rest.
+ */
 export function colorInfo(entry) {
-  const [name, hex, traits, alt] = entry;
+  const [name, hex, traits, alt, original] = entry;
   const t = traitSet(traits);
   const colors = hex.split(',');
-  return { name, colors, gradient: colors.length > 1 && t.has('g'), traits: t, alt: alt ? alt.split(',') : [] };
+  return { name, colors, gradient: colors.length > 1 && t.has('g'), traits: t, alt: alt ? alt.split(',') : [], original: original ? original.split(',') : null };
 }
 
 /** Stable id for a color in a line. */
@@ -508,6 +512,8 @@ export function findColor(db, { brand, type, variant = '' }, colors) {
   for (const line of ordered) {
     for (const entry of line.colors) {
       if (entry[1] === want) return { line, entry };
+      // A color you overrode still matches a tag written with the database's hex
+      if (entry[4] === want) return { line, entry };
       if (colors.length === 1 && entry[3] && entry[3].split(',').includes(want)) return { line, entry };
     }
   }
