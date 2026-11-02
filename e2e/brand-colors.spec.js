@@ -242,14 +242,19 @@ test.describe('Brand colors', () => {
     await brand(page).getByRole('button', { name: 'Clone' }).click();
     const box = page.getByRole('group', { name: 'Clone this color' });
     await expect(box.getByRole('button', { name: /^Remove color/ })).toHaveCount(0); // one color: nothing to remove
+    const spool = box.getByRole('img', { name: 'Preview of these colors' });
+    await expect(spool).toBeVisible();
     await box.getByLabel('Clone hex').fill('1E64FF');
+    await expect(spool).toHaveCSS('background-color', 'rgb(30, 100, 255)');
     await box.getByRole('button', { name: 'Add a color' }).click();
     await box.getByLabel('Color 2 hex').fill('FF2020');
     await box.getByRole('button', { name: 'Add a color' }).click();
     await expect(box.getByLabel('Color 3 hex')).toBeVisible();
     await box.getByRole('button', { name: 'Remove color 3' }).click();
     await expect(box.getByLabel('Color 3 hex')).toHaveCount(0);
+    await expect(spool).toHaveCSS('background-image', /linear-gradient.*rgb\(30, 100, 255\) 0%/);
     await box.getByRole('button', { name: 'Gradient' }).click();
+    await expect(spool).toHaveCSS('background-image', /linear-gradient\(135deg, rgb\(30, 100, 255\), rgb\(255, 32, 32\)\)/);
     await box.getByLabel('Saved color name').fill('Blue Red');
     await box.getByRole('button', { name: 'Save as saved color' }).click();
     await expect(colorTab(page, 'Saved')).toHaveAttribute('aria-pressed', 'true');

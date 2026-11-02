@@ -278,6 +278,17 @@
     repick(tile.line.name, name);
   }
 
+  // The colors in the box as one spool: blended, or in even stretches
+  function spoolPreview(ed, tile) {
+    const list = ed.hexes.map((h) => normalizeHex(h)).filter(Boolean).map((h) => `#${h}`);
+    if (!list.length) return 'transparent';
+    if (list.length === 1) return list[0];
+    const gradient = ed.mode === 'clone' ? ed.style === '0' : !!tile.info.gradient;
+    if (gradient) return `linear-gradient(135deg, ${list.join(', ')})`;
+    const step = 100 / list.length;
+    return `linear-gradient(135deg, ${list.map((c, i) => `${c} ${i * step}% ${(i + 1) * step}%`).join(', ')})`;
+  }
+
   function addColor() {
     if (editor.hexes.length >= max) return;
     editor.hexes.push(editor.hexes[editor.hexes.length - 1] || 'FFFFFF');
@@ -338,10 +349,13 @@
 
     {#if editor && pickedTile}
       <div class="override" role="group" aria-label={editor.mode === 'clone' ? 'Clone this color' : 'Override this color'}>
-        <p class="what">
-          {#if editor.mode === 'clone'}Clone <strong>{pickedTile.info.name}</strong> as a saved color{:else}<strong>{pickedTile.info.name}</strong>, {pickedTile.line.name}{/if}
-          <span class="db">Database: {(pickedTile.info.original || pickedTile.info.colors).map((h) => `#${h}`).join(' + ')}</span>
-        </p>
+        <div class="head">
+          <p class="what">
+            {#if editor.mode === 'clone'}Clone <strong>{pickedTile.info.name}</strong> as a saved color{:else}<strong>{pickedTile.info.name}</strong>, {pickedTile.line.name}{/if}
+            <span class="db">Database: {(pickedTile.info.original || pickedTile.info.colors).map((h) => `#${h}`).join(' + ')}</span>
+          </p>
+          <span class="spool" style:background={spoolPreview(editor, pickedTile)} role="img" aria-label="Preview of these colors"></span>
+        </div>
         {#each editor.hexes as h, i}
           <div class="hexrow">
             <span class="chip" style:background={previewHex(h)} aria-hidden="true"></span>
@@ -496,7 +510,24 @@
     border-radius: 10px;
     background: var(--bg);
   }
-  .override .what { margin: 0; }
+  .override .head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s3); }
+  .override .what { margin: 0; min-width: 0; }
+  .spool {
+    flex: none;
+    position: relative;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+  }
+  .spool::after {
+    content: '';
+    position: absolute;
+    inset: 18px;
+    border-radius: 50%;
+    background: var(--bg);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+  }
   .override .style { display: flex; gap: var(--s2); }
   .override .style .btn[aria-pressed='true'] { background: var(--ink); color: var(--bg); }
   .namebox { display: grid; gap: 2px; font-size: 0.8125rem; color: var(--muted); }
