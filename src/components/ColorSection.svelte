@@ -35,6 +35,7 @@
   let brandCount = $state(0);
   let brandName = $state('');
   let brandLine = $state('');
+  let brandOriginal = $state(''); // the database's hex for an overridden brand color
   let savedCount = $state(0);
   let savedName = $state(null);
   let editing = $state(false);
@@ -88,7 +89,11 @@
     return `linear-gradient(135deg, ${list.map((c, i) => `${c} ${i * step}% ${(i + 1) * step}%`).join(', ')})`;
   });
   const summary = $derived.by(() => {
-    if (brandName) return { name: brandName, from: `Brand color · ${brandLine}` };
+    if (brandName) {
+      return brandOriginal
+        ? { name: `${brandName} (${brandOriginal})`, from: `Brand color · ${brandLine} · your override`, edited: true }
+        : { name: brandName, from: `Brand color · ${brandLine}` };
+    }
     if (savedName !== null) return { name: savedName || 'Saved color', from: editing ? 'Saved color · editing' : 'Saved color' };
     return { name: 'Custom colors', from: 'Made with the color picker' };
   });
@@ -137,7 +142,7 @@
 <Fold id="colors" defaultOpen forceOpen={errors.length > 0} cls="colorsec">
   {#snippet head()}
     <span class="current" role="group" aria-labelledby="colorsec-label">
-      <span class="swatch" style:background={swatch} aria-hidden="true"></span>
+      <span class="swatch" class:edited={summary.edited} style:background={swatch} aria-hidden="true"></span>
       <span class="what">
         <span class="label" id="colorsec-label">{max > 1 ? 'Colors' : 'Color'}</span>
         <span class="now-name">{summary.name}</span>
@@ -169,6 +174,7 @@
       bind:count={brandCount}
       bind:pickedName={brandName}
       bind:pickedLine={brandLine}
+      bind:pickedOriginal={brandOriginal}
       {getTemps}
       {setTemps}
       {setVariant}
@@ -225,6 +231,8 @@
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25), 0 0 0 4px var(--bg);
     position: relative;
   }
+  /* A brand color you overrode: dashed ring around the spool */
+  .swatch.edited { outline: 2px dashed var(--action); outline-offset: 3px; }
   .swatch::after {
     content: '';
     position: absolute;

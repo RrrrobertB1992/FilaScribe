@@ -108,6 +108,12 @@ The colors come from the [Open Filament Database](https://github.com/OpenFilamen
 
 **Fixing a wrong color.** Some colors in the database are wrong: a hex of `#000000` where the real value is missing (a White that shows as black), or a dual, tri or rainbow spool with only one of its colors (about 280 of those, filled in from the color name, a standard 5-color rainbow, or a best guess; the guesses are marked "Best guess from the name" in `why`). Color-shifting (chameleon) spools that the database tags as multi-color just lose that tag. They are corrected in `scripts/color-overrides.json`: the brand, material, line and color name as the database spells them, the wrong value (`was`), the right one (`hex`, up to 5 comma-separated colors) and why (a tag change names `wasTraits` and `traits` the same way). The rebuild applies the list every time, and only while the database still has exactly the wrong value, so if the database later lists its own colors for a spool, ours is left alone, and once it's fixed upstream the override steps aside and the build prints that it can be removed. The monthly pull request lists everything that changed, grouped by brand in collapsible sections (`scripts/snapshot-changes.js`; you can run it yourself on two snapshots: `node scripts/snapshot-changes.js old.json new.json`). To patch the bundled snapshot without rebuilding it: `node scripts/build-brand-colors.js --apply-overrides src/data/brand-colors.json`. The single-color values come from the same brand's own data and the multi-color ones from the names, not from a spool in hand, so check one against yours before relying on it.
 
+**Color overrides (your own hex).** If a database color is a little off (Anycubic PLA Basic Black is `#212721`, with a green tint), pick it and tap **Override this color** (next to **Show all …**). Type or pick the hex, then **Save override**. Several-color spools get one box per color; the number of colors can't change, and names stay the vendor's. By default only that line changes; tick **Also change "…" in the other … lines** to change every line of that brand and material that has the color. A line's own override beats the all-lines one.
+- The tile gets a dashed outline and an **Edited** tag, and the Colors card reads "Black (#212721)" with your new hex underneath and a dashed ring on the swatch.
+- **Settings → Color overrides** lists them like Saved colors: old hex (dashed) and new hex, a **Reset** button per override, and Clear all, Export and Import. Reset and Clear all ask first.
+- Your override **always wins**, over the database and over `scripts/color-overrides.json`. It is kept on this device (`filascribe-color-overrides`) and applied on top of every database update. If the database later changes that color, Settings says so ("The database now says …"); a color that is gone is marked so you can Reset it.
+- A tag written with the database's old hex still matches the overridden color when read.
+
 The **Update brand colors** workflow rebuilds the snapshot and the OrcaSlicer names on the 1st of each month, and on demand from the Actions tab. If anything changed, it opens or updates a PR named "Update brand colors". It needs one setting: Settings → Actions → General → Workflow permissions → **Allow GitHub Actions to create and approve pull requests**. GitHub doesn't run other workflows on a PR that a workflow opened, so close and reopen that PR to run its Tests and test APK.
 
 ## Project layout
@@ -123,6 +129,7 @@ src/
   lib/savedColors.js         saved colors data (localStorage)
   lib/catalog.js             material, brand and variant choices
   lib/brandColors.js         Brand colors: line filtering and color matching
+  lib/manualColors.js        your color overrides (localStorage) and how they apply
   data/brand-colors.json     Open Filament Database snapshot (generated)
   scripts/color-overrides.json   corrections for colors the database has wrong
   scripts/snapshot-changes.js    the change list in the monthly pull request

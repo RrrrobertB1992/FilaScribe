@@ -7,6 +7,8 @@
   import * as CustomChips from '../lib/customChips.js';
   import * as SC from '../lib/savedColors.js';
   import * as Filaments from '../lib/filaments.js';
+  import * as Manual from '../lib/manualColors.js';
+  import { getEdits, removeEdit, clearEdits, importEdits } from '../lib/manualColorsStore.svelte.js';
   import * as Theme from '../lib/theme.js';
   import { exportJson, readJsonFile } from '../lib/backup.js';
   import { buildParts } from '../lib/buildInfo.js';
@@ -251,6 +253,48 @@
     const step = 100 / list.length;
     return `linear-gradient(to right, ${list.map((c, i) => `${c} ${i * step}% ${(i + 1) * step}%`).join(', ')})`;
   };
+
+  // --- Color overrides ---
+
+  let overridesInput = $state();
+  const overrides = $derived(Manual.report(brandData, getEdits()));
+  const describeOverride = (o) => (o.line === Manual.ALL_LINES ? `${o.brand} · ${o.material} · all lines · ${o.color}` : `${o.brand} · ${o.material} · ${o.line} · ${o.color}`);
+  const hexText = (h) => h.split(',').map((x) => `#${x}`).join(' + ');
+  // Several colors side by side in one dot, like the Saved colors rows
+  const dot = (h) => {
+    const list = h.split(',').map((x) => `#${x}`);
+    if (list.length === 1) return list[0];
+    const step = 100 / list.length;
+    return `linear-gradient(to right, ${list.map((c, i) => `${c} ${i * step}% ${(i + 1) * step}%`).join(', ')})`;
+  };
+
+  function resetOverride(o) {
+    if (!confirm(`Put ${describeOverride(o)} back to the database color ${hexText(o.was)}?`)) return;
+    removeEdit(o);
+  }
+
+  function clearOverrides() {
+    const n = getEdits().length;
+    if (!confirm(`Remove all ${n} color ${n === 1 ? 'override' : 'overrides'} and go back to the database colors?`)) return;
+    clearEdits();
+  }
+
+  async function exportOverrides() {
+    const r = await exportJson(getEdits(), 'filascribe-color-overrides.json');
+    if (r.message) onstatus(r.ok ? `Color overrides copied. ${r.message.replace(/^Copied\. /, '')}` : 'Couldn’t copy the color overrides.', !r.ok);
+  }
+
+  async function importOverrides(e) {
+    const file = e.currentTarget.files?.[0];
+    e.currentTarget.value = '';
+    if (!file) return;
+    try {
+      const added = importEdits(await readJsonFile(file));
+      onstatus(added ? `Imported ${added} color ${added === 1 ? 'override' : 'overrides'}.` : 'Nothing new to import.');
+    } catch {
+      onstatus('That file isn’t a color overrides export.', true);
+    }
+  }
 
   // --- My filaments ---
 
@@ -524,6 +568,40 @@
     </div>
   </details>
 
+  <details class="card" open={open.includes('overrides')} ontoggle={(e) => toggled('overrides', e)}>
+    <summary><h2 id="set-overrides">Color overrides</h2></summary>
+    <div class="body">
+    {#if overrides.length}
+      <p class="hint">{overrides.length} brand {overrides.length === 1 ? 'color' : 'colors'} with your own hex. Yours always wins over the database.</p>
+      <ul class="saved-list">
+        {#each overrides as o (describeOverride(o))}
+          <li>
+            <span class="swatches pair" aria-hidden="true">
+              <span style:background={dot(o.was)}></span>
+              <span style:background={dot(o.hex)}></span>
+            </span>
+            <span class="what">
+              {describeOverride(o)}
+              <span class="note">{hexText(o.was)} → {hexText(o.hex)}</span>
+              {#if o.state === 'changed'}<span class="note warn">The database now says {hexText(o.dbNow)}</span>{/if}
+              {#if o.state === 'missing'}<span class="note warn">No longer in the database. Reset to remove it.</span>{/if}
+            </span>
+            <button type="button" class="btn small quiet danger" aria-label={`Reset ${describeOverride(o)}`} onclick={() => resetOverride(o)}>Reset</button>
+          </li>
+        {/each}
+      </ul>
+    {:else}
+      <p class="hint">None yet. On Create, pick a brand color and tap Override this color to give it your own hex.</p>
+    {/if}
+    <div class="actions">
+      <button type="button" class="btn small" onclick={exportOverrides} disabled={!overrides.length}>Export color overrides</button>
+      <button type="button" class="btn small" onclick={() => overridesInput?.click()}>Import color overrides</button>
+      {#if overrides.length}<button type="button" class="btn small quiet danger" onclick={clearOverrides}>Clear all</button>{/if}
+      <input bind:this={overridesInput} type="file" accept="application/json,.json" class="visually-hidden" tabindex="-1" aria-label="Color overrides file" onchange={importOverrides} />
+    </div>
+    </div>
+  </details>
+
   <details class="card" open={open.includes('look')} ontoggle={(e) => toggled('look', e)}>
     <summary><h2 id="set-look">Appearance</h2></summary>
     <div class="body">
@@ -735,6 +813,9 @@
     box-shadow: 0 0 0 2px var(--surface), inset 0 0 0 1px rgba(0, 0, 0, 0.2);
   }
   .what { flex: 1; min-width: 0; padding-left: 6px; font-family: var(--font-label); font-weight: 600; overflow-wrap: anywhere; }
+  .note { display: block; font-family: var(--font-body, inherit); font-weight: 400; font-size: 0.8125rem; color: var(--muted); }
+  .note.warn { color: var(--brass); }
+  .swatches.pair span:first-child { outline: 1px dashed var(--muted); outline-offset: 1px; }
   .n { margin-left: 4px; padding: 0 6px; border-radius: 999px; background: var(--chip); color: var(--muted); font-size: 0.8125rem; }
 
   .about a { color: var(--action); }
