@@ -169,6 +169,24 @@
     snapshot = null;
   }
 
+  /**
+   * On opening the app (and Start over): pick White, else Black, else the first
+   * color in the list, so the form starts on a brand color. The colors are set
+   * but the temperatures are left as they are.
+   */
+  export function autoPick() {
+    if (picked || !db || !tiles.length) return;
+    if (colors.length !== 1 || colors[0].toUpperCase() !== 'FFFFFF') return; // already changed
+    const named = (n) => tiles.find((t) => t.info.name.trim().toLowerCase() === n);
+    const tile = named('white') || named('black') || tiles[0];
+    snapshot = { colors: [...colors], colorType, temps: { ...getTemps() } };
+    picked = { id: tile.id, lineName: tile.line.name };
+    colors = [...tile.info.colors];
+    if (tile.info.colors.length > 1) colorType = tile.info.gradient ? '0' : '1';
+    onchange();
+    onpick();
+  }
+
   /** After a tag is loaded: mark the brand color it matches, if any. */
   export function afterLoad() {
     picked = null;

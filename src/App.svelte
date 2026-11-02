@@ -137,6 +137,7 @@
   });
   onMount(async () => {
     rawBrandData = await loadBrandColors();
+    colorSection?.autoPick(); // start on a brand color when the remembered brand has some
   });
 
   const u1 = $derived(form.profile === 'u1');
@@ -267,11 +268,13 @@
     status = text ? { text, kind } : null;
   }
 
-  function startOver() {
+  async function startOver() {
     form = Defaults.newForm(defaults);
     showErrors = false;
     offer = null;
     say(null);
+    await tick();
+    colorSection?.autoPick();
   }
 
   function switchMode(next) {
