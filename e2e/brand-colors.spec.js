@@ -210,13 +210,40 @@ test.describe('Brand colors', () => {
     expect(data.color_type).toBe(0);
   });
 
-  test('Edit colors keeps the color and opens Custom', async ({ page }) => {
+  test('Clone saves a changed copy of a brand color as a saved color', async ({ page }) => {
     await open(page, 'Bambu Lab', 'Basic');
     await tile(page, 'Jade White').click();
-    await brand(page).getByRole('button', { name: 'Edit colors' }).click();
-    await expect(colorTab(page, 'Custom')).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('#hex-input')).toHaveValue('FFFFFF');
+    await brand(page).getByRole('button', { name: 'Clone' }).click();
+    const box = page.getByRole('group', { name: 'Clone this color' });
+    await expect(box).toContainText('Clone Jade White as a saved color');
+    await expect(box.getByRole('checkbox')).toHaveCount(0); // no "other lines" for a clone
+    // the pop-up picker, like Override
+    await box.getByRole('button', { name: 'Pick a color' }).click();
+    const pop = page.getByRole('dialog', { name: 'Pick Clone color' });
+    await pop.getByLabel('Clone color hex').fill('EEEEEE');
+    await pop.getByRole('button', { name: 'Use this color' }).click();
+    await box.getByRole('button', { name: 'Save as saved color' }).click();
+    // Saved opens with the new color picked and named after the brand color
+    await expect(colorTab(page, 'Saved')).toHaveAttribute('aria-pressed', 'true');
+    await expect(colorTab(page, 'Saved')).toHaveText(/Saved\s*1/);
+    await expect(nowName(page)).toHaveText('Jade White');
+    await expect(nowFrom(page)).toHaveText('Saved color');
+    await expect(page.locator('.colorsec .now-hex')).toHaveText('#EEEEEE');
+    // the brand color itself is untouched, and nothing was overridden
+    await colorTab(page, 'Brand').click();
+    await expect(tile(page, 'Jade White')).not.toContainText('Edited');
+    await expect(tile(page, 'Jade White')).toContainText('FFFFFF');
     await expect(tile(page, 'Jade White')).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  test('Clone can be cancelled', async ({ page }) => {
+    await open(page, 'Bambu Lab', 'Basic');
+    await tile(page, 'Jade White').click();
+    await brand(page).getByRole('button', { name: 'Clone' }).click();
+    await page.getByRole('group', { name: 'Clone this color' }).getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByRole('group', { name: 'Clone this color' })).toHaveCount(0);
+    await expect(colorTab(page, 'Saved')).toBeDisabled();
+    await expect(tile(page, 'Jade White')).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('changing the colors in Custom lets go of the brand color', async ({ page }) => {

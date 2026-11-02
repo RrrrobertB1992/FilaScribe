@@ -119,6 +119,14 @@
     tab = 'saved';
   }
 
+  // Clone on a brand color: a new saved color, picked, with the Saved tab open
+  function cloneColor(hexes, name, style) {
+    brandList?.release();
+    savedList?.addColor(hexes, style, name);
+    tab = 'saved';
+    userChose = true;
+  }
+
   // --- Called by the app ---
 
   /** After a successful write: save the colors (named after a picked brand color). */
@@ -178,7 +186,7 @@
       {getTemps}
       {setTemps}
       {setVariant}
-      onedit={() => { tab = 'custom'; userChose = true; }}
+      onclone={cloneColor}
     />
   </div>
 

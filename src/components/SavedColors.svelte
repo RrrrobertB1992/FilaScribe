@@ -133,6 +133,16 @@
     selectMatching();
   }
 
+  /** Save these colors as a new saved color (Clone on a brand color) and pick it. */
+  export function addColor(newColors, newStyle, name = '') {
+    if (!key) return;
+    const id = SC.idFor(newColors, newStyle);
+    persist(SC.save(all, key, newColors, newStyle, variant, name));
+    const entry = SC.entriesFor(all, key).find((e) => SC.entryId(e) === id);
+    if (entry) select(entry);
+    onstatus('Saved as a new color');
+  }
+
   function removeRow(entry) {
     const what = entry.colors.join(' + ') + (entry.name ? ` (${entry.name})` : '');
     if (!confirm(`Remove saved color ${what}?`)) return;

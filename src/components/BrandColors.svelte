@@ -3,7 +3,7 @@
   // colors for the picked material, narrowed by the variant (see
   // lib/brandColors.js). Works like Saved colors but read-only: pick a color
   // to fill the colors (and the line's temperatures); tap it again to put
-  // back what was there. "Edit colors" keeps them and opens the pickers.
+  // back what was there. "Clone" saves a copy of a color, with your changes, as a saved color.
   import { onMount } from 'svelte';
   import * as BC from '../lib/brandColors.js';
   import { loadBrandColors } from '../lib/brandColorsData.js';
@@ -29,7 +29,7 @@
     setVariant = () => {},
     onpick = () => {}, // a brand color was picked (Saved colors lets go of its pick)
     onchange = () => {},
-    onedit = () => {}, // Edit colors: the app opens the pickers
+    onclone = () => {}, // Clone: save these colors (hexes, name, color type) as a new saved color
   } = $props();
 
   const PAGE = 30;
@@ -154,13 +154,6 @@
     }
   }
 
-  /** Keep the colors but let go of the pick, so they can be changed. */
-  function editColors() {
-    picked = null;
-    snapshot = null;
-    onedit();
-  }
-
   // --- Called by the app ---
 
   /** Let go of the pick without changing anything (Saved colors picked). */
@@ -191,7 +184,7 @@
   // --- Overriding a color's hex ---
 
   let popup = $state(null); // index of the color being picked in the pop-up, or null
-  let editor = $state(null); // { hexes: ['212121'], all: false, error: '' } while the override box is open
+  let editor = $state(null); // { mode: 'override' | 'clone', hexes: ['212121'], all: false, error: '' } while the box is open
   // The override on the picked color (its line's own, or the all-lines one)
   const pickedEdit = $derived.by(() => {
     if (!pickedTile || !db) return null;
@@ -225,7 +218,29 @@
 
   function openEditor() {
     if (!pickedTile) return;
-    editor = { hexes: [...pickedTile.info.colors], all: pickedEdit?.line === Manual.ALL_LINES, error: '' };
+    editor = { mode: 'override', hexes: [...pickedTile.info.colors], all: pickedEdit?.line === Manual.ALL_LINES, error: '' };
+  }
+
+  function openClone() {
+    if (!pickedTile) return;
+    editor = { mode: 'clone', hexes: [...pickedTile.info.colors], all: false, error: '' };
+  }
+
+  // Save the colors in the box as a new saved color named after the brand color
+  function saveClone() {
+    const tile = pickedTile;
+    if (!tile || !editor) return;
+    const hexes = editor.hexes.map((h) => normalizeHex(h));
+    if (hexes.some((h) => !h)) {
+      editor.error = 'Each color needs 6 hex digits, like 212121.';
+      return;
+    }
+    const name = tile.info.name;
+    const gradient = colorType === '0' ? '0' : '1';
+    editor = null;
+    picked = null;
+    snapshot = null;
+    onclone(hexes, name, gradient);
   }
 
   function saveEditor() {
@@ -300,18 +315,18 @@
           </button>
         {/if}
         {#if pickedTile}
-          <button type="button" class="btn small" aria-expanded={!!editor} onclick={() => (editor ? (editor = null) : openEditor())}>
+          <button type="button" class="btn small" aria-expanded={editor?.mode === 'override'} onclick={() => (editor?.mode === 'override' ? (editor = null) : openEditor())}>
             {pickedEdit ? 'Edit override' : 'Override'}
           </button>
-          <button type="button" class="btn small" onclick={editColors}>Edit colors</button>
+          <button type="button" class="btn small" aria-expanded={editor?.mode === 'clone'} onclick={() => (editor?.mode === 'clone' ? (editor = null) : openClone())}>Clone</button>
         {/if}
       </div>
     {/if}
 
     {#if editor && pickedTile}
-      <div class="override" role="group" aria-label="Override this color">
+      <div class="override" role="group" aria-label={editor.mode === 'clone' ? 'Clone this color' : 'Override this color'}>
         <p class="what">
-          <strong>{pickedTile.info.name}</strong>, {pickedTile.line.name}
+          {#if editor.mode === 'clone'}Clone <strong>{pickedTile.info.name}</strong> as a saved color{:else}<strong>{pickedTile.info.name}</strong>, {pickedTile.line.name}{/if}
           <span class="db">Database: {(pickedTile.info.original || pickedTile.info.colors).map((h) => `#${h}`).join(' + ')}</span>
         </p>
         {#each editor.hexes as h, i}
@@ -319,12 +334,12 @@
             <span class="chip" style:background={previewHex(h)} aria-hidden="true"></span>
             <label>
               {editor.hexes.length > 1 ? `Color ${i + 1}` : 'Hex'}
-              <span class="hexbox">#<input type="text" value={h} maxlength="7" autocapitalize="characters" spellcheck="false" aria-label={editor.hexes.length > 1 ? `Color ${i + 1} hex` : 'Override hex'} oninput={(e) => setHex(i, e.currentTarget.value)} /></span>
+              <span class="hexbox">#<input type="text" value={h} maxlength="7" autocapitalize="characters" spellcheck="false" aria-label={editor.hexes.length > 1 ? `Color ${i + 1} hex` : editor.mode === 'clone' ? 'Clone hex' : 'Override hex'} oninput={(e) => setHex(i, e.currentTarget.value)} /></span>
             </label>
             <button type="button" class="btn small" aria-label={editor.hexes.length > 1 ? `Pick color ${i + 1}` : 'Pick a color'} onclick={() => (popup = i)}>Pick</button>
           </div>
         {/each}
-        {#if result.lines.length > 1 || allLines.length > 1}
+        {#if editor.mode === 'override' && (result.lines.length > 1 || allLines.length > 1)}
           <label class="all">
             <input type="checkbox" bind:checked={editor.all} />
             <span>Also change “{pickedTile.info.name}” in the other {label} lines</span>
@@ -332,9 +347,13 @@
         {/if}
         {#if editor.error}<p class="error-text">{editor.error}</p>{/if}
         <div class="actions">
-          <button type="button" class="btn small primary" onclick={saveEditor}>Save override</button>
+          {#if editor.mode === 'clone'}
+            <button type="button" class="btn small primary" onclick={saveClone}>Save as saved color</button>
+          {:else}
+            <button type="button" class="btn small primary" onclick={saveEditor}>Save override</button>
+          {/if}
           <button type="button" class="btn small quiet" onclick={() => (editor = null)}>Cancel</button>
-          {#if pickedEdit}<button type="button" class="btn small quiet danger" onclick={resetEditor}>Reset to database</button>{/if}
+          {#if editor.mode === 'override' && pickedEdit}<button type="button" class="btn small quiet danger" onclick={resetEditor}>Reset to database</button>{/if}
         </div>
       </div>
     {/if}
@@ -342,7 +361,7 @@
     {#if popup !== null && editor}
       <ColorPopup
         hex={editor.hexes[popup]}
-        label={editor.hexes.length > 1 ? `Color ${popup + 1}` : 'Override color'}
+        label={editor.hexes.length > 1 ? `Color ${popup + 1}` : editor.mode === 'clone' ? 'Clone color' : 'Override color'}
         onuse={(h) => { setHex(popup, h); popup = null; }}
         oncancel={() => (popup = null)}
       />
