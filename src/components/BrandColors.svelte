@@ -7,6 +7,7 @@
   import { onMount } from 'svelte';
   import * as BC from '../lib/brandColors.js';
   import { loadBrandColors } from '../lib/brandColorsData.js';
+  import ColorPopup from './ColorPopup.svelte';
   import { normalizeHex } from '../lib/formats/openspool.js';
   import * as Manual from '../lib/manualColors.js';
   import { getEdits, setEdit, removeEdit, withManual } from '../lib/manualColorsStore.svelte.js';
@@ -102,7 +103,7 @@
   });
   // The override box belongs to the picked color
   $effect(() => {
-    if (!pickedTile) editor = null;
+    if (!pickedTile) { editor = null; popup = null; }
   });
   $effect(() => {
     available = !!db && result.total > 0;
@@ -189,6 +190,7 @@
 
   // --- Overriding a color's hex ---
 
+  let popup = $state(null); // index of the color being picked in the pop-up, or null
   let editor = $state(null); // { hexes: ['212121'], all: false, error: '' } while the override box is open
   // The override on the picked color (its line's own, or the all-lines one)
   const pickedEdit = $derived.by(() => {
@@ -318,7 +320,7 @@
               {editor.hexes.length > 1 ? `Color ${i + 1}` : 'Hex'}
               <span class="hexbox">#<input type="text" value={h} maxlength="7" autocapitalize="characters" spellcheck="false" aria-label={editor.hexes.length > 1 ? `Color ${i + 1} hex` : 'Override hex'} oninput={(e) => setHex(i, e.currentTarget.value)} /></span>
             </label>
-            <input type="color" class="picker" value={previewHex(h) === 'transparent' ? '#000000' : previewHex(h)} aria-label={editor.hexes.length > 1 ? `Pick color ${i + 1}` : 'Pick a color'} oninput={(e) => setHex(i, e.currentTarget.value)} />
+            <button type="button" class="btn small" aria-label={editor.hexes.length > 1 ? `Pick color ${i + 1}` : 'Pick a color'} onclick={() => (popup = i)}>Pick</button>
           </div>
         {/each}
         {#if result.lines.length > 1 || allLines.length > 1}
@@ -334,6 +336,15 @@
           {#if pickedEdit}<button type="button" class="btn small quiet danger" onclick={resetEditor}>Reset to database</button>{/if}
         </div>
       </div>
+    {/if}
+
+    {#if popup !== null && editor}
+      <ColorPopup
+        hex={editor.hexes[popup]}
+        label={editor.hexes.length > 1 ? `Color ${popup + 1}` : 'Override color'}
+        onuse={(h) => { setHex(popup, h); popup = null; }}
+        oncancel={() => (popup = null)}
+      />
     {/if}
 
     {#if showAll && result.lines.length > 1}
@@ -443,7 +454,6 @@
   .hexrow label { flex: 1; display: grid; gap: 2px; font-size: 0.8125rem; color: var(--muted); }
   .hexbox { display: flex; align-items: center; gap: 2px; font-family: var(--font-label); font-size: 1.0625rem; color: var(--ink); }
   .hexbox input { flex: 1; min-width: 0; min-height: 40px; letter-spacing: 0.06em; }
-  .picker { flex: none; width: 44px; height: 40px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: none; }
   .all { display: flex; gap: var(--s2); align-items: flex-start; font-size: 0.9375rem; }
   .all input { width: 20px; height: 20px; margin-top: 2px; flex: none; accent-color: var(--action); }
   .bar {

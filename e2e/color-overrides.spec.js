@@ -42,6 +42,23 @@ test.describe('Color overrides', () => {
     await expect(overrideBtn(page)).toHaveText('Edit override');
   });
 
+  test('Pick opens the app’s color picker in a pop-up', async ({ page }) => {
+    await pickBlack(page);
+    await overrideBtn(page).click();
+    await box(page).getByRole('button', { name: 'Pick a color' }).click();
+    const pop = page.getByRole('dialog', { name: 'Pick Override color' });
+    await expect(pop).toBeVisible();
+    await pop.getByLabel('Override color hex').fill('336699');
+    await pop.getByRole('button', { name: 'Use this color' }).click();
+    await expect(pop).toHaveCount(0);
+    await expect(box(page).getByLabel('Override hex')).toHaveValue('336699');
+    // Cancel keeps what was there
+    await box(page).getByRole('button', { name: 'Pick a color' }).click();
+    await pop.getByLabel('Override color hex').fill('FF0000');
+    await pop.getByRole('button', { name: 'Cancel' }).click();
+    await expect(box(page).getByLabel('Override hex')).toHaveValue('336699');
+  });
+
   test('a bad hex is refused', async ({ page }) => {
     await pickBlack(page);
     await overrideBtn(page).click();
