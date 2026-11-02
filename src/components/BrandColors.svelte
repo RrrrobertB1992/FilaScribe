@@ -278,14 +278,19 @@
     repick(tile.line.name, name);
   }
 
-  // The colors in the box as one spool: blended, or in even stretches
+  // The colors in the box as one spool: blended, or in even parts (two split diagonally, more wrapped around)
   function spoolPreview(ed, tile) {
     const list = ed.hexes.map((h) => normalizeHex(h)).filter(Boolean).map((h) => `#${h}`);
     if (!list.length) return 'transparent';
     if (list.length === 1) return list[0];
     const gradient = ed.mode === 'clone' ? ed.style === '0' : !!tile.info.gradient;
-    if (gradient) return `linear-gradient(135deg, ${list.join(', ')})`;
     const step = 100 / list.length;
+    if (list.length > 2) {
+      // Three or more wrap around the circle, the first starting at the top left and going clockwise
+      if (gradient) return `conic-gradient(from -45deg, ${[...list, list[0]].join(', ')})`;
+      return `conic-gradient(from -45deg, ${list.map((c, i) => `${c} ${i * step}% ${(i + 1) * step}%`).join(', ')})`;
+    }
+    if (gradient) return `linear-gradient(135deg, ${list.join(', ')})`;
     return `linear-gradient(135deg, ${list.map((c, i) => `${c} ${i * step}% ${(i + 1) * step}%`).join(', ')})`;
   }
 

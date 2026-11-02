@@ -250,6 +250,8 @@ test.describe('Brand colors', () => {
     await box.getByLabel('Color 2 hex').fill('FF2020');
     await box.getByRole('button', { name: 'Add a color' }).click();
     await expect(box.getByLabel('Color 3 hex')).toBeVisible();
+    await box.getByLabel('Color 3 hex').fill('22CC44');
+    await expect(spool).toHaveCSS('background-image', /conic-gradient\(from -45deg, rgb\(30, 100, 255\) 0%, rgb\(30, 100, 255\) 33\.3333%, rgb\(255, 32, 32\) 33\.3333%/); // three: even slices around the circle
     await box.getByRole('button', { name: 'Remove color 3' }).click();
     await expect(box.getByLabel('Color 3 hex')).toHaveCount(0);
     await expect(spool).toHaveCSS('background-image', /linear-gradient.*rgb\(30, 100, 255\) 0%/);
