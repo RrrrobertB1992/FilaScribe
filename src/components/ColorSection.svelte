@@ -134,6 +134,14 @@
     savedList?.afterWrite(brandName);
   }
 
+  /** On opening the app (and Start over): start on a brand color, when the brand has some. */
+  export async function autoPick() {
+    await loadBrandColors().catch(() => {});
+    await tick();
+    await tick();
+    brandList?.autoPick();
+  }
+
   /** After a tag is read: mark what its colors match and open that source. */
   export async function afterLoad() {
     savedList?.afterLoad();

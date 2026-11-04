@@ -63,6 +63,8 @@ The Colors card shows the current colors at the top: a spool swatch, the color's
 - **Saved**: the colors you saved for this brand and material. Off until something is saved.
 - **Custom**: the color picker, Gradient or Segments for 2+ colors, and **Save colors**.
 
+**The app opens on a brand color.** When it opens (and on Start over), and the remembered brand has colors for the remembered material and variant, it starts on one: **White**, else **Black**, else the first color in the list. Only the colors are set, so the remembered temperatures stay. Brands without colors (Generic) still open on Custom, and picking a brand later doesn't pick a color for you.
+
 A new brand or material opens the first one that has something (Brand, then Saved, then Custom). Reading a tag opens the one its colors match. Each button shows how many colors it has. Picking in one list lets go of a pick in the other, and changing the colors in Custom lets go of a brand color.
 
 Saved colors belong to a brand and material only; the variant doesn't matter. To change a saved color, tap it and then change the colors in Custom (or tap **Edit colors**). An edit bar appears with **Save changes** (update that saved color), **Save as new** (keep it and add the new colors), and **Cancel**. Writing a tag while editing also saves the change to that saved color.
