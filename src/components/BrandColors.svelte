@@ -3,7 +3,7 @@
   // colors for the picked material, narrowed by the variant (see
   // lib/brandColors.js). Works like Saved colors but read-only: pick a color
   // to fill the colors (and the line's temperatures); tap it again to put
-  // back what was there. "Edit colors" keeps them and opens the pickers.
+  // back what was there. "Clone" saves a copy of a color, with your changes, as a saved color.
   import { onMount } from 'svelte';
   import * as BC from '../lib/brandColors.js';
   import { loadBrandColors } from '../lib/brandColorsData.js';
@@ -19,6 +19,7 @@
     canSetVariant = false,
     colors = $bindable(['FFFFFF']),
     colorType = $bindable('1'),
+    max = 5, // most colors a tag can hold (1 when the profile only has one)
     count = $bindable(0), // colors shown for this brand + material + variant
     available = $bindable(false), // the brand has colors for this material
     pickedName = $bindable(''), // name of the picked color, for Saved colors
@@ -29,7 +30,7 @@
     setVariant = () => {},
     onpick = () => {}, // a brand color was picked (Saved colors lets go of its pick)
     onchange = () => {},
-    onedit = () => {}, // Edit colors: the app opens the pickers
+    onclone = () => {}, // Clone: save these colors (hexes, name, color type) as a new saved color
   } = $props();
 
   const PAGE = 30;
@@ -154,13 +155,6 @@
     }
   }
 
-  /** Keep the colors but let go of the pick, so they can be changed. */
-  function editColors() {
-    picked = null;
-    snapshot = null;
-    onedit();
-  }
-
   // --- Called by the app ---
 
   /** Let go of the pick without changing anything (Saved colors picked). */
@@ -191,7 +185,7 @@
   // --- Overriding a color's hex ---
 
   let popup = $state(null); // index of the color being picked in the pop-up, or null
-  let editor = $state(null); // { hexes: ['212121'], all: false, error: '' } while the override box is open
+  let editor = $state(null); // { mode: 'override' | 'clone', hexes: ['212121'], all: false, error: '' } while the box is open
   // The override on the picked color (its line's own, or the all-lines one)
   const pickedEdit = $derived.by(() => {
     if (!pickedTile || !db) return null;
@@ -225,7 +219,29 @@
 
   function openEditor() {
     if (!pickedTile) return;
-    editor = { hexes: [...pickedTile.info.colors], all: pickedEdit?.line === Manual.ALL_LINES, error: '' };
+    editor = { mode: 'override', hexes: [...pickedTile.info.colors], all: pickedEdit?.line === Manual.ALL_LINES, error: '' };
+  }
+
+  function openClone() {
+    if (!pickedTile) return;
+    editor = { mode: 'clone', hexes: [...pickedTile.info.colors].slice(0, max), all: false, error: '', name: pickedTile.info.name, style: colorType === '0' ? '0' : '1' };
+  }
+
+  // Save the colors in the box as a new saved color named after the brand color
+  function saveClone() {
+    const tile = pickedTile;
+    if (!tile || !editor) return;
+    const hexes = editor.hexes.map((h) => normalizeHex(h));
+    if (hexes.some((h) => !h)) {
+      editor.error = 'Each color needs 6 hex digits, like 212121.';
+      return;
+    }
+    const name = (editor.name || '').trim().slice(0, 32);
+    const gradient = editor.style;
+    editor = null;
+    picked = null;
+    snapshot = null;
+    onclone(hexes, name, gradient);
   }
 
   function saveEditor() {
@@ -260,6 +276,34 @@
     removeEdit(edit);
     editor = null;
     repick(tile.line.name, name);
+  }
+
+  // The colors in the box as one spool: blended, or in even parts (two split diagonally, more wrapped around)
+  function spoolPreview(ed, tile) {
+    const list = ed.hexes.map((h) => normalizeHex(h)).filter(Boolean).map((h) => `#${h}`);
+    if (!list.length) return 'transparent';
+    if (list.length === 1) return list[0];
+    const gradient = ed.mode === 'clone' ? ed.style === '0' : !!tile.info.gradient;
+    const step = 100 / list.length;
+    if (list.length > 2) {
+      // Three or more wrap around the circle, the first starting at the top left and going clockwise
+      if (gradient) return `conic-gradient(from -45deg, ${[...list, list[0]].join(', ')})`;
+      return `conic-gradient(from -45deg, ${list.map((c, i) => `${c} ${i * step}% ${(i + 1) * step}%`).join(', ')})`;
+    }
+    if (gradient) return `linear-gradient(135deg, ${list.join(', ')})`;
+    return `linear-gradient(135deg, ${list.map((c, i) => `${c} ${i * step}% ${(i + 1) * step}%`).join(', ')})`;
+  }
+
+  function addColor() {
+    if (editor.hexes.length >= max) return;
+    editor.hexes.push(editor.hexes[editor.hexes.length - 1] || 'FFFFFF');
+    editor.error = '';
+  }
+
+  function removeColor(i) {
+    if (editor.hexes.length < 2) return;
+    editor.hexes.splice(i, 1);
+    editor.error = '';
   }
 
   function setHex(i, value) {
@@ -300,31 +344,53 @@
           </button>
         {/if}
         {#if pickedTile}
-          <button type="button" class="btn small" aria-expanded={!!editor} onclick={() => (editor ? (editor = null) : openEditor())}>
+          <button type="button" class="btn small" aria-expanded={editor?.mode === 'override'} onclick={() => (editor?.mode === 'override' ? (editor = null) : openEditor())}>
             {pickedEdit ? 'Edit override' : 'Override'}
           </button>
-          <button type="button" class="btn small" onclick={editColors}>Edit colors</button>
+          <button type="button" class="btn small" aria-expanded={editor?.mode === 'clone'} onclick={() => (editor?.mode === 'clone' ? (editor = null) : openClone())}>Clone</button>
         {/if}
       </div>
     {/if}
 
     {#if editor && pickedTile}
-      <div class="override" role="group" aria-label="Override this color">
-        <p class="what">
-          <strong>{pickedTile.info.name}</strong>, {pickedTile.line.name}
-          <span class="db">Database: {(pickedTile.info.original || pickedTile.info.colors).map((h) => `#${h}`).join(' + ')}</span>
-        </p>
+      <div class="override" role="group" aria-label={editor.mode === 'clone' ? 'Clone this color' : 'Override this color'}>
+        <div class="head">
+          <p class="what">
+            {#if editor.mode === 'clone'}Clone <strong>{pickedTile.info.name}</strong> as a saved color{:else}<strong>{pickedTile.info.name}</strong>, {pickedTile.line.name}{/if}
+            <span class="db">Database: {(pickedTile.info.original || pickedTile.info.colors).map((h) => `#${h}`).join(' + ')}</span>
+          </p>
+          <span class="spool" style:background={spoolPreview(editor, pickedTile)} role="img" aria-label="Preview of these colors"></span>
+        </div>
         {#each editor.hexes as h, i}
           <div class="hexrow">
             <span class="chip" style:background={previewHex(h)} aria-hidden="true"></span>
             <label>
               {editor.hexes.length > 1 ? `Color ${i + 1}` : 'Hex'}
-              <span class="hexbox">#<input type="text" value={h} maxlength="7" autocapitalize="characters" spellcheck="false" aria-label={editor.hexes.length > 1 ? `Color ${i + 1} hex` : 'Override hex'} oninput={(e) => setHex(i, e.currentTarget.value)} /></span>
+              <span class="hexbox">#<input type="text" value={h} maxlength="7" autocapitalize="characters" spellcheck="false" aria-label={editor.hexes.length > 1 ? `Color ${i + 1} hex` : editor.mode === 'clone' ? 'Clone hex' : 'Override hex'} oninput={(e) => setHex(i, e.currentTarget.value)} /></span>
             </label>
             <button type="button" class="btn small" aria-label={editor.hexes.length > 1 ? `Pick color ${i + 1}` : 'Pick a color'} onclick={() => (popup = i)}>Pick</button>
+            {#if editor.mode === 'clone' && editor.hexes.length > 1}
+              <button type="button" class="btn small quiet danger" aria-label={`Remove color ${i + 1}`} onclick={() => removeColor(i)}>Remove</button>
+            {/if}
           </div>
         {/each}
-        {#if result.lines.length > 1 || allLines.length > 1}
+        {#if editor.mode === 'clone'}
+          {#if editor.hexes.length < max}
+            <button type="button" class="btn small" onclick={addColor}>Add a color</button>
+          {/if}
+          {#if editor.hexes.length > 1}
+            <div class="style" role="group" aria-label="Multi-color style">
+              {#each [['0', 'Gradient'], ['1', 'Segments']] as [v, text]}
+                <button type="button" class="btn small" aria-pressed={editor.style === v} onclick={() => (editor.style = v)}>{text}</button>
+              {/each}
+            </div>
+          {/if}
+          <label class="namebox">
+            Name
+            <input type="text" bind:value={editor.name} maxlength="32" autocomplete="off" aria-label="Saved color name" />
+          </label>
+        {/if}
+        {#if editor.mode === 'override' && (result.lines.length > 1 || allLines.length > 1)}
           <label class="all">
             <input type="checkbox" bind:checked={editor.all} />
             <span>Also change “{pickedTile.info.name}” in the other {label} lines</span>
@@ -332,9 +398,13 @@
         {/if}
         {#if editor.error}<p class="error-text">{editor.error}</p>{/if}
         <div class="actions">
-          <button type="button" class="btn small primary" onclick={saveEditor}>Save override</button>
+          {#if editor.mode === 'clone'}
+            <button type="button" class="btn small primary" onclick={saveClone}>Save as saved color</button>
+          {:else}
+            <button type="button" class="btn small primary" onclick={saveEditor}>Save override</button>
+          {/if}
           <button type="button" class="btn small quiet" onclick={() => (editor = null)}>Cancel</button>
-          {#if pickedEdit}<button type="button" class="btn small quiet danger" onclick={resetEditor}>Reset to database</button>{/if}
+          {#if editor.mode === 'override' && pickedEdit}<button type="button" class="btn small quiet danger" onclick={resetEditor}>Reset to database</button>{/if}
         </div>
       </div>
     {/if}
@@ -342,7 +412,7 @@
     {#if popup !== null && editor}
       <ColorPopup
         hex={editor.hexes[popup]}
-        label={editor.hexes.length > 1 ? `Color ${popup + 1}` : 'Override color'}
+        label={editor.hexes.length > 1 ? `Color ${popup + 1}` : editor.mode === 'clone' ? 'Clone color' : 'Override color'}
         onuse={(h) => { setHex(popup, h); popup = null; }}
         oncancel={() => (popup = null)}
       />
@@ -434,18 +504,39 @@
   }
   .tile[aria-pressed='true'] { border-color: var(--ink); }
   /* A color you overrode: a dashed outline, like your own chips */
-  .tile.edited { border-style: dashed; border-color: var(--action); }
+  .tile.edited { border-style: dashed; border-color: var(--muted); }
   .tile.edited[aria-pressed='true'] { border-color: var(--ink); }
-  .edited-tag { font-size: 0.6875rem; font-weight: 700; color: var(--action); line-height: 1.2; }
+  .edited-tag { font-size: 0.6875rem; font-weight: 700; color: var(--muted); line-height: 1.2; }
   .override {
     display: grid;
     gap: var(--s2);
     padding: var(--s3);
-    border: 1px dashed var(--action);
+    border: 1px dashed var(--muted);
     border-radius: 10px;
     background: var(--bg);
   }
-  .override .what { margin: 0; }
+  .override .head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s3); }
+  .override .what { margin: 0; min-width: 0; }
+  .spool {
+    flex: none;
+    position: relative;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+  }
+  .spool::after {
+    content: '';
+    position: absolute;
+    inset: 18px;
+    border-radius: 50%;
+    background: var(--bg);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+  }
+  .override .style { display: flex; gap: var(--s2); }
+  .override .style .btn[aria-pressed='true'] { background: var(--ink); color: var(--bg); }
+  .namebox { display: grid; gap: 2px; font-size: 0.8125rem; color: var(--muted); }
+  .namebox input { min-height: 40px; padding: 0 var(--s2); border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; }
   .override .db { display: block; color: var(--muted); font-size: 0.8125rem; }
   .hexrow { display: flex; align-items: center; gap: var(--s3); }
   .hexrow .chip { flex: none; width: 34px; height: 34px; border-radius: 8px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25); }

@@ -119,6 +119,14 @@
     tab = 'saved';
   }
 
+  // Clone on a brand color: a new saved color, picked, with the Saved tab open
+  function cloneColor(hexes, name, style) {
+    brandList?.release();
+    savedList?.addColor(hexes, style, name);
+    tab = 'saved';
+    userChose = true;
+  }
+
   // --- Called by the app ---
 
   /** After a successful write: save the colors (named after a picked brand color). */
@@ -170,6 +178,7 @@
       {canSetVariant}
       bind:colors
       bind:colorType
+      {max}
       bind:available={brandAvailable}
       bind:count={brandCount}
       bind:pickedName={brandName}
@@ -178,7 +187,7 @@
       {getTemps}
       {setTemps}
       {setVariant}
-      onedit={() => { tab = 'custom'; userChose = true; }}
+      onclone={cloneColor}
     />
   </div>
 
@@ -232,7 +241,7 @@
     position: relative;
   }
   /* A brand color you overrode: dashed ring around the spool */
-  .swatch.edited { outline: 2px dashed var(--action); outline-offset: 3px; }
+  .swatch.edited { outline: 2px dashed var(--muted); outline-offset: 3px; }
   .swatch::after {
     content: '';
     position: absolute;

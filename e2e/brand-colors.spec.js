@@ -210,13 +210,73 @@ test.describe('Brand colors', () => {
     expect(data.color_type).toBe(0);
   });
 
-  test('Edit colors keeps the color and opens Custom', async ({ page }) => {
+  test('Clone saves a changed copy of a brand color as a saved color', async ({ page }) => {
     await open(page, 'Bambu Lab', 'Basic');
     await tile(page, 'Jade White').click();
-    await brand(page).getByRole('button', { name: 'Edit colors' }).click();
-    await expect(colorTab(page, 'Custom')).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('#hex-input')).toHaveValue('FFFFFF');
+    await brand(page).getByRole('button', { name: 'Clone' }).click();
+    const box = page.getByRole('group', { name: 'Clone this color' });
+    await expect(box).toContainText('Clone Jade White as a saved color');
+    await expect(box.getByRole('checkbox')).toHaveCount(0); // no "other lines" for a clone
+    // the pop-up picker, like Override
+    await box.getByRole('button', { name: 'Pick a color' }).click();
+    const pop = page.getByRole('dialog', { name: 'Pick Clone color' });
+    await pop.getByLabel('Clone color hex').fill('EEEEEE');
+    await pop.getByRole('button', { name: 'Use this color' }).click();
+    await box.getByRole('button', { name: 'Save as saved color' }).click();
+    // Saved opens with the new color picked and named after the brand color
+    await expect(colorTab(page, 'Saved')).toHaveAttribute('aria-pressed', 'true');
+    await expect(colorTab(page, 'Saved')).toHaveText(/Saved\s*1/);
+    await expect(nowName(page)).toHaveText('Jade White');
+    await expect(nowFrom(page)).toHaveText('Saved color');
+    await expect(page.locator('.colorsec .now-hex')).toHaveText('#EEEEEE');
+    // the brand color itself is untouched, and nothing was overridden
+    await colorTab(page, 'Brand').click();
+    await expect(tile(page, 'Jade White')).not.toContainText('Edited');
+    await expect(tile(page, 'Jade White')).toContainText('FFFFFF');
     await expect(tile(page, 'Jade White')).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  test('Clone can rename it and add or remove colors for a two-color spool', async ({ page }) => {
+    await open(page, 'Bambu Lab', 'Basic');
+    await tile(page, 'Jade White').click();
+    await brand(page).getByRole('button', { name: 'Clone' }).click();
+    const box = page.getByRole('group', { name: 'Clone this color' });
+    await expect(box.getByRole('button', { name: /^Remove color/ })).toHaveCount(0); // one color: nothing to remove
+    const spool = box.getByRole('img', { name: 'Preview of these colors' });
+    await expect(spool).toBeVisible();
+    await box.getByLabel('Clone hex').fill('1E64FF');
+    await expect(spool).toHaveCSS('background-color', 'rgb(30, 100, 255)');
+    await box.getByRole('button', { name: 'Add a color' }).click();
+    await box.getByLabel('Color 2 hex').fill('FF2020');
+    await box.getByRole('button', { name: 'Add a color' }).click();
+    await expect(box.getByLabel('Color 3 hex')).toBeVisible();
+    await box.getByLabel('Color 3 hex').fill('22CC44');
+    await expect(spool).toHaveCSS('background-image', /conic-gradient\(from -45deg, rgb\(30, 100, 255\) 0%, rgb\(30, 100, 255\) 33\.3333%, rgb\(255, 32, 32\) 33\.3333%/); // three: even slices around the circle
+    await box.getByRole('button', { name: 'Remove color 3' }).click();
+    await expect(box.getByLabel('Color 3 hex')).toHaveCount(0);
+    await expect(spool).toHaveCSS('background-image', /linear-gradient.*rgb\(30, 100, 255\) 0%/);
+    await box.getByRole('button', { name: 'Gradient' }).click();
+    await expect(spool).toHaveCSS('background-image', /linear-gradient\(135deg, rgb\(30, 100, 255\), rgb\(255, 32, 32\)\)/);
+    await box.getByLabel('Saved color name').fill('Blue Red');
+    await box.getByRole('button', { name: 'Save as saved color' }).click();
+    await expect(colorTab(page, 'Saved')).toHaveAttribute('aria-pressed', 'true');
+    await expect(nowName(page)).toHaveText('Blue Red');
+    await expect(page.locator('.colorsec .now-hex')).toHaveText('#1E64FF + #FF2020 · Gradient');
+    await writeTag(page);
+    const data = await lastWrite(page);
+    expect(data.color_hex).toBe('1E64FF');
+    expect(data.additional_color_hexes).toEqual(['FF2020']);
+    expect(data.color_type).toBe(0);
+  });
+
+  test('Clone can be cancelled', async ({ page }) => {
+    await open(page, 'Bambu Lab', 'Basic');
+    await tile(page, 'Jade White').click();
+    await brand(page).getByRole('button', { name: 'Clone' }).click();
+    await page.getByRole('group', { name: 'Clone this color' }).getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByRole('group', { name: 'Clone this color' })).toHaveCount(0);
+    await expect(colorTab(page, 'Saved')).toBeDisabled();
+    await expect(tile(page, 'Jade White')).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('changing the colors in Custom lets go of the brand color', async ({ page }) => {
