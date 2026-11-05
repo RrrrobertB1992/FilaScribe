@@ -1,6 +1,7 @@
 <script>
   // Shown while waiting for a tag.
-  let { mode = 'read', wrongUid = '', oncancel = () => {} } = $props();
+  // `note` is an extra line under the title (e.g. "Tag 2 of this spool")
+  let { mode = 'read', wrongUid = '', note = '', oncancel = () => {} } = $props();
   let cancelBtn = $state();
   $effect(() => { cancelBtn?.focus(); });
 </script>
@@ -9,6 +10,7 @@
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" aria-describedby="sheet-text">
     <div class="pulse" aria-hidden="true"><span></span></div>
     <h2 id="sheet-title">{mode === 'write' ? 'Ready to write' : 'Ready to read'}</h2>
+    {#if note}<p class="note">{note}</p>{/if}
     <p id="sheet-text">
       Hold the tag flat against the back of your phone and keep it there until this closes.
     </p>
@@ -44,6 +46,7 @@
   .sheet .btn { min-width: 12em; margin-top: var(--s2); }
   h2 { font-size: 1.75rem; }
   .warn { color: var(--danger); }
+  .note { color: var(--muted); font-weight: 700; }
   .pulse {
     position: relative;
     width: 88px;

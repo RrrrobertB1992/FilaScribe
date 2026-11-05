@@ -117,8 +117,9 @@ export async function showAllMaterials(page) {
 
 export const chip = (page, name) => page.getByRole('button', { name, exact: true });
 
+// After a write the button reads "Write another tag" until the form changes
 export async function writeTag(page) {
-  await page.getByRole('button', { name: 'Write tag' }).click();
+  await page.getByRole('button', { name: /^Write (another )?tag$/ }).click();
   await expect(page.getByRole('dialog')).toBeHidden();
 }
 
