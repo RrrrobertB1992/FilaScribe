@@ -7,7 +7,10 @@
 # "Allow GitHub Actions to create and approve pull requests".
 #
 # PRs opened by a workflow don't start other workflows by themselves, so the
-# PR's Tests / test APK checks run once you close and reopen it (or push to it).
+# last step starts the Tests and PR test build workflows on the PR branch
+# itself (both can be run by hand). Their checks, "test" and "build", show up
+# on the PR's latest commit, which is what the "Protect main" rule waits for,
+# so nobody has to close and reopen the PR.
 name: Update brand colors
 
 on:
@@ -18,6 +21,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  actions: write # to start the Tests and PR test build workflows
 
 concurrency:
   group: update-brand-colors
@@ -110,7 +114,7 @@ jobs:
             cat "$RUNNER_TEMP/changes.md"
             printf '%s\n' \
               "" \
-              "**To run the full checks** (Tests, test APK): close and reopen this PR. PRs opened by a workflow don't start other workflows by themselves." \
+              "**Checks:** this workflow started Tests and PR test build on this branch (PRs opened by a workflow don't start them by themselves). Their results show on this PR. The test APK is on the PR test build run in the Actions tab." \
               "" \
               "Spot-check a brand you use in the test APK, then merge."
           } > "$RUNNER_TEMP/body.md"
@@ -119,6 +123,15 @@ jobs:
           else
             gh pr create --base main --head "$BRANCH" --title "Update brand colors" --body-file "$RUNNER_TEMP/body.md"
           fi
+
+      # Started by hand (workflow_dispatch) because a PR opened with the
+      # workflow token doesn't trigger them. Pushing again re-runs them on the
+      # new commit, and a run still going for the old one is cancelled.
+      - name: Run the checks on the PR branch
+        if: steps.build.outputs.changed == 'true'
+        run: |
+          gh workflow run tests.yml --ref "$BRANCH"
+          gh workflow run pr-test-apk.yml --ref "$BRANCH"
 
       - name: Nothing new
         if: steps.build.outputs.changed != 'true'

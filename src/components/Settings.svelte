@@ -17,7 +17,8 @@
   import * as VariantList from '../lib/variantList.js';
   import { MATERIALS, VARIANT_INFO } from '../lib/catalog.js';
   import { findBrands, canonicalBrand, findBrand, variantKinds } from '../lib/brandColors.js';
-  import orca from '../data/orca-vendors.json';
+  import * as ColorDb from '../lib/colorDatabase.js';
+  import { loadSource, reloadBrandColors } from '../lib/brandColorsData.js';
 
   let {
     form, // the form on screen (Create or a read tag), for "Use the form"
@@ -29,6 +30,7 @@
     filaments = $bindable([]),
     autoFilaments = $bindable(false),
     brandData = null,
+    onbranddata = () => {}, // the database in use changed (updated or back to built-in)
     onstatus = () => {},
   } = $props();
 
@@ -296,6 +298,109 @@
     }
   }
 
+  // --- Color database ---
+
+  let dbBusy = $state(false);
+  // raw: it holds a whole database, which must not be wrapped in reactive proxies (it is saved to the device as it is)
+  let dbCheck = $state.raw(null); // the last check: { status: 'current' } or { status: 'update', ... }
+  let dbError = $state('');
+  let dbShowChanges = $state(false);
+  let dbChecked = $state(ColorDb.loadChecked());
+  const dbInfo = $derived(brandData?.info || null);
+  const dbOld = $derived(!!dbInfo && ColorDb.isOld(dbInfo.date));
+  const dbSummary = $derived(dbCheck?.status === 'update' ? ColorDb.summarize(dbCheck.changes) : null);
+  const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+  const dbWhen = (iso) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : 'Never');
+
+  const dbSummaryText = $derived.by(() => {
+    if (!dbSummary) return '';
+    const s = dbSummary;
+    return [
+      s.newBrands && plural(s.newBrands, 'new brand'),
+      s.added && plural(s.added, 'new color'),
+      s.changed && plural(s.changed, 'color') + ' changed',
+      (s.removed || s.goneBrands) && `${s.removed} removed`,
+    ]
+      .filter(Boolean)
+      .join(', ') || 'Brand names changed';
+  });
+
+  const overridesText = $derived.by(() => {
+    const o = dbCheck?.overrides;
+    if (!o || (!o.changed && !o.gone)) return '';
+    const parts = [o.changed && `${o.changed} with a new database color`, o.gone && `${o.gone} no longer in the database`].filter(Boolean);
+    return `${plural(o.changed + o.gone, 'color override affected', 'color overrides affected')}: ${parts.join(', ')}. They stay as they are.`;
+  });
+
+  // "See changes": brands that changed, each with its colors (capped so it stays quick)
+  const BRAND_LIMIT = 60;
+  const COLOR_LIMIT = 40;
+  const changeList = $derived.by(() => {
+    if (dbCheck?.status !== 'update') return { brands: [], more: 0 };
+    const all = [...dbCheck.changes.brands].sort((a, b) => a[0].localeCompare(b[0], 'en', { sensitivity: 'base' }));
+    const brands = all.slice(0, BRAND_LIMIT).map(([name, c]) => {
+      const rows = [
+        ...c.added.map((x) => ({ kind: 'New', text: `${x.name} (${x.where})` })),
+        ...c.changed.map((x) => ({ kind: 'Changed', text: `${x.name} (${x.where}): ${x.oldHex ? hexText(x.oldHex) : 'no color'} → ${x.hex ? hexText(x.hex) : 'no color'}` })),
+        ...c.removed.map((x) => ({ kind: 'Removed', text: `${x.name} (${x.where})` })),
+      ];
+      return { name, count: rows.length, rows: rows.slice(0, COLOR_LIMIT), more: Math.max(0, rows.length - COLOR_LIMIT) };
+    });
+    return { brands, more: Math.max(0, all.length - BRAND_LIMIT) };
+  });
+
+  async function checkDatabase() {
+    if (dbBusy) return;
+    dbBusy = true;
+    dbError = '';
+    dbShowChanges = false;
+    dbCheck = null;
+    try {
+      dbCheck = await ColorDb.checkForUpdate(await loadSource(), { edits: getEdits() });
+      dbChecked = new Date().toISOString();
+      ColorDb.storeChecked(dbChecked);
+    } catch (e) {
+      dbError = e instanceof ColorDb.UpdateError ? e.message : 'Couldn’t check for updates. Try again.';
+    } finally {
+      dbBusy = false;
+    }
+  }
+
+  async function updateDatabase() {
+    if (dbBusy || dbCheck?.status !== 'update') return;
+    dbBusy = true;
+    dbError = '';
+    const date = dbCheck.info.date;
+    try {
+      await ColorDb.applyUpdate(dbCheck.next);
+      onbranddata(await reloadBrandColors());
+      dbCheck = null;
+      dbShowChanges = false;
+      onstatus(`Brand colors updated to ${date}.`);
+    } catch (e) {
+      dbError = e instanceof ColorDb.UpdateError ? e.message : 'Couldn’t update. Nothing was changed.';
+    } finally {
+      dbBusy = false;
+    }
+  }
+
+  async function goBackToBuiltIn() {
+    if (dbBusy || !confirm('Go back to the brand colors built into the app? Your saved colors and color overrides stay.')) return;
+    dbBusy = true;
+    dbError = '';
+    try {
+      await ColorDb.useBuiltIn();
+      onbranddata(await reloadBrandColors());
+      dbCheck = null;
+      dbShowChanges = false;
+      onstatus('Using the brand colors built into the app.');
+    } catch (e) {
+      dbError = e instanceof ColorDb.UpdateError ? e.message : 'Couldn’t go back. Try again.';
+    } finally {
+      dbBusy = false;
+    }
+  }
+
   // --- My filaments ---
 
   let filamentsInput = $state();
@@ -348,6 +453,7 @@
   const build = buildParts(__BUILD__);
   const repo = __BUILD__.repo || 'RrrrobertB1992/FilaScribe';
   const ofd = $derived(brandData?.source || {});
+  const orca = $derived({ source: { repo: dbInfo?.orcaRepo, commit: dbInfo?.orcaCommit, date: dbInfo?.orcaDate } });
   const short = (sha) => String(sha || '').slice(0, 7);
 </script>
 
@@ -602,6 +708,67 @@
     </div>
   </details>
 
+  <details class="card" open={open.includes('colordb')} ontoggle={(e) => toggled('colordb', e)}>
+    <summary><h2 id="set-colordb">Color database</h2>{#if dbOld}<span class="tag">Out of date</span>{/if}</summary>
+    <div class="body">
+    {#if !dbInfo}
+      <p class="hint">Loading…</p>
+    {:else}
+      <div class="tiles">
+        <div class="tile"><span class="note">Brands</span><strong>{dbInfo.brands.toLocaleString()}</strong></div>
+        <div class="tile"><span class="note">Colors</span><strong>{dbInfo.colors.toLocaleString()}</strong></div>
+      </div>
+      <dl class="rows">
+        <div><dt>Database date</dt><dd>{dbInfo.date || 'Unknown'}</dd></div>
+        <div><dt>Using</dt><dd>{dbInfo.origin === 'downloaded' ? 'Downloaded copy' : 'Built into the app'}</dd></div>
+        <div><dt>Brand names</dt><dd>OrcaSlicer, {dbInfo.orcaDate || 'unknown'}</dd></div>
+        <div><dt>Last checked</dt><dd>{dbWhen(dbChecked)}</dd></div>
+      </dl>
+      {#if dbOld}
+        <p class="error-text" role="alert">The brand colors are over {ColorDb.MAX_AGE_DAYS} days old. Check for updates.</p>
+      {/if}
+    {/if}
+    {#if dbError}<p class="error-text" role="alert">{dbError}</p>{/if}
+    {#if dbCheck?.status === 'current'}
+      <p class="hint" role="status">You have the newest database.</p>
+    {:else if dbCheck?.status === 'update'}
+      <div class="notice" role="status">
+        <strong>Newer database available</strong>
+        <span>{dbCheck.info.date}: {dbSummaryText}</span>
+        {#if overridesText}<span class="note warn">{overridesText}</span>{/if}
+      </div>
+      <div class="actions">
+        <button type="button" class="btn small" aria-expanded={dbShowChanges} onclick={() => (dbShowChanges = !dbShowChanges)}>{dbShowChanges ? 'Hide changes' : 'See changes'}</button>
+        <button type="button" class="btn small primary" onclick={updateDatabase} disabled={dbBusy}>{dbBusy ? 'Updating…' : 'Update now'}</button>
+      </div>
+      {#if dbShowChanges}
+        <div class="changes">
+          {#if dbCheck.changes.newBrands.length}<p class="note">New brands: {dbCheck.changes.newBrands.join(', ')}</p>{/if}
+          {#if dbCheck.changes.goneBrands.length}<p class="note">Removed brands: {dbCheck.changes.goneBrands.join(', ')}</p>{/if}
+          {#if dbCheck.names.added.length || dbCheck.names.removed.length}
+            <p class="note">Brand names: {[dbCheck.names.added.length && `${dbCheck.names.added.length} added`, dbCheck.names.removed.length && `${dbCheck.names.removed.length} removed`].filter(Boolean).join(', ')}</p>
+          {/if}
+          {#each changeList.brands as b (b.name)}
+            <details class="change">
+              <summary>{b.name} <span class="note">{plural(b.count, 'change')}</span></summary>
+              <ul>
+                {#each b.rows as r}<li><span class="kind">{r.kind}</span> {r.text}</li>{/each}
+                {#if b.more}<li class="note">and {b.more} more</li>{/if}
+              </ul>
+            </details>
+          {/each}
+          {#if changeList.more}<p class="note">and {plural(changeList.more, 'more brand')}</p>{/if}
+        </div>
+      {/if}
+    {/if}
+    <div class="actions">
+      <button type="button" class="btn small" onclick={checkDatabase} disabled={dbBusy}>{dbBusy && !dbCheck ? 'Checking…' : 'Check for updates'}</button>
+      {#if dbInfo?.origin === 'downloaded'}<button type="button" class="btn small quiet" onclick={goBackToBuiltIn} disabled={dbBusy}>Go back to the built-in copy</button>{/if}
+    </div>
+    <p class="hint small">Your saved colors and color overrides are never changed by an update.</p>
+    </div>
+  </details>
+
   <details class="card" open={open.includes('look')} ontoggle={(e) => toggled('look', e)}>
     <summary><h2 id="set-look">Appearance</h2></summary>
     <div class="body">
@@ -819,5 +986,16 @@
   .n { margin-left: 4px; padding: 0 6px; border-radius: 999px; background: var(--chip); color: var(--muted); font-size: 0.8125rem; }
 
   .about a { color: var(--action); }
+  .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s2); }
+  .tile { display: grid; gap: 2px; padding: var(--s2) var(--s3); border: 1px solid var(--line); border-radius: 10px; }
+  .tile strong { font-family: var(--font-label); font-size: 1.375rem; }
+  .tag { margin-left: var(--s2); padding: 2px 8px; border-radius: 999px; border: 1px solid var(--danger); color: var(--danger); font-size: 0.75rem; }
+  .notice { display: grid; gap: 2px; padding: var(--s3); border: 1px solid var(--action); border-radius: 10px; }
+  .changes { display: grid; gap: var(--s2); }
+  .changes p { margin: 0; }
+  .change { border: 1px solid var(--line); border-radius: 10px; padding: 0 var(--s3); }
+  .change summary { min-height: 44px; gap: var(--s2); }
+  .change ul { margin: 0 0 var(--s2); padding-left: 1.1em; display: grid; gap: 2px; font-size: 0.875rem; }
+  .kind { font-weight: 700; }
   .sources { margin: 0; padding-left: 1.2em; display: grid; gap: var(--s1); color: var(--muted); }
 </style>
