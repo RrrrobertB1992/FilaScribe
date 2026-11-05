@@ -188,7 +188,8 @@ user sees, in the same plain style as the rest of the file.
 - **Release APK** (`release-apk.yml`): signed APK when a release is published.
 - **Update brand colors** (`update-brand-colors.yml`): monthly PR with new
   colors and brand names. A PR opened by a workflow does not start other
-  workflows, so close and reopen it to run its checks.
+  workflows, so the workflow starts Tests and PR test build on the PR branch
+  itself (the test APK is on that run, not in a PR comment).
 - **Advanced tests (weekly)** (`advanced-weekly.yml`): heavier fuzzing and the
   latest upstream readers. A failure here while PR tests pass means something
   changed upstream; update the pins in `tests/compat/fetch-readers.sh` after
