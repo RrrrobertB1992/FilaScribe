@@ -49,6 +49,7 @@ The **Settings** tab sits next to Create and Read & update. Each section starts 
 - **Your chips:** every Custom variant you saved, with × to remove one, or all of them. Materials and brands are managed in their own cards above.
 - **My filaments:** the automatic-save switch, Export, Import and Clear all for the spools saved from Create (see above).
 - **Saved colors:** how many are saved for each brand and material, with Clear for one or all, plus Export and Import (Import also takes a PrintTag-Web-Rrrrobert export).
+- **Color database:** which brand colors database is in use, and a button to update it (see Color database below).
 - **Appearance:** follow the system, or always Light or Dark (`filascribe-theme`).
 - **About:** the version and build links, the specs FilaScribe writes, and where the brand colors and names come from.
 
@@ -120,6 +121,19 @@ The colors come from the [Open Filament Database](https://github.com/OpenFilamen
 
 The **Update brand colors** workflow rebuilds the snapshot and the OrcaSlicer names on the 1st of each month, and on demand from the Actions tab. If anything changed, it opens or updates a PR named "Update brand colors". It needs one setting: Settings → Actions → General → Workflow permissions → **Allow GitHub Actions to create and approve pull requests**. GitHub doesn't run other workflows on a PR that a workflow opened, so close and reopen that PR to run its Tests and test APK.
 
+**Color database (Settings).** The app has the snapshot built in, so it works offline, but a newer one doesn't need a new app. **Settings → Color database** shows:
+- **Brands** and **Colors**: how many are in the database in use.
+- **Database date** (when the Open Filament Database snapshot was taken), **Using** (built into the app, or a downloaded copy), the **Brand names** date (OrcaSlicer) and when you **last checked**.
+- A red **over 35 days old** message (and "Out of date" on the closed card) once the database date is more than 35 days ago. It only goes away with a newer database.
+
+**Check for updates** (manual only, never automatic) downloads the newest `brand-colors.json` and `orca-vendors.json` from `main` on GitHub, so "newest" means the latest *Update brand colors* PR you have merged. Nothing is saved yet. The files are checked first (a date, brands, every color well formed, not far fewer colors than the built-in copy); a file that fails is refused and nothing changes. Then it says **You have the newest database**, or **Newer database available** with a summary ("2026-12-01: 3 new brands, 118 new colors, 12 colors changed, 4 removed") and:
+- **See changes:** the new and removed brands and, per brand, each new, changed (old hex → new hex) or removed color. Long lists stop after a number of brands and colors.
+- Your **color overrides** the update affects: how many now have a different database color, and how many are no longer in the database. They stay as they are (see Color overrides above).
+- **Update now:** keeps the download on this device (IndexedDB), and it is used from then on, including after a reload, for as long as it is newer than the built-in copy. A newer app version that carries a newer built-in snapshot takes over by itself.
+- **Go back to the built-in copy** (shown while a downloaded copy is in use; asks first) deletes the download.
+
+Saved colors, color overrides and everything else you saved are never touched. The database isn't read straight from the Open Filament Database: that is thousands of small files that the build script groups, merges and corrects (`scripts/color-overrides.json`), and the monthly PR is where you check the result.
+
 ## Project layout
 
 ```
@@ -134,6 +148,8 @@ src/
   lib/catalog.js             material, brand and variant choices
   lib/brandColors.js         Brand colors: line filtering and color matching
   lib/manualColors.js        your color overrides (localStorage) and how they apply
+  lib/colorDatabase.js       the database in use: info, checking for and keeping an update
+  lib/snapshotDiff.js        what changed between two snapshots (also used by the monthly PR)
   data/brand-colors.json     Open Filament Database snapshot (generated)
   scripts/color-overrides.json   corrections for colors the database has wrong
   scripts/snapshot-changes.js    the change list in the monthly pull request
@@ -172,6 +188,7 @@ The **Tests** workflow runs on every pull request and on `main`:
   - **Brand colors:** typed brands (suggestions, OrcaSlicer's names, waiting until the name is done), Brand above Material, the Material row following the brand (switching to PLA when the new brand doesn't make the material), which color source opens (Generic opens Custom, a brand opens Brand, a read tag opens what it matches), groups by variant (None = Basic), merged look-alikes (Sunlu Wood), Show all when a group is empty, picking and un-picking (colors and temperatures), gradient spools, search, Clone, changing colors in Custom letting go of the pick, the variant suggestion, working alongside Saved colors, naming the saved color, and matching a read tag.
 - **Settings** (`tests/settings.test.js`, `tests/brandList.test.js`, `tests/materialList.test.js`, `tests/variantList.test.js`, `e2e/settings.spec.js`): brands (hide, find and switch on, add your own, reset, kept after a reload, older brand chips moving in, a read tag with a hidden brand), materials (the short starting row, hide and add back, add your own, reset, kept after a reload, older material chips moving in, Other… suggestions, a read tag with a hidden material, brands filtering the row, a brand switch picking a material you show), variants (a card per kind for the enabled brands and shown materials, hide and show, hiding by kind, Hide all / Show all, TPU hardness chips, kept after a reload, Generic keeping the default list, None and a read tag's variant never lost, Save in Custom turning one back on, a brand switch skipping hidden ones), defaults (saved from the form, used by new tags and Start over, reset, junk in storage), listing and removing your saved variants, saved colors per brand + material with clear/import/export, the theme (applied, kept after a reload) and the About links.
 - **Your own chips** (`tests/customChips.test.js`): saving, skipping built-in chips, variants per brand + material, removing, the size limit and junk in storage.
+- **Color database** (`tests/colorDatabase.test.js`, `e2e/color-database.spec.js`): the date, brand and color totals, the 35-day rule (35 days is fine, 36 is old), refusing files that aren't a database or have far fewer colors, finding what changed, never swapping in an older database, the effect on color overrides, keeping and removing the downloaded copy, and each error message. The browser tests serve the files from memory and go through Check, See changes, Update now, a reload, and Go back.
 - **Brand colors logic** (`tests/brandColors.test.js`): brand names (OrcaSlicer's, then the database's) and suggestions, material chips per brand, grouping lines (names, finish tags, fiber materials), merging look-alikes, color matching, and that the bundled snapshot is well-formed and covers every FilaScribe brand. **Color overrides** (`tests/colorOverrides.test.js`): a wrong value replaced, an override stepping aside once the database fixes it, a renamed color reported, and the bundled snapshot already having them.
 
 - **U1 reader compatibility** (`tests/compat/`): FilaScribe writes about 160 tags as full NTAG215 memory images. A dozen are hand-picked cases, including a gradient with 5 colors, custom names and the largest possible tag; the rest are random forms. The real OpenSpool readers then read them: paxx12's U1 extended firmware and OpenRFID, fetched at pinned commits by `tests/compat/fetch-readers.sh`. Each check compares what the reader reports against what was entered in the form. Neither project is copied into this repo.
