@@ -1,4 +1,4 @@
-import { test, expect, colorTab, openCustom, placeTag, lastWrite, chip, writeTag } from './nfc.js';
+import { test, expect, colorTab, openCustom, placeTag, lastWrite, chip, writeTag, openCards } from './nfc.js';
 
 // Closest brand colors: shown when the colors aren't a brand color.
 // Uses the bundled snapshot: Bambu Lab PLA Basic has Blue 0A2989, Black 000000.
@@ -67,6 +67,7 @@ test.describe('Closest brand colors', () => {
     await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'PLA', brand: 'Bambu Lab', color_hex: '0A2A8C' });
     await page.getByRole('tab', { name: 'Read & update' }).click();
     await page.getByRole('button', { name: /^Read tag/ }).click();
+    await openCards(page);
     await expect(strip(page).getByRole('button', { name: /^Use Blue, PLA Basic/ })).toBeVisible();
   });
 

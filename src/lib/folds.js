@@ -1,8 +1,9 @@
-// Which cards on the Create screen are folded shut (Filament, Colors,
-// Temperatures, Spool details, Tag data), remembered per card. A card nobody
-// has opened or closed yet uses its own default.
+// Which cards are folded shut (Filament, Colors, Temperatures, Spool details,
+// Tag data on Create; the same cards on Read & update under "read-…" ids, and
+// Quick edits), remembered per card. A card nobody has opened or closed yet
+// uses its own default.
 //
-// Data: { "filament": true, "temps": false }  (true = open)
+// Data: { "filament": true, "read-filament": false, "temps": false }  (true = open)
 export const STORAGE_KEY = 'filascribe-create-open';
 
 export function load(storage = globalThis.localStorage) {

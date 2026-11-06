@@ -38,6 +38,10 @@
   let status = $state(null); // { kind: 'ok' | 'error' | 'info', text }
   let showErrors = $state(false);
   let colorSection = $state();
+  // Read & update shows the same cards as Create, but remembers which are open
+  // on its own, and starts with only Quick edits open
+  const reading = $derived(mode === 'update');
+  const foldId = (name) => (reading ? `read-${name}` : name);
 
   // My filaments: whole spools you saved, to fill the form in one tap
   let filaments = $state(Filaments.load());
@@ -498,7 +502,7 @@
         <MyFilaments list={filaments} current={currentKey} onuse={useFilament} onremove={removeFilament} />
       {/if}
 
-      <Fold id="filament" title="Filament" summary={filamentSummary} defaultOpen forceOpen={filamentError}>
+      <Fold id={foldId('filament')} title="Filament" summary={filamentSummary} defaultOpen={!reading} forceOpen={filamentError}>
         <Palette
           label="Brand"
           items={brandItems}
@@ -553,9 +557,11 @@
         setVariant={(v) => (form.subtype = v)}
         onstatus={(t, isError) => say(t, isError ? 'error' : 'ok')}
         errors={colorErrors}
+        foldId={foldId('colors')}
+        foldOpen={!reading}
       />
 
-      <Fold id="temps" title="Temperatures" summary={tempsSummary} forceOpen={tempsError}>
+      <Fold id={foldId('temps')} title="Temperatures" summary={tempsSummary} forceOpen={tempsError}>
         <fieldset>
           <legend class="label">Nozzle temperature, °C</legend>
           <div class="pair">
@@ -578,7 +584,7 @@
       </Fold>
 
       {#if u1}
-        <Fold id="spool" title="Spool details" summary={spoolSummary} forceOpen={hasSpoolValues || spoolError} cls="more">
+        <Fold id={foldId('spool')} title="Spool details" summary={spoolSummary} forceOpen={(!reading && hasSpoolValues) || spoolError} cls="more">
           <div class="trio">
             <label>Weight, g <input type="text" inputmode="numeric" bind:value={form.weight} placeholder="1000" aria-invalid={!!errorFor('weight')} /></label>
             <label>Diameter, mm <input type="text" inputmode="decimal" bind:value={form.diameter} placeholder="1.75" aria-invalid={!!errorFor('diameter')} /></label>
@@ -589,7 +595,7 @@
         </Fold>
       {/if}
 
-      <Fold id="tagdata" title="Tag data" summary={`${message.length} bytes`} cls="more">
+      <Fold id={foldId('tagdata')} title="Tag data" summary={`${message.length} bytes`} cls="more">
         <pre>{data ? JSON.stringify(data, null, 2) : 'Fix the colors to see the data.'}</pre>
       </Fold>
 

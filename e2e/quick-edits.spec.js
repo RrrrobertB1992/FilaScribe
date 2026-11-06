@@ -64,7 +64,7 @@ test.describe('Quick edits', () => {
     await tap(page, 'Nozzle min minus 5');
     await expect(nozzle(page, 'max')).toHaveValue('225');
     await expect(nozzle(page, 'min')).toHaveValue('185');
-    const fold = page.locator('details[data-fold="temps"]');
+    const fold = page.locator('details[data-fold="read-temps"]');
     if (!(await fold.evaluate((d) => d.open))) await fold.locator('summary').click();
     await expect(temps(page, 'Nozzle').min).toHaveValue('185');
     await expect(temps(page, 'Nozzle').max).toHaveValue('225');

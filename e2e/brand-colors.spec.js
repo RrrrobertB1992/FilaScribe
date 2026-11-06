@@ -1,4 +1,4 @@
-import { test, expect, colorTab, openCustom, placeTag, lastWrite, chip, writeTag, temps, showAllMaterials } from './nfc.js';
+import { test, expect, colorTab, openCustom, placeTag, lastWrite, chip, writeTag, temps, showAllMaterials, openCards } from './nfc.js';
 
 // Uses the bundled Open Filament Database snapshot (src/data/brand-colors.json)
 const brand = (page) => page.locator('.brand');
@@ -333,6 +333,7 @@ test.describe('Brand colors', () => {
     await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'PLA', brand: 'Bambu Lab', subtype: 'Basic', color_hex: 'FFFFFF' });
     await page.getByRole('button', { name: 'Read tag' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
+    await openCards(page);
     await expect(colorTab(page, 'Brand')).toHaveAttribute('aria-pressed', 'true');
     await expect(tile(page, 'Jade White')).toHaveAttribute('aria-pressed', 'true');
     await expect(nowName(page)).toHaveText('Jade White');
@@ -343,6 +344,7 @@ test.describe('Brand colors', () => {
     await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'PLA', brand: 'Bambu Lab', color_hex: '123457' });
     await page.getByRole('button', { name: 'Read tag' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
+    await openCards(page);
     await expect(colorTab(page, 'Custom')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('#hex-input')).toHaveValue('123457');
   });
@@ -404,6 +406,7 @@ test.describe('Brand and material', () => {
     await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'ABS', brand: 'JAYO', color_hex: 'FFFFFF' });
     await page.getByRole('button', { name: 'Read tag' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
+    await openCards(page);
     await expect(page.getByRole('group', { name: 'Material' }).getByRole('button', { name: 'ABS', exact: true })).toHaveAttribute('aria-pressed', 'true');
   });
 });

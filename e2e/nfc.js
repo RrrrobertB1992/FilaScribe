@@ -115,6 +115,13 @@ export async function showAllMaterials(page) {
   await page.reload();
 }
 
+// Read & update starts with only Quick edits open; open the rest to look inside them
+export async function openCards(page) {
+  await page.locator('details[data-fold="quick"]').waitFor(); // the read has finished and the screen has switched
+  const shut = page.locator('details[data-fold]:not([open])');
+  for (let i = 0; i < 10 && (await shut.count()); i++) await shut.first().locator('summary').click();
+}
+
 export const chip = (page, name) => page.getByRole('button', { name, exact: true });
 
 // After a write the button reads "Write another tag" until the form changes
