@@ -30,6 +30,15 @@ shut and shows a one-line summary when it does. Which cards are open is
 remembered on the device (`filascribe-create-open`); a card with a problem
 opens itself.
 
+### Writing several tags in a row
+
+For a spool you want to tag more than once, the form stays filled in after a write. The bar at the bottom then shows how many tags this spool has had ("1 tag written for this spool") and two buttons: **Done** and **Write another tag**. **Write another tag** opens the usual write sheet, with a line saying which tag it is ("Tag 2 of this spool"), and writes the same data to the next tag.
+
+- The count starts again when you change anything that goes on the tag, press **Done** or **Start over**, switch tabs, or read a tag. A write that fails, or that the app's read-back says didn't match, isn't counted.
+- **In the Android app,** if the tag you tap is the same one as the last write, the count doesn't go up and the bar says so in red, with the tag's ID. It was written again with the same data, so nothing is lost. The website can't tell tags apart, so it counts every write.
+- Only on Create. **Read & update** keeps **Read another** and **Update tag**.
+- The spool is saved to My filaments once, on the first write, as before.
+
 ## My filaments
 
 Save a whole spool (brand, material, variant, colors and temperatures; not weight, diameter or opacity) and fill the Create form from it in one tap.
@@ -148,6 +157,7 @@ src/
   lib/catalog.js             material, brand and variant choices
   lib/brandColors.js         Brand colors: line filtering and color matching
   lib/manualColors.js        your color overrides (localStorage) and how they apply
+  lib/writeSeries.js         counting several tags written from one form
   lib/colorDatabase.js       the database in use: info, checking for and keeping an update
   lib/snapshotDiff.js        what changed between two snapshots (also used by the monthly PR)
   data/brand-colors.json     Open Filament Database snapshot (generated)
@@ -187,6 +197,7 @@ The **Tests** workflow runs on every pull request and on `main`:
   - **Saved colors:** the Saved button turning on and off, saving on write, per brand + material, surviving a reload, picking and un-picking, gradient vs segments, one row whatever the variant, rename, editing a picked color in Custom (Save changes, Save as new, writing while editing), removing, clearing, picking automatically when a tag is read, and import/export.
   - **Brand colors:** typed brands (suggestions, OrcaSlicer's names, waiting until the name is done), Brand above Material, the Material row following the brand (switching to PLA when the new brand doesn't make the material), which color source opens (Generic opens Custom, a brand opens Brand, a read tag opens what it matches), groups by variant (None = Basic), merged look-alikes (Sunlu Wood), Show all when a group is empty, picking and un-picking (colors and temperatures), gradient spools, search, Clone, changing colors in Custom letting go of the pick, the variant suggestion, working alongside Saved colors, naming the saved color, and matching a read tag.
 - **Settings** (`tests/settings.test.js`, `tests/brandList.test.js`, `tests/materialList.test.js`, `tests/variantList.test.js`, `e2e/settings.spec.js`): brands (hide, find and switch on, add your own, reset, kept after a reload, older brand chips moving in, a read tag with a hidden brand), materials (the short starting row, hide and add back, add your own, reset, kept after a reload, older material chips moving in, Other… suggestions, a read tag with a hidden material, brands filtering the row, a brand switch picking a material you show), variants (a card per kind for the enabled brands and shown materials, hide and show, hiding by kind, Hide all / Show all, TPU hardness chips, kept after a reload, Generic keeping the default list, None and a read tag's variant never lost, Save in Custom turning one back on, a brand switch skipping hidden ones), defaults (saved from the form, used by new tags and Start over, reset, junk in storage), listing and removing your saved variants, saved colors per brand + material with clear/import/export, the theme (applied, kept after a reload) and the About links.
+- **Writing several tags in a row** (`tests/writeSeries.test.js`, `e2e/write-series.spec.js`): counting each tag, starting again when the form changes, the same tag twice in a row (and tags the phone can't tell apart), the "Tag 2 of this spool" line on the sheet, Done, Start over and tab switches ending the series, failed or invalid writes not counted, and Read & update keeping its own buttons. The same-tag warning itself needs the Android app, so it is only unit tested here.
 - **Your own chips** (`tests/customChips.test.js`): saving, skipping built-in chips, variants per brand + material, removing, the size limit and junk in storage.
 - **Color database** (`tests/colorDatabase.test.js`, `e2e/color-database.spec.js`): the date, brand and color totals, the 35-day rule (35 days is fine, 36 is old), refusing files that aren't a database or have far fewer colors, finding what changed, never swapping in an older database, the effect on color overrides, keeping and removing the downloaded copy, and each error message. The browser tests serve the files from memory and go through Check, See changes, Update now, a reload, and Go back.
 - **Brand colors logic** (`tests/brandColors.test.js`): brand names (OrcaSlicer's, then the database's) and suggestions, material chips per brand, grouping lines (names, finish tags, fiber materials), merging look-alikes, color matching, and that the bundled snapshot is well-formed and covers every FilaScribe brand. **Color overrides** (`tests/colorOverrides.test.js`): a wrong value replaced, an override stepping aside once the database fixes it, a renamed color reported, and the bundled snapshot already having them.

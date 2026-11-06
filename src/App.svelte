@@ -21,6 +21,7 @@
   import * as MaterialList from './lib/materialList.js';
   import * as VariantList from './lib/variantList.js';
   import * as Filaments from './lib/filaments.js';
+  import * as WriteSeries from './lib/writeSeries.js';
   import { withManual } from './lib/manualColorsStore.svelte.js';
 
   const nfc = getNfc();
@@ -40,6 +41,9 @@
   let filaments = $state(Filaments.load());
   let autoFilaments = $state(Filaments.loadAuto()); // save every write (Settings)
   let offer = $state(null); // the spool just written, offered for saving
+
+  // Write several tags in a row: the tags written from this form so far
+  let series = $state(null);
 
   // Variant chips: the groups this brand has for this material, in its own
   // words; the full default list until the data loads or for other brands
@@ -169,6 +173,9 @@
   const data = $derived(errors.some((e) => e.field.startsWith('color')) ? null : OpenSpool.build(form));
   const payload = $derived(data ? new TextEncoder().encode(JSON.stringify(data)) : new Uint8Array(0));
   const message = $derived(data ? encodeMessage([mimeRecord(OpenSpool.MIME_TYPE, payload)]) : new Uint8Array(0));
+  // The series goes away once what would be written is no longer what it counted
+  const tagKey = $derived(data ? JSON.stringify(data) : '');
+  const seriesNow = $derived(mode === 'create' ? WriteSeries.current(series, tagKey) : null);
   // Room on the tag for an NDEF message: what the phone reported, else an
   // NTAG215 (the smallest tag OpenSpool supports)
   const capacity = $derived(
@@ -272,6 +279,7 @@
     form = Defaults.newForm(defaults);
     showErrors = false;
     offer = null;
+    series = null;
     say(null);
     await tick();
     colorSection?.autoPick();
@@ -281,6 +289,13 @@
     if (next === mode) return;
     mode = next;
     offer = null;
+    series = null;
+    say(null);
+  }
+
+  // Done with this spool: back to a plain Write tag button
+  function finishSeries() {
+    series = null;
     say(null);
   }
 
@@ -338,6 +353,7 @@
     form.brand = canonicalBrand(brandData, form.brand);
     loaded = { tag: result.tag, raw: parsed.raw, unknownKeys: parsed.unknownKeys, notes: parsed.notes, empty: false };
     showErrors = true;
+    series = null;
     mode = 'update';
     // The saved-colors panel may only now be on screen; let it mount first
     await tick();
@@ -375,16 +391,28 @@
       if (nfc.kind === 'native' && !r.verified) {
         say('Tag written, but reading it back didn’t match. Read the tag to check it.', 'error');
       } else {
-        // My filaments: save it for you, or offer to
-        const entry = Filaments.fromForm(form, colorNameFor());
-        const isNew = entry && !Filaments.has(filaments, entry) && filaments.length < Filaments.MAX;
-        const written = nfc.kind === 'native' ? 'Tag written and checked.' : 'Tag written.';
-        if (isNew && autoFilaments) {
-          keepFilament(entry);
-          say(`${written} Saved to My filaments.`, 'ok');
+        // Create: count it toward this spool's series. The same tag twice in a
+        // row (the app can tell) was rewritten, but isn't a new tag.
+        let repeat = false;
+        if (!updating) {
+          const next = WriteSeries.record(series, r.tag?.uid, tagKey);
+          series = next.series;
+          repeat = next.repeat;
+        }
+        if (repeat) {
+          say(`That’s the same tag as the last one (${WriteSeries.cleanUid(r.tag.uid)}). It has this spool again, but no new tag was made.`, 'error');
         } else {
-          say(written, 'ok');
-          if (isNew) offer = { entry, key: Filaments.keyOf(entry) };
+          // My filaments: save it for you, or offer to
+          const entry = Filaments.fromForm(form, colorNameFor());
+          const isNew = entry && !Filaments.has(filaments, entry) && filaments.length < Filaments.MAX;
+          const written = nfc.kind === 'native' ? 'Tag written and checked.' : 'Tag written.';
+          if (isNew && autoFilaments) {
+            keepFilament(entry);
+            say(`${written} Saved to My filaments.`, 'ok');
+          } else {
+            say(written, 'ok');
+            if (isNew) offer = { entry, key: Filaments.keyOf(entry) };
+          }
         }
       }
       if (updating) loaded = { ...loaded, raw: data, unknownKeys: [], notes: [], tag: { ...loaded.tag, ...(r.tag?.uid ? r.tag : {}) } };
@@ -584,9 +612,15 @@
     {#if status}
       <p class="status {status.kind}" role={status.kind === 'error' ? 'alert' : 'status'}>{status.text}</p>
     {/if}
+    {#if seriesNow}
+      <p class="series">{WriteSeries.label(seriesNow.count)}</p>
+    {/if}
     {#if mode !== 'settings'}
     <div class="dock-actions">
-      {#if mode === 'create'}
+      {#if mode === 'create' && seriesNow}
+        <button type="button" class="btn" onclick={finishSeries}>Done</button>
+        <button type="button" class="btn primary wide" onclick={writeTag} disabled={!nfcState.available || nfcState.enabled === false}>Write another tag</button>
+      {:else if mode === 'create'}
         <button type="button" class="btn primary wide" onclick={writeTag} disabled={!nfcState.available || nfcState.enabled === false}>Write tag</button>
       {:else if !loaded || loaded.empty}
         <button type="button" class="btn primary wide" onclick={readTag} disabled={!nfcState.available || nfcState.enabled === false}>Read tag</button>
@@ -601,7 +635,7 @@
 {/if}
 
 {#if sheet}
-  <NfcSheet mode={sheet.mode} wrongUid={sheet.wrongUid} oncancel={cancelNfc} />
+  <NfcSheet mode={sheet.mode} wrongUid={sheet.wrongUid} note={sheet.mode === 'write' && seriesNow ? `Tag ${seriesNow.count + 1} of this spool` : ''} oncancel={cancelNfc} />
 {/if}
 
 <style>
@@ -711,6 +745,7 @@
   .status.ok { color: var(--ok); }
   .status.error { color: var(--danger); }
   .status.info { color: var(--muted); }
+  .series { margin: 0; font-size: 0.8125rem; color: var(--muted); }
 
   @media (max-width: 380px) {
     .trio { grid-template-columns: 1fr 1fr; }
