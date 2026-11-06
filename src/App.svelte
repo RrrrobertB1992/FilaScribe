@@ -22,6 +22,8 @@
   import * as VariantList from './lib/variantList.js';
   import * as Filaments from './lib/filaments.js';
   import * as WriteSeries from './lib/writeSeries.js';
+  import * as QuickEditsLib from './lib/quickEdits.js';
+  import QuickEdits from './components/QuickEdits.svelte';
   import { withManual } from './lib/manualColorsStore.svelte.js';
 
   const nfc = getNfc();
@@ -30,7 +32,7 @@
   let mode = $state('create'); // 'create' | 'update' | 'settings'
   let defaults = $state(Defaults.load()); // what new tags start with (Settings)
   let form = $state(Defaults.newForm(defaults));
-  let loaded = $state(null); // { tag, raw, unknownKeys, notes } after a read
+  let loaded = $state(null); // { tag, raw, unknownKeys, notes, before } after a read (before: the quick-edit fields as read)
   let nfcState = $state({ available: true, enabled: true });
   let sheet = $state(null); // { mode: 'read' | 'write', wrongUid }
   let status = $state(null); // { kind: 'ok' | 'error' | 'info', text }
@@ -351,7 +353,7 @@
     // update writes the same name as a new tag would
     if (!brandData) rawBrandData = await loadBrandColors().catch(() => null);
     form.brand = canonicalBrand(brandData, form.brand);
-    loaded = { tag: result.tag, raw: parsed.raw, unknownKeys: parsed.unknownKeys, notes: parsed.notes, empty: false };
+    loaded = { tag: result.tag, raw: parsed.raw, unknownKeys: parsed.unknownKeys, notes: parsed.notes, empty: false, before: QuickEditsLib.snapshot(form) };
     showErrors = true;
     series = null;
     mode = 'update';
@@ -464,6 +466,17 @@
       {capacity}
       {capacityLabel}
     />
+
+    {#if mode === 'update' && loaded && !loaded.empty}
+      <QuickEdits
+        {form}
+        before={loaded.before}
+        showWeight={u1}
+        errors={{ weight: errorFor('weight'), minTemp: errorFor('minTemp'), maxTemp: errorFor('maxTemp') }}
+        onset={(field, value) => (form[field] = value)}
+        onundo={() => Object.assign(form, loaded.before)}
+      />
+    {/if}
 
     <form class="form" onsubmit={(e) => { e.preventDefault(); writeTag(); }} novalidate>
       <div
