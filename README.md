@@ -39,6 +39,17 @@ For a spool you want to tag more than once, the form stays filled in after a wri
 - Only on Create. **Read & update** keeps **Read another** and **Update tag**.
 - The spool is saved to My filaments once, on the first write, as before.
 
+## Read & update screen
+
+Tap **Read tag** and hold a tag to the phone: its details load into the same cards as Create, so you can change anything and tap **Update tag**. Right under the preview there is a **Quick edits** card for the two things that change most:
+
+- **Weight:** `−` and `+` change it by 10 g, `−−` and `++` by 50 g. It never goes below 0. A tag with no weight shows "not set"; the first `+` sets 1000 g, and the minus buttons stay greyed out until then. Weight is a Snapmaker U1 field, so with the plain OpenSpool switch the card shows a hint ("Turn on Snapmaker U1 fields to edit the weight") instead.
+- **Nozzle temperature:** `−` and `+` on the min and max change them by 5 °C (0 to 500).
+- **Typing:** tap a number to type one instead.
+- The boxes are the same fields as the Weight and Temperatures cards below, so both always show the same numbers, and the same checks apply (whole numbers, min not above max).
+- Once something changes, the card lists each change with its old value ("750 g, was 1000 g"), and **Undo changes** puts back what the tag held when it was read. A change you put back by hand drops off the list.
+- Nothing is written until you tap **Update tag** and hold a tag to the phone. **Read another** starts again from the next tag.
+
 ## My filaments
 
 Save a whole spool (brand, material, variant, colors and temperatures; not weight, diameter or opacity) and fill the Create form from it in one tap.
@@ -158,6 +169,7 @@ src/
   lib/brandColors.js         Brand colors: line filtering and color matching
   lib/manualColors.js        your color overrides (localStorage) and how they apply
   lib/writeSeries.js         counting several tags written from one form
+  lib/quickEdits.js          the steps and the list of changes for Quick edits on Read & update
   lib/colorDatabase.js       the database in use: info, checking for and keeping an update
   lib/snapshotDiff.js        what changed between two snapshots (also used by the monthly PR)
   data/brand-colors.json     Open Filament Database snapshot (generated)
@@ -198,6 +210,7 @@ The **Tests** workflow runs on every pull request and on `main`:
   - **Brand colors:** typed brands (suggestions, OrcaSlicer's names, waiting until the name is done), Brand above Material, the Material row following the brand (switching to PLA when the new brand doesn't make the material), which color source opens (Generic opens Custom, a brand opens Brand, a read tag opens what it matches), groups by variant (None = Basic), merged look-alikes (Sunlu Wood), Show all when a group is empty, picking and un-picking (colors and temperatures), gradient spools, search, Clone, changing colors in Custom letting go of the pick, the variant suggestion, working alongside Saved colors, naming the saved color, and matching a read tag.
 - **Settings** (`tests/settings.test.js`, `tests/brandList.test.js`, `tests/materialList.test.js`, `tests/variantList.test.js`, `e2e/settings.spec.js`): brands (hide, find and switch on, add your own, reset, kept after a reload, older brand chips moving in, a read tag with a hidden brand), materials (the short starting row, hide and add back, add your own, reset, kept after a reload, older material chips moving in, Other… suggestions, a read tag with a hidden material, brands filtering the row, a brand switch picking a material you show), variants (a card per kind for the enabled brands and shown materials, hide and show, hiding by kind, Hide all / Show all, TPU hardness chips, kept after a reload, Generic keeping the default list, None and a read tag's variant never lost, Save in Custom turning one back on, a brand switch skipping hidden ones), defaults (saved from the form, used by new tags and Start over, reset, junk in storage), listing and removing your saved variants, saved colors per brand + material with clear/import/export, the theme (applied, kept after a reload) and the About links.
 - **Writing several tags in a row** (`tests/writeSeries.test.js`, `e2e/write-series.spec.js`): counting each tag, starting again when the form changes, the same tag twice in a row (and tags the phone can't tell apart), the "Tag 2 of this spool" line on the sheet, Done, Start over and tab switches ending the series, failed or invalid writes not counted, and Read & update keeping its own buttons. The same-tag warning itself needs the Android app, so it is only unit tested here.
+- **Quick edits** (`tests/quickEdits.test.js`, `e2e/quick-edits.spec.js`): the steps of 10, 50 and 5, stopping at 0 and at the limits, a missing weight starting at 1000 g, the list of changes with the old values, Undo changes, typing a number, the cards below staying in step, nothing written before Update tag, the hint without the U1 fields, and Read another starting again.
 - **Your own chips** (`tests/customChips.test.js`): saving, skipping built-in chips, variants per brand + material, removing, the size limit and junk in storage.
 - **Color database** (`tests/colorDatabase.test.js`, `e2e/color-database.spec.js`): the date, brand and color totals, the 35-day rule (35 days is fine, 36 is old), refusing files that aren't a database or have far fewer colors, finding what changed, never swapping in an older database, the effect on color overrides, keeping and removing the downloaded copy, and each error message. The browser tests serve the files from memory and go through Check, See changes, Update now, a reload, and Go back.
 - **Brand colors logic** (`tests/brandColors.test.js`): brand names (OrcaSlicer's, then the database's) and suggestions, material chips per brand, grouping lines (names, finish tags, fiber materials), merging look-alikes, color matching, and that the bundled snapshot is well-formed and covers every FilaScribe brand. **Color overrides** (`tests/colorOverrides.test.js`): a wrong value replaced, an override stepping aside once the database fixes it, a renamed color reported, and the bundled snapshot already having them.
