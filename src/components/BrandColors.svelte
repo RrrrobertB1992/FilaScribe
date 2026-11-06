@@ -6,6 +6,7 @@
   // back what was there. "Clone" saves a copy of a color, with your changes, as a saved color.
   import { onMount } from 'svelte';
   import * as BC from '../lib/brandColors.js';
+  import * as CM from '../lib/colorMatch.js';
   import { loadBrandColors } from '../lib/brandColorsData.js';
   import ColorPopup from './ColorPopup.svelte';
   import { normalizeHex } from '../lib/formats/openspool.js';
@@ -31,6 +32,9 @@
     onpick = () => {}, // a brand color was picked (Saved colors lets go of its pick)
     onchange = () => {},
     onclone = () => {}, // Clone: save these colors (hexes, name, color type) as a new saved color
+    suggestLimit = 0, // how many closest brand colors to suggest (Settings); 0 is off
+    suggestions = $bindable(null), // null: none to offer here; [] = nothing close; else the closest colors
+    backTo = $bindable(''), // after picking a suggestion: the custom color it replaced, as text
   } = $props();
 
   const PAGE = 30;
@@ -123,6 +127,37 @@
     }
   });
 
+  // Closest brand colors: for colors that aren't a brand color, the nearest of
+  // the colors the variant shows (the whole material when there's no variant)
+  let cameFrom = $state(''); // the colors a picked suggestion replaced
+  const knownColor = $derived(db && result.total > 0 ? !!BC.findColor(db, { brand, type, variant }, colors) : false);
+  const candidateTiles = $derived.by(() => {
+    if (!db) return [];
+    const lines = variant ? BC.linesFor(db, { brand, type, variant }).lines : allLines;
+    return BC.tilesFor(lines);
+  });
+  $effect(() => {
+    const mine = colors.slice(0, max);
+    if (!db || result.total === 0 || knownColor || suggestLimit < 1 || cameFrom || mine.some((h) => !CM.parseHex(h))) {
+      suggestions = null;
+      return;
+    }
+    suggestions = CM.nearest(candidateTiles, mine, suggestLimit).map((s) => ({
+      id: s.tile.id,
+      name: s.tile.info.name,
+      line: s.tile.line.name,
+      colors: s.tile.info.colors,
+      gradient: s.tile.info.gradient,
+      label: s.label,
+    }));
+  });
+  $effect(() => {
+    if (!pickedTile) cameFrom = '';
+  });
+  $effect(() => {
+    backTo = cameFrom && pickedTile ? cameFrom : '';
+  });
+
   function apply(tile) {
     colors = [...tile.info.colors];
     if (tile.info.colors.length > 1) colorType = tile.info.gradient ? '0' : '1';
@@ -156,6 +191,21 @@
   }
 
   // --- Called by the app ---
+
+  /** Use a suggested color, like picking it in this list (its line shows even if the variant would hide it). */
+  export function pickSuggestion(id) {
+    const tile = findTile(id);
+    if (!tile) return;
+    if (!BC.linesFor(db, { brand, type, variant }).lines.includes(tile.line)) showAll = true;
+    cameFrom = colors.slice(0, max).map((h) => `#${h}`).join(' + ');
+    pick(tile);
+  }
+
+  /** Put back the custom color a suggestion replaced. */
+  export function backToMine() {
+    unpick();
+    cameFrom = '';
+  }
 
   /** Let go of the pick without changing anything (Saved colors picked). */
   export function release() {

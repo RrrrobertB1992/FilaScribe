@@ -10,6 +10,7 @@
   import * as Manual from '../lib/manualColors.js';
   import { getEdits, removeEdit, clearEdits, importEdits } from '../lib/manualColorsStore.svelte.js';
   import * as Theme from '../lib/theme.js';
+  import { getSuggestionCount, setSuggestionCount } from '../lib/suggestionCountStore.svelte.js';
   import { exportJson, readJsonFile } from '../lib/backup.js';
   import { buildParts } from '../lib/buildInfo.js';
   import * as BrandList from '../lib/brandList.js';
@@ -448,6 +449,15 @@
     Theme.store(t);
   }
 
+  // --- Closest brand colors ---
+
+  let suggestCount = $state(String(getSuggestionCount()));
+  const SUGGEST_ITEMS = [
+    { value: '0', label: 'Off' },
+    ...[1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: String(n) })),
+  ];
+  const pickSuggestCount = (v) => setSuggestionCount(Number(v));
+
   // --- About ---
 
   const build = buildParts(__BUILD__);
@@ -766,6 +776,14 @@
       {#if dbInfo?.origin === 'downloaded'}<button type="button" class="btn small quiet" onclick={goBackToBuiltIn} disabled={dbBusy}>Go back to the built-in copy</button>{/if}
     </div>
     <p class="hint small">Your saved colors and color overrides are never changed by an update.</p>
+    </div>
+  </details>
+
+  <details class="card" open={open.includes('closest')} ontoggle={(e) => toggled('closest', e)}>
+    <summary><h2 id="set-closest">Closest brand colors</h2></summary>
+    <div class="body">
+      <p class="hint">When a color isn’t a brand color, suggest the nearest ones from the brand you picked. Only colors that are close in shade and in color family are suggested, so fewer than this may show.</p>
+      <Palette label="How many to show" items={SUGGEST_ITEMS} bind:value={suggestCount} allowCustom={false} onpick={pickSuggestCount} />
     </div>
   </details>
 
