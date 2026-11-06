@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { bump, snapshot, changes, FIELDS } from '../src/lib/quickEdits.js';
+import { bump, snapshot, restore, changes, FIELDS } from '../src/lib/quickEdits.js';
 
 describe('bump', () => {
   it('steps a number up and down', () => {
@@ -43,7 +43,7 @@ describe('snapshot and changes', () => {
   const form = { weight: '1000', minTemp: '190', maxTemp: '220', brand: 'X' };
 
   it('keeps just the quick-edit fields as text', () => {
-    expect(snapshot({ ...form, weight: undefined })).toEqual({ weight: '', minTemp: '190', maxTemp: '220' });
+    expect(snapshot({ ...form, weight: undefined })).toEqual({ weight: '', minTemp: '190', maxTemp: '220', colors: [], colorType: '' });
   });
 
   it('lists nothing when nothing changed', () => {
@@ -73,5 +73,36 @@ describe('snapshot and changes', () => {
   it('ignores spaces and a missing snapshot', () => {
     expect(changes(snapshot(form), { ...form, weight: ' 1000 ' })).toEqual([]);
     expect(changes(undefined, form).map((c) => c.field)).toEqual(['weight', 'minTemp', 'maxTemp']);
+  });
+});
+
+describe('color in the changes', () => {
+  const tag = { weight: '1000', minTemp: '190', maxTemp: '220', colors: ['1E4FA0'], colorType: '1' };
+
+  it('keeps the colors in the snapshot, as its own copy', () => {
+    const before = snapshot(tag);
+    tag.colors.push('FFFFFF');
+    expect(before.colors).toEqual(['1E4FA0']);
+    tag.colors.pop();
+  });
+
+  it('lists a new color with what it was, and the name of a brand color', () => {
+    const before = snapshot(tag);
+    expect(changes(before, { ...tag, colors: ['0056B8'] })).toEqual([{ field: 'color', label: 'Color', now: '#0056B8', was: '#1E4FA0' }]);
+    expect(changes(before, { ...tag, colors: ['0056B8'] }, 'Cobalt Blue')[0].now).toBe('Cobalt Blue #0056B8');
+  });
+
+  it('lists several colors in order, and nothing when they are back as they were', () => {
+    const before = snapshot({ ...tag, colors: ['FF0000', '00FF00'] });
+    expect(changes(before, { ...tag, colors: ['00FF00', 'FF0000'] })[0]).toMatchObject({ now: '#00FF00 + #FF0000', was: '#FF0000 + #00FF00' });
+    expect(changes(before, { ...tag, colors: ['ff0000', '00ff00'] })).toEqual([]);
+  });
+
+  it('restore gives the colors back as a new list', () => {
+    const before = snapshot(tag);
+    const back = restore(before);
+    back.colors.push('000000');
+    expect(before.colors).toEqual(['1E4FA0']);
+    expect(back).toMatchObject({ weight: '1000', colorType: '1' });
   });
 });

@@ -28,7 +28,7 @@ test.describe('Closest brand colors', () => {
     await strip(page).getByRole('button', { name: /^Use Blue,/ }).click();
     await expect(colorTab(page, 'Brand')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('.colorsec .now-name')).toHaveText('Blue');
-    await expect(page.locator('.colorsec .back')).toContainText('Was your custom color #0A2A8C');
+    await expect(page.locator('.colorsec .back')).toContainText('Was your color #0A2A8C');
     await expect(strip(page)).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Back to my color' }).click();
@@ -63,13 +63,6 @@ test.describe('Closest brand colors', () => {
     await expect(strip(page)).toHaveCount(0);
   });
 
-  test('a tag read with a color that isn’t in the database gets suggestions', async ({ page }) => {
-    await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'PLA', brand: 'Bambu Lab', color_hex: '0A2A8C' });
-    await page.getByRole('tab', { name: 'Read & update' }).click();
-    await page.getByRole('button', { name: /^Read tag/ }).click();
-    await expect(strip(page).getByRole('button', { name: /^Use Blue, PLA Basic/ })).toBeVisible();
-  });
-
   test('Settings: choose how many, or Off', async ({ page }) => {
     await page.getByRole('tab', { name: 'Settings' }).click();
     const card = page.locator('details.card', { has: page.getByRole('heading', { name: 'Closest brand colors' }) });
@@ -86,5 +79,92 @@ test.describe('Closest brand colors', () => {
     await page.getByRole('tab', { name: 'Create' }).click();
     await expect(strip(page)).toHaveCount(0);
     await expect(page.getByText(/color is close to this one/)).toHaveCount(0);
+  });
+});
+
+// Read & update: the same suggestions, inside Quick edits instead of the Colors card
+const TAG = { protocol: 'openspool', version: '1.0', type: 'PLA', brand: 'Bambu Lab', subtype: 'Basic', color_hex: '0A2A8C', min_temp: '190', max_temp: '220' };
+const quick = (page) => page.getByRole('region', { name: 'Quick edits' });
+const quickChanges = (page) => quick(page).getByRole('list', { name: 'Changes' });
+
+async function readTag(page, tag = TAG) {
+  await page.getByRole('tab', { name: 'Read & update' }).click();
+  await placeTag(page, tag);
+  await page.getByRole('button', { name: /^Read (tag|another)$/ }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+}
+
+test.describe('Closest brand colors in Quick edits', () => {
+  test('a tag with a color that isn’t a brand color gets them in Quick edits, not in the Colors card', async ({ page }) => {
+    await readTag(page);
+    const tiles = quick(page).getByRole('group', { name: 'Closest brand colors' });
+    await expect(tiles).toContainText('Closest Bambu Lab PLA Basic colors');
+    await expect(tiles).toContainText('Your color is #0A2A8C');
+    await expect(tiles.getByRole('button', { name: /^Use Blue, PLA Basic, Very close/ })).toBeVisible();
+    await expect(page.locator('.colorsec .suggest')).toHaveCount(0);
+  });
+
+  test('tap one: it is the color, the Brand tab opens, and the change is listed', async ({ page }) => {
+    await readTag(page);
+    await quick(page).getByRole('button', { name: /^Use Blue, PLA Basic/ }).click();
+    await expect(colorTab(page, 'Brand')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.colorsec .now-name')).toHaveText('Blue');
+    await expect(quickChanges(page)).toContainText('Color');
+    await expect(quickChanges(page)).toContainText('Blue #0A2989');
+    await expect(quickChanges(page)).toContainText('was #0A2A8C');
+    await expect(quick(page).getByText('Was your color #0A2A8C')).toBeVisible();
+    await expect(quick(page).getByRole('group', { name: 'Closest brand colors' })).toHaveCount(0);
+  });
+
+  test('Back to my color puts it back and the color leaves the list', async ({ page }) => {
+    await readTag(page);
+    await quick(page).getByRole('button', { name: /^Use Blue, PLA Basic/ }).click();
+    await quick(page).getByRole('button', { name: 'Back to my color' }).click();
+    await expect(quick(page).getByRole('group', { name: 'Closest brand colors' })).toBeVisible();
+    await expect(quick(page).getByRole('list', { name: 'Changes' })).toHaveCount(0);
+    await expect(page.locator('.colorsec .now-hex')).toHaveText('#0A2A8C');
+  });
+
+  test('Undo changes brings the color back too, with the weight and temperatures', async ({ page }) => {
+    await readTag(page);
+    await quick(page).getByRole('button', { name: 'Nozzle max plus 5', exact: true }).click();
+    await quick(page).getByRole('button', { name: /^Use Blue, PLA Basic/ }).click();
+    await quick(page).getByRole('button', { name: 'Undo changes' }).click();
+    await expect(page.locator('.colorsec .now-hex')).toHaveText('#0A2A8C');
+    await expect(quick(page).getByLabel('Nozzle max', { exact: true })).toHaveValue('220');
+    await expect(quick(page).getByRole('list', { name: 'Changes' })).toHaveCount(0);
+    await expect(quick(page).getByRole('group', { name: 'Closest brand colors' })).toBeVisible();
+  });
+
+  test('Update tag writes the picked brand color, and the old one if you went back', async ({ page }) => {
+    await readTag(page);
+    await quick(page).getByRole('button', { name: /^Use Blue, PLA Basic/ }).click();
+    await page.getByRole('button', { name: 'Update tag' }).click();
+    await expect(page.getByRole('dialog')).toBeHidden();
+    expect((await lastWrite(page)).color_hex).toBe('0A2989');
+
+    await readTag(page);
+    await quick(page).getByRole('button', { name: /^Use Blue, PLA Basic/ }).click();
+    await quick(page).getByRole('button', { name: 'Back to my color' }).click();
+    await page.getByRole('button', { name: 'Update tag' }).click();
+    await expect(page.getByRole('dialog')).toBeHidden();
+    expect((await lastWrite(page)).color_hex).toBe('0A2A8C');
+  });
+
+  test('no tiles for a brand color, and none when the setting is Off', async ({ page }) => {
+    await readTag(page, { ...TAG, color_hex: '0A2989' });
+    await expect(quick(page)).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Closest brand colors' })).toHaveCount(0);
+
+    await page.evaluate(() => localStorage.setItem('filascribe-closest-colors', '0'));
+    await page.reload();
+    await readTag(page);
+    await expect(quick(page)).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Closest brand colors' })).toHaveCount(0);
+  });
+
+  test('a color nothing is close to says so in Quick edits', async ({ page }) => {
+    await readTag(page, { ...TAG, color_hex: 'FF00FF' });
+    await expect(quick(page).getByText('No Bambu Lab PLA Basic color is close to this one.')).toBeVisible();
   });
 });
