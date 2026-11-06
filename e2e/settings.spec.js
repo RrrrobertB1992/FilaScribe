@@ -12,7 +12,7 @@ test.describe('Settings', () => {
   test('a Settings tab next to Create and Read & update, with no write button', async ({ page }) => {
     await settings(page);
     await expect(page.getByRole('tab', { name: 'Settings' })).toHaveAttribute('aria-selected', 'true');
-    for (const h of ['Defaults for new tags', 'Brands', 'Materials', 'Variants', 'Your chips', 'Saved colors', 'Color overrides', 'Color database', 'Appearance', 'About']) {
+    for (const h of ['Defaults for new tags', 'Brands', 'Materials', 'Variants', 'Your chips', 'Saved colors', 'Color overrides', 'Color database', 'Closest brand colors', 'Appearance', 'About']) {
       await expect(page.getByRole('heading', { name: h })).toBeVisible();
     }
     await expect(page.getByRole('button', { name: 'Write tag' })).toHaveCount(0);
