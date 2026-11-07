@@ -1,11 +1,9 @@
 <script>
   // Saved colors for the current brand + material (the "Saved" panel of the
-  // color section), with the same behavior as PrintTag-Web-Rrrrobert: pick
-  // one to fill the colors, rename it, edit its colors (in the Custom panel),
-  // or remove it. Colors are saved automatically after a successful write.
-  // Saved colors belong to a brand + material only, not to a variant. (The
-  // variants are still recorded, so an export stays readable by
-  // PrintTag-Web-Rrrrobert, but nothing here uses them.)
+  // color section): pick one to fill the colors, rename it, edit its colors
+  // (in the Custom panel), or remove it. Colors are saved automatically after
+  // a successful write. Saved colors belong to a brand + material only, not to
+  // a variant. (The variants are still recorded, but nothing here uses them.)
   import { exportJson, readJsonFile } from '../lib/backup.js';
   import { onMount } from 'svelte';
   import * as SC from '../lib/savedColors.js';

@@ -36,6 +36,15 @@ function tagInfo(r) {
   };
 }
 
+/** Open Android's share sheet with `text` as a file called `filename` (a backup). Rejects when it can't. */
+export async function shareText(filename, text) {
+  try {
+    await Plugin.shareFile({ filename, text });
+  } catch (e) {
+    throw wrap(e);
+  }
+}
+
 export const nativeNfc = {
   kind: 'native',
 

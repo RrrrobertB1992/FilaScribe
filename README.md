@@ -19,8 +19,6 @@ Tags hold one NDEF record of type `application/json`. FilaScribe writes only doc
 
 Value formats follow the spec examples: colors are 6 hex digits without `#`, and temperatures are strings. When reading, FilaScribe also accepts `#RRGGBB` colors and numeric values. If a tag has fields outside this list, FilaScribe lists them and doesn't write them back.
 
-The multi-color fields and `color_type` match PrintTag-Web-Rrrrobert. Saved colors work the same way and use the same data shape. To bring yours over, save the value of the `printtag-saved-colors` localStorage key from that site (for example from Chrome DevTools, under Application, then Local storage) as a `.json` file. Then, in FilaScribe, choose **Import saved colors** under Custom (or Import under Saved).
-
 ## Create screen
 
 The Create screen is a set of cards: a compact tag preview at the top, an
@@ -68,11 +66,25 @@ The **Settings** tab sits next to Create and Read & update. Each section starts 
 - **Variants:** hide the variants you never use. The list has one card per kind of variant your enabled brands make in the materials you show, so it follows Settings → Brands and Materials (with only Elegoo on the row, it lists what Elegoo makes). Each tile has a switch at the top (on = shown, off = hidden), then the usual name (Metallic), the full name for the short ones (CF: Carbon fiber, GF: Glass fiber, FR: Flame retardant, HT: High temperature, ESD: Anti-static, HF: High flow), PLA+ under Plus and Neon under Fluorescent (names that explain themselves have none), and the brands' own words for it, one per line, A to Z (Metal), because they are the same variant and hide together. Two tiles per row on a phone, three on a wider screen. Tap a tile to hide it from the Variant row, tap again to show it; hidden tiles are dashed and struck through. Shore hardness (85A, 95A HF…) is a row of small chips at the end, once a material that has it (TPU) is shown. **Find a variant** filters the cards by any of their names, **Hide all** and **Show all** do what they say, and the count shows how many kinds are hidden. Nothing is hidden to start. A variant you already hid stays listed (marked "None of your brands make it") if no enabled brand has it any more, so it can always be shown again. Hiding applies to every brand's row, but **Generic** (and a brand the database doesn't know) always shows the default variants, hidden or not. None, your saved variants and the Custom box are never hidden, a hidden variant that is selected (for example read from a tag) still shows until you pick another, and a brand switch doesn't land on a hidden one. Typing the exact name of a hidden variant in Custom and tapping Save turns it back on; a near name like "Matt" is just a new variant. Kept under `filascribe-variants`.
 - **Your chips:** every Custom variant you saved, with × to remove one, or all of them. Materials and brands are managed in their own cards above.
 - **My filaments:** the automatic-save switch, Export, Import and Clear all for the spools saved from Create (see above).
-- **Saved colors:** how many are saved for each brand and material, with Clear for one or all, plus Export and Import (Import also takes a PrintTag-Web-Rrrrobert export).
+- **Saved colors:** how many are saved for each brand and material, with Clear for one or all, plus Export and Import.
 - **Color database:** which brand colors database is in use, and a button to update it (see Color database below).
 - **Closest brand colors:** how many nearest brand colors to suggest, Off or 1 to 5 (3 until you choose; `filascribe-closest-colors`). See Closest brand colors below.
+- **Backup:** everything you've set up in one file (see Backup below).
 - **Appearance:** follow the system, or always Light or Dark (`filascribe-theme`).
 - **About:** the version and build links, the specs FilaScribe writes, and where the brand colors and names come from.
+
+## Backup
+
+**Settings → Backup** keeps everything you'd be sad to lose in one `.json` file (`filascribe-backup-<date>.json`): My filaments (and the automatic-save switch), saved colors, color overrides, your chips, which brands, materials and variants you show, the defaults for new tags, how many closest colors to suggest, and the theme. It leaves out the downloaded color database (the Color database card fetches it again) and which cards are open. The card first lists how many of each you have.
+
+- **Save backup:** on the website the file downloads. In the Android app it opens the share sheet, so you can save it to Files or Drive, or send it to yourself.
+- **Restore backup:** pick a backup file. It shows what is in it and how many of each are new to this device, and nothing changes yet.
+  - **Add what's new** keeps everything you have and adds what the file has that you don't (spools, saved colors, overrides and chips you already have aren't doubled). The settings (brands, materials, variants, defaults, closest colors, theme and the automatic-save switch) come from the file.
+  - **Replace everything** asks first (a pop-up that says it can't be undone), then deletes what is on this device and leaves exactly what the file holds.
+  - **Cancel** goes back without changing anything.
+- A file that isn't a FilaScribe backup, or one made by a newer version, is refused and nothing changes.
+
+The one-card Export and Import buttons (My filaments, Saved colors, Color overrides) stay for moving a single list.
 
 ## Your own chips
 
@@ -171,6 +183,7 @@ src/
   lib/formats/openspool.js   build / parse / validate OpenSpool JSON
   lib/ndef.js                NDEF message and Type 2 TLV encoding
   lib/savedColors.js         saved colors data (localStorage)
+  lib/backup.js              exporting JSON, and the backup of everything (save, check, add or replace)
   lib/catalog.js             material, brand and variant choices
   lib/brandColors.js         Brand colors: line filtering and color matching
   lib/manualColors.js        your color overrides (localStorage) and how they apply
@@ -221,6 +234,7 @@ The **Tests** workflow runs on every pull request and on `main`:
 - **Closest brand colors** (`tests/colorMatch.test.js`, `tests/suggestionCount.test.js`, `e2e/closest-colors.spec.js`): the published CIEDE2000 reference pairs, orange, pink, yellow and green not matching their neighbors, blue not matching violet or sky blue, greys, gradients and segments, nearest-first order and the limit; the setting's default, range, junk and unavailable storage; and on screen the strip, picking one and Back to my color, what gets written, no strip for brand colors, the no-close message, and the Settings choice including Off. On Read & update the same tiles inside Quick edits: shown there and not in the Colors card, picking one, the color in the list of changes, Back to my color, Undo changes, what Update tag writes, and none for a brand color, when Off, or the no-close message.
 - **Read & update cards** (`e2e/read-folds.spec.js`): only Quick edits open after the first read, a card you open staying open for the same tag, another tag and a reload, Create keeping its own cards, a closed card's summary, a mistake opening its card, Quick edits folding and being remembered, and the space below it.
 - **Quick edits** (`tests/quickEdits.test.js`, `e2e/quick-edits.spec.js`): the steps of 10, 50 and 5, stopping at 0 and at the limits, a missing weight starting at 1000 g, the list of changes with the old values (the color too), Undo changes, typing a number, the cards below staying in step, nothing written before Update tag, the hint without the U1 fields, and Read another starting again.
+- **Backup** (`tests/backup.test.js`, `e2e/backup.spec.js`): everything surviving a save and restore, the downloaded color database and open cards left out, junk and files that aren't backups (or are from a newer version) refused or cleaned, what is new counted, Add what's new keeping what you have and taking settings from the file, Replace everything leaving exactly the backup, storage that throws; and on screen the card's counts, the download, choosing a file changing nothing until you pick, Add what's new, Cancel, the confirmation pop-up before Replace everything (dismissing it changes nothing), the refusal messages, and the one-card buttons still there. The share sheet itself needs the Android app, so it is only checked on a phone.
 - **Your own chips** (`tests/customChips.test.js`): saving, skipping built-in chips, variants per brand + material, removing, the size limit and junk in storage.
 - **Color database** (`tests/colorDatabase.test.js`, `e2e/color-database.spec.js`): the date, brand and color totals, the 35-day rule (35 days is fine, 36 is old), refusing files that aren't a database or have far fewer colors, finding what changed, never swapping in an older database, the effect on color overrides, keeping and removing the downloaded copy, and each error message. The browser tests serve the files from memory and go through Check, See changes, Update now, a reload, and Go back.
 - **Brand colors logic** (`tests/brandColors.test.js`): brand names (OrcaSlicer's, then the database's) and suggestions, material chips per brand, grouping lines (names, finish tags, fiber materials), merging look-alikes, color matching, and that the bundled snapshot is well-formed and covers every FilaScribe brand. **Color overrides** (`tests/colorOverrides.test.js`): a wrong value replaced, an override stepping aside once the database fixes it, a renamed color reported, and the bundled snapshot already having them.

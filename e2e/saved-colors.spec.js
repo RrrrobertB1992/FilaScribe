@@ -184,9 +184,9 @@ test.describe('Saved colors', () => {
     await expect(page.locator('#hex-input')).toBeHidden();
   });
 
-  test('import a PrintTag-Web-Rrrrobert list and export it again', async ({ page }) => {
+  test('import a saved-colors file and export it again', async ({ page }) => {
     // Import works from Custom too, since Saved is off while it's empty
-    const fork = {
+    const file = {
       'Polymaker|PLA': [
         { colors: ['2B2B2D'], name: 'Galaxy Black', variants: ['Matte'] },
         { colors: ['FF0000', '0000FF'], name: '', variants: [''], colorType: '0' },
@@ -198,7 +198,7 @@ test.describe('Saved colors', () => {
       page.getByRole('button', { name: 'Import saved colors' }).click(),
     ]);
     await chooser.setFiles({
-      name: 'printtag-saved-colors.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(fork)),
+      name: 'filascribe-saved-colors.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)),
     });
     await expect(status(page)).toHaveText('Imported 3 saved colors.');
     await expect(colorTab(page, 'Saved')).toHaveText(/Saved\s*2/);

@@ -10,9 +10,12 @@ import android.nfc.TagLostException;
 import android.nfc.tech.MifareUltralight;
 import android.nfc.tech.Ndef;
 import android.nfc.tech.NdefFormatable;
+import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Base64;
+
+import androidx.core.content.FileProvider;
 
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -22,6 +25,8 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Locale;
 
@@ -33,6 +38,7 @@ import java.util.Locale;
  *  writeNdef({ message, expectedUid? }) -> same, with ndef read back after writing
  *  isAvailable()                  -> { available, enabled }
  *  cancel(), openSettings()
+ *  shareFile({ filename, text })  -> opens the share sheet with a .json file (a backup)
  *  event "wrongTag" { uid }: a write with expectedUid saw another tag (keeps waiting)
  *
  * Byte values (ndef, pages, message) are base64. Errors reject with a code:
@@ -99,6 +105,36 @@ public class FilaScribeNfcPlugin extends Plugin {
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         getContext().startActivity(intent);
         call.resolve();
+    }
+
+    @PluginMethod
+    public void shareFile(PluginCall call) {
+        String text = call.getString("text", "");
+        // Only plain file-name characters, so the name can't point anywhere else
+        String name = call.getString("filename", "filascribe-backup.json").replaceAll("[^A-Za-z0-9._-]", "_");
+        if (name.isEmpty() || text.isEmpty()) {
+            call.reject("Nothing to share.", "FAILED");
+            return;
+        }
+        try {
+            File dir = new File(getContext().getCacheDir(), "backups");
+            if (!dir.exists() && !dir.mkdirs()) throw new IOException("No cache folder");
+            File file = new File(dir, name);
+            try (FileOutputStream out = new FileOutputStream(file)) {
+                out.write(text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            }
+            Uri uri = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", file);
+            Intent send = new Intent(Intent.ACTION_SEND);
+            send.setType("application/json");
+            send.putExtra(Intent.EXTRA_STREAM, uri);
+            send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            Intent chooser = Intent.createChooser(send, "Save your backup");
+            chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            getActivity().startActivity(chooser);
+            call.resolve();
+        } catch (IOException | IllegalArgumentException e) {
+            call.reject("Couldn't share the file.", "FAILED");
+        }
     }
 
     // --- Session ---

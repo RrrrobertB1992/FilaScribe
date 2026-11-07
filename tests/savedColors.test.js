@@ -42,7 +42,7 @@ describe('saved colors', () => {
     expect(list[0]).toMatchObject({ name: 'Black', variants: ['B', 'A'] });
   });
 
-  it('imports a PrintTag-Web-Rrrrobert export and skips bad data', () => {
+  it('imports an exported list and skips bad data', () => {
     const exported = {
       'Generic|PETG': [{ colors: ['aabbcc', 'nothex'], name: 'Sky', variants: ['Basic'] }],
       'bad key': [{ colors: ['000000'] }],
