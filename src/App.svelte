@@ -42,6 +42,9 @@
   // on its own, and starts with only Quick edits open
   const reading = $derived(mode === 'update');
   const foldId = (name) => (reading ? `read-${name}` : name);
+  let suggestions = $state(null); // closest brand colors, shown in Quick edits on Read & update
+  let backTo = $state('');
+  let pickedColorName = $state('');
 
   // My filaments: whole spools you saved, to fill the form in one tap
   let filaments = $state(Filaments.load());
@@ -478,7 +481,13 @@
         showWeight={u1}
         errors={{ weight: errorFor('weight'), minTemp: errorFor('minTemp'), maxTemp: errorFor('maxTemp') }}
         onset={(field, value) => (form[field] = value)}
-        onundo={() => Object.assign(form, loaded.before)}
+        onundo={() => Object.assign(form, QuickEditsLib.restore(loaded.before))}
+        {suggestions}
+        {backTo}
+        label={[form.brand, form.type, u1 ? form.subtype : ''].filter(Boolean).join(' ')}
+        colorName={pickedColorName}
+        onsuggest={(id) => colorSection?.useSuggestion(id)}
+        onback={() => colorSection?.backToMine()}
       />
     {/if}
 
@@ -559,6 +568,10 @@
         errors={colorErrors}
         foldId={foldId('colors')}
         foldOpen={!reading}
+        showSuggestions={!(mode === 'update' && loaded && !loaded.empty)}
+        bind:suggestions
+        bind:backTo
+        bind:colorName={pickedColorName}
       />
 
       <Fold id={foldId('temps')} title="Temperatures" summary={tempsSummary} forceOpen={tempsError}>

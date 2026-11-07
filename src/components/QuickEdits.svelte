@@ -5,12 +5,28 @@
   // a way back. Nothing is written until Update tag.
   import { bump, changes } from '../lib/quickEdits.js';
   import Fold from './Fold.svelte';
+  import ClosestColors from './ClosestColors.svelte';
 
   // form: the fields to edit. before: what the tag held when it was read.
   // showWeight: weight is a Snapmaker U1 field. errors: { field: message }.
-  let { form, before, showWeight = true, errors = {}, onset = () => {}, onundo = () => {} } = $props();
+  // The closest brand colors (see ClosestColors) are for a color that isn't a brand color:
+  // suggestions, backTo, label and colorName come from the Colors card.
+  let {
+    form,
+    before,
+    showWeight = true,
+    errors = {},
+    onset = () => {},
+    onundo = () => {},
+    suggestions = null,
+    backTo = '',
+    label = '',
+    colorName = '',
+    onsuggest = () => {},
+    onback = () => {},
+  } = $props();
 
-  const list = $derived(changes(before, form).filter((c) => showWeight || c.field !== 'weight'));
+  const list = $derived(changes(before, form, colorName).filter((c) => showWeight || c.field !== 'weight'));
   // What the card shows while it is shut
   const summary = $derived(
     [
@@ -20,6 +36,7 @@
       .filter(Boolean)
       .join(' · '),
   );
+  const mine = $derived((form.colors ?? []).map((h) => `#${String(h).toUpperCase()}`).join(' + '));
   const empty = (f) => String(form[f] ?? '').trim() === '';
 </script>
 
@@ -75,6 +92,12 @@
     <p class="hint">Each tap changes it by 5 °C.</p>
   </div>
 
+  {#if backTo || suggestions}
+    <div class="closest">
+      <ClosestColors {suggestions} {backTo} {label} {mine} onuse={onsuggest} {onback} />
+    </div>
+  {/if}
+
   {#if list.length}
     <ul class="changes" aria-label="Changes">
       {#each list as c (c.field)}
@@ -112,6 +135,7 @@
   .half .step { min-width: 40px; }
   .hint { margin: 0; font-size: 0.8125rem; color: var(--muted); }
   .error-text { margin: 0; font-size: 0.875rem; color: var(--danger); }
+  .closest { padding-top: var(--s3); border-top: 1px solid var(--line); }
   .changes { list-style: none; margin: 0; padding: var(--s3) 0 0; border-top: 1px solid var(--line); display: grid; gap: var(--s1); }
   .changes li { display: flex; justify-content: space-between; gap: var(--s3); }
   .was { color: var(--muted); font-size: 0.875rem; }

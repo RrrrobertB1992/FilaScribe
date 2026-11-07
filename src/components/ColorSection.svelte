@@ -10,6 +10,7 @@
   import BrandColors from './BrandColors.svelte';
   import SavedColors from './SavedColors.svelte';
   import ColorEditor from './ColorEditor.svelte';
+  import ClosestColors from './ClosestColors.svelte';
   import Fold from './Fold.svelte';
   import { loadBrandColors } from '../lib/brandColorsData.js';
   import { getSuggestionCount } from '../lib/suggestionCountStore.svelte.js';
@@ -29,12 +30,14 @@
     errors = [],
     foldId = 'colors', // Read & update remembers its own open or shut state
     foldOpen = true, // open to start with, unless the user shut it
+    showSuggestions = true, // the closest brand colors strip here; Quick edits shows it instead on Read & update
+    suggestions = $bindable(null), // the closest brand colors (see BrandColors)
+    backTo = $bindable(''), // the colors a picked suggestion replaced
+    colorName = $bindable(''), // the name of the brand color in use, if it is one
   } = $props();
 
   let brandList = $state();
   let savedList = $state();
-  let suggestions = $state(null); // closest brand colors (see BrandColors)
-  let backTo = $state('');
 
   let brandAvailable = $state(false);
   let brandCount = $state(0);
@@ -104,21 +107,23 @@
   });
   const hexes = $derived(colors.slice(0, max).map((h) => `#${h}`).join(' + '));
 
+  $effect(() => {
+    colorName = brandName;
+  });
+
   // A suggested brand color: picked like one in the Brand list, which opens
-  function useSuggestion(id) {
+  export function useSuggestion(id) {
     brandList?.pickSuggestion(id);
     tab = 'brand';
     userChose = true;
   }
 
-  const swatchOf = (cols, gradient) => {
-    const list = cols.map((h) => `#${h}`);
-    if (list.length < 2) return list[0] || '#FFFFFF';
-    if (gradient) return `linear-gradient(135deg, ${list.join(', ')})`;
-    const step = 100 / list.length;
-    return `linear-gradient(135deg, ${list.map((c, i) => `${c} ${i * step}% ${(i + 1) * step}%`).join(', ')})`;
-  };
   const brandLabel = $derived([brand, type].filter(Boolean).join(' '));
+
+  /** Put back the custom color a suggestion replaced. */
+  export function backToMine() {
+    brandList?.backToMine();
+  }
 
   function saveCurrent() {
     savedList?.saveCurrent();
@@ -189,25 +194,8 @@
     </span>
   {/snippet}
 
-  {#if backTo}
-    <div class="back">
-      <span>Was your custom color {backTo}</span>
-      <button type="button" class="btn small quiet" onclick={() => brandList?.backToMine()}>Back to my color</button>
-    </div>
-  {:else if suggestions?.length}
-    <div class="suggest" role="group" aria-label="Closest brand colors">
-      <p class="s-title">Closest {brandLabel} colors</p>
-      {#each suggestions as s (s.id)}
-        <button type="button" class="s-tile" aria-label={`Use ${s.name}, ${s.line}, ${s.label}`} onclick={() => useSuggestion(s.id)}>
-          <span class="s-swatch" style:background={swatchOf(s.colors, s.gradient)} aria-hidden="true"></span>
-          <span class="s-what"><span class="s-name">{s.name}</span><span class="s-line">{s.line}</span></span>
-          <span class="s-close" class:very={s.label === 'Very close'}>{s.label}</span>
-        </button>
-      {/each}
-      <p class="hint">Tap one to use it. Your color stays here until you do.</p>
-    </div>
-  {:else if suggestions}
-    <p class="hint no-close">No {brandLabel} color is close to this one.</p>
+  {#if showSuggestions}
+    <ClosestColors {suggestions} {backTo} label={brandLabel} onuse={useSuggestion} onback={() => brandList?.backToMine()} />
   {/if}
 
   <div class="tabs" role="group" aria-label="Color source">
@@ -316,29 +304,6 @@
   .now-from { font-size: 0.8125rem; color: var(--muted); }
   .now-hex { font-family: var(--font-label); font-size: 0.875rem; letter-spacing: 0.04em; color: var(--muted); overflow-wrap: anywhere; }
 
-  .suggest { display: grid; gap: var(--s2); }
-  .s-title { margin: 0; font-size: 0.875rem; color: var(--muted); }
-  .s-tile {
-    display: flex;
-    align-items: center;
-    gap: var(--s3);
-    min-height: 56px;
-    padding: var(--s1) var(--s3);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: var(--bg);
-    color: var(--ink);
-    text-align: left;
-    cursor: pointer;
-  }
-  .s-swatch { flex: none; width: 34px; height: 34px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25); }
-  .s-what { display: grid; flex: 1; min-width: 0; line-height: 1.25; }
-  .s-name { font-weight: 700; overflow-wrap: anywhere; }
-  .s-line { font-size: 0.8125rem; color: var(--muted); overflow-wrap: anywhere; }
-  .s-close { flex: none; font-size: 0.8125rem; font-weight: 700; color: var(--muted); }
-  .s-close.very { color: var(--ok); }
-  .back { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); font-size: 0.9375rem; color: var(--muted); }
-  .no-close, .suggest .hint { margin: 0; }
   .tabs {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
