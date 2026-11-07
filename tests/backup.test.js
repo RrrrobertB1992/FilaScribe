@@ -30,6 +30,7 @@ function filled() {
   s.setItem('filascribe-variants', JSON.stringify({ hidden: ['Silk'] }));
   s.setItem('filascribe-defaults', JSON.stringify({ brand: 'Polymaker', type: 'PETG' }));
   s.setItem('filascribe-closest-colors', '5');
+  s.setItem('filascribe-closest-closeness', 'loose');
   s.setItem('filascribe-theme', 'dark');
   return s;
 }
@@ -54,6 +55,7 @@ describe('backup: save and restore', () => {
     expect(d.hiddenVariants).toEqual(['Silk']);
     expect(d.defaults).toEqual({ brand: 'Polymaker', type: 'PETG' });
     expect(d.closestColors).toBe(5);
+    expect(d.closestCloseness).toBe('loose');
     expect(d.theme).toBe('dark');
   });
 
@@ -107,6 +109,7 @@ describe('backup: files that are not backups', () => {
         hiddenVariants: 'nope',
         defaults: { brand: 'X', evil: 'y' },
         closestColors: 99,
+        closestCloseness: 'very',
         theme: 'purple',
       },
     });
@@ -119,6 +122,7 @@ describe('backup: files that are not backups', () => {
     expect(d.hiddenVariants).toEqual([]);
     expect(d.defaults).toEqual({ brand: 'X' });
     expect(d.closestColors).toBe(3);
+    expect(d.closestCloseness).toBe('normal');
     expect(d.theme).toBe('system');
   });
 
@@ -160,6 +164,7 @@ describe('backup: add what is new', () => {
       customChips: { brands: ['Nova'], materials: [], variants: { 'Zephyr|PLA+': ['Fast'] } },
       theme: 'light',
       closestColors: 1,
+      closestCloseness: 'strict',
       hiddenVariants: [],
     };
     const out = Backup.merge(now, incoming);
@@ -170,6 +175,7 @@ describe('backup: add what is new', () => {
     expect(out.customChips.variants['Zephyr|PLA+']).toEqual(['Rapid', 'Fast']);
     expect(out.theme).toBe('light');
     expect(out.closestColors).toBe(1);
+    expect(out.closestCloseness).toBe('strict');
     expect(out.hiddenVariants).toEqual([]);
   });
 

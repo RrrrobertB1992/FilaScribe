@@ -14,6 +14,8 @@
   import Fold from './Fold.svelte';
   import { loadBrandColors } from '../lib/brandColorsData.js';
   import { getSuggestionCount } from '../lib/suggestionCountStore.svelte.js';
+  import { getCloseness } from '../lib/suggestionClosenessStore.svelte.js';
+  import { limitFor } from '../lib/suggestionCloseness.js';
 
   let {
     brand = '',
@@ -219,6 +221,7 @@
       bind:pickedLine={brandLine}
       bind:pickedOriginal={brandOriginal}
       suggestLimit={getSuggestionCount()}
+      suggestMaxDelta={limitFor(getCloseness())}
       bind:suggestions
       bind:backTo
       {getTemps}

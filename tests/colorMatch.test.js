@@ -90,6 +90,46 @@ describe('same color family', () => {
   });
 });
 
+describe('how close, and the color family check', () => {
+  it('matches a denim blue to a royal blue (no cliff at some chroma)', () => {
+    // 17416A is nearer to 003594 than the darker 0E2842 is; both are offered
+    expect(compare('0E2842', '003594').ok).toBe(true);
+    const c = compare('17416A', '003594');
+    expect(c.ok).toBe(true);
+    expect(c.delta).toBeLessThan(compare('0E2842', '003594').delta);
+  });
+
+  it('keeps blue and violet apart even when they are close', () => {
+    const c = compare('3E55AB', '695FA2');
+    expect(c.delta).toBeLessThan(12);
+    expect(c.ok).toBe(false);
+  });
+
+  it('takes the limit as an argument: Strict 8, Normal 12, Loose 18', () => {
+    // C4452F is about 1.5, 5.8, 10.9 and 16.8 away from these
+    const shades = ['C64A30', 'D1583B', 'DA6A47', 'E57F55'];
+    const offered = (limit) => shades.filter((h) => compare('C4452F', h, limit).ok).length;
+    expect(offered(8)).toBe(2);
+    expect(offered(12)).toBe(3);
+    expect(offered(18)).toBe(4);
+  });
+
+  it('a stricter limit never offers more, a looser one never fewer', () => {
+    const colors = ['C64A30', 'D1583B', 'E8702A', 'BD3B2A', 'F4A6B8'];
+    const count = (limit) => colors.filter((h) => compare('C4452F', h, limit).ok).length;
+    expect(count(8)).toBeLessThanOrEqual(count(12));
+    expect(count(12)).toBeLessThanOrEqual(count(18));
+  });
+
+  it('closeness and nearest pass the limit along', () => {
+    expect(closeness(['C4452F'], ['DA6A47'], 8)).toBe(null);
+    expect(closeness(['C4452F'], ['DA6A47'], 12)).not.toBe(null);
+    const tiles = [tile('Coral', 'D1583B'), tile('Red', 'C64A30'), tile('Light', 'DA6A47')];
+    expect(nearest(tiles, ['C4452F'], 5, 8).map((x) => x.tile.name)).toEqual(['Red', 'Coral']);
+    expect(nearest(tiles, ['C4452F'], 5, 12).map((x) => x.tile.name)).toEqual(['Red', 'Coral', 'Light']);
+  });
+});
+
 describe('closeness', () => {
   it('labels how close', () => {
     expect(closeness(['C4452F'], ['C64A30']).label).toBe('Very close');

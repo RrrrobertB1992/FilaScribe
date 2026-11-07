@@ -79,6 +79,38 @@ test.describe('Closest brand colors', () => {
     await expect(strip(page)).toHaveCount(0);
     await expect(page.getByText(/color is close to this one/)).toHaveCount(0);
   });
+
+  test('Settings: How close changes which colors are suggested', async ({ page }) => {
+    // Anycubic PLA Basic: 2A5C94 is a steel blue 12.8 from Blue 003594 (Strict and Normal say no,
+    // Loose says yes) and 14.3 from Purple, which the color family check keeps out
+    await page.evaluate(() => localStorage.setItem('filascribe-defaults', JSON.stringify({ profile: 'u1', brand: 'Anycubic', type: 'PLA', subtype: 'Basic' })));
+    await page.reload();
+    await openSettingsGroup(page, 'Brand colors');
+    const card = page.locator('details.card', { has: page.getByRole('heading', { name: 'Closest brand colors' }) });
+    await card.locator('summary').click();
+    await expect(card.getByRole('button', { name: 'Normal', exact: true })).toHaveAttribute('aria-pressed', 'true');
+
+    const tryColor = async (level) => {
+      await page.getByRole('tab', { name: 'Settings' }).click();
+      await openSettingsGroup(page, 'Brand colors');
+      await (await settingsCard(page, 'Closest brand colors')).getByRole('button', { name: level, exact: true }).click();
+      await page.getByRole('tab', { name: 'Create' }).click();
+      await openCustom(page);
+      await setHex(page, '2A5C94');
+    };
+    const none = page.getByText('No Anycubic PLA color is close to this one.');
+    await tryColor('Normal');
+    await expect(none).toBeVisible();
+    await tryColor('Strict');
+    await expect(none).toBeVisible();
+    await tryColor('Loose');
+    await expect(strip(page).getByRole('button')).toHaveCount(1);
+    await expect(strip(page).getByRole('button').first()).toContainText('Blue');
+
+    await page.reload();
+    await openSettingsGroup(page, 'Brand colors');
+    await expect((await settingsCard(page, 'Closest brand colors')).getByRole('button', { name: 'Loose', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  });
 });
 
 // Read & update: the same suggestions, inside Quick edits instead of the Colors card
