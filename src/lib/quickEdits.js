@@ -23,16 +23,31 @@ export function bump(field, current, delta) {
   return String(Math.min(max, Math.max(0, n + delta)));
 }
 
-/** The values to come back to: what the tag held when it was read. */
-export const snapshot = (form) => Object.fromEntries(Object.keys(FIELDS).map((f) => [f, String(form[f] ?? '')]));
+/** The values to come back to: what the tag held when it was read, colors included. */
+export const snapshot = (form) => ({
+  ...Object.fromEntries(Object.keys(FIELDS).map((f) => [f, String(form[f] ?? '')])),
+  colors: [...(form.colors ?? [])],
+  colorType: String(form.colorType ?? ''),
+});
+
+/** A snapshot as form values to put back (its own copy of the colors, so the snapshot stays as it was). */
+export const restore = (before) => ({ ...before, colors: [...(before.colors ?? [])] });
+
+const hexes = (colors) => colors.map((h) => `#${String(h).toUpperCase()}`).join(' + ');
 
 /**
  * What changed since `before` (a snapshot): [{ field, label, now, was }],
- * `now` and `was` as shown ("750 g", "not set").
+ * `now` and `was` as shown ("750 g", "not set", "#0056B8"). `colorName` is
+ * the name of the brand color now in use, when it is one.
  */
-export function changes(before, form) {
+export function changes(before, form, colorName = '') {
   const show = (f, v) => (String(v ?? '').trim() === '' ? 'not set' : `${String(v).trim()} ${FIELDS[f].unit}`);
-  return Object.keys(FIELDS)
+  const list = Object.keys(FIELDS)
     .filter((f) => String(form[f] ?? '').trim() !== String(before?.[f] ?? '').trim())
     .map((f) => ({ field: f, label: FIELDS[f].label, now: show(f, form[f]), was: show(f, before?.[f]) }));
+  const now = form.colors ?? [];
+  if (before?.colors && hexes(before.colors) !== hexes(now)) {
+    list.push({ field: 'color', label: 'Color', now: `${colorName ? `${colorName} ` : ''}${hexes(now)}`, was: hexes(before.colors) });
+  }
+  return list;
 }
