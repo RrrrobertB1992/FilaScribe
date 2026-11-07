@@ -1,4 +1,4 @@
-import { test, expect, colorTab, openCustom, placeTag, lastWrite, chip, writeTag } from './nfc.js';
+import { test, expect, colorTab, openCustom, placeTag, lastWrite, chip, writeTag, settingsCard, openSettingsGroup } from './nfc.js';
 
 // Closest brand colors: shown when the colors aren't a brand color.
 // Uses the bundled snapshot: Bambu Lab PLA Basic has Blue 0A2989, Black 000000.
@@ -64,7 +64,7 @@ test.describe('Closest brand colors', () => {
   });
 
   test('Settings: choose how many, or Off', async ({ page }) => {
-    await page.getByRole('tab', { name: 'Settings' }).click();
+    await openSettingsGroup(page, 'Brand colors');
     const card = page.locator('details.card', { has: page.getByRole('heading', { name: 'Closest brand colors' }) });
     await expect(card).not.toHaveAttribute('open', '');
     await card.locator('summary').click();
@@ -74,8 +74,7 @@ test.describe('Closest brand colors', () => {
     await setHex(page, '0A2A8C');
     await expect(strip(page).getByRole('button')).toHaveCount(1);
 
-    await page.getByRole('tab', { name: 'Settings' }).click();
-    await card.getByRole('button', { name: 'Off', exact: true }).click();
+    await (await settingsCard(page, 'Closest brand colors')).getByRole('button', { name: 'Off', exact: true }).click();
     await page.getByRole('tab', { name: 'Create' }).click();
     await expect(strip(page)).toHaveCount(0);
     await expect(page.getByText(/color is close to this one/)).toHaveCount(0);

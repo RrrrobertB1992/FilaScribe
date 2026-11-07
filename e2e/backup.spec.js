@@ -1,4 +1,4 @@
-import { test, expect, status } from './nfc.js';
+import { test, expect, status, settingsCard } from './nfc.js';
 
 const spool = (colors, colorName) => ({
   profile: 'u1', brand: 'Polymaker', type: 'PLA', subtype: 'Matte', minTemp: '190', maxTemp: '220',
@@ -36,10 +36,7 @@ const THERE = {
 async function start(page, stored = HERE) {
   await page.evaluate((s) => Object.entries(s).forEach(([k, v]) => localStorage.setItem(k, v)), stored);
   await page.reload();
-  await page.getByRole('tab', { name: 'Settings' }).click();
-  const c = page.locator('details.card', { has: page.getByRole('heading', { name: 'Backup' }) });
-  if (!(await c.evaluate((d) => d.open))) await c.locator('summary').click();
-  return c;
+  return settingsCard(page, 'Backup');
 }
 
 const choose = async (page, card, body, name = 'backup.json') => {
@@ -193,8 +190,7 @@ test.describe('Backup', () => {
       ['My filaments', ['Export My filaments', 'Import My filaments']],
       ['Saved colors', ['Export saved colors', 'Import saved colors']],
     ]) {
-      const c = page.locator('details.card', { has: page.getByRole('heading', { name: card }) });
-      if (!(await c.evaluate((d) => d.open))) await c.locator('summary').click();
+      const c = await settingsCard(page, card);
       for (const name of names) await expect(c.getByRole('button', { name })).toBeVisible();
     }
   });

@@ -143,7 +143,7 @@
   // One card per kind of variant your enabled brands make in the materials you
   // show (worked out when the card is open). Already-hidden ones are always listed.
   const kinds = $derived(
-    brandData && open.includes('variants') ? variantKinds(brandData, shownBrands, shownMaterials, hiddenVariants) : [],
+    brandData && group === 'form' && open.includes('variants') ? variantKinds(brandData, shownBrands, shownMaterials, hiddenVariants) : [],
   );
   const kindMatch = (k) => {
     const q = findVariant.trim().toLowerCase();
@@ -165,6 +165,23 @@
   const toggleVariant = (k) => setHiddenVariants(VariantList.toggle(hiddenVariants, k.main));
   const hideEveryVariant = () => setHiddenVariants(VariantList.hideAll(hiddenVariants, kinds.map((k) => k.main)));
   const showEveryVariant = () => setHiddenVariants([]);
+
+  // --- Groups: Settings opens to a short menu, and a group opens its cards ---
+
+  const GROUPS = [
+    { id: 'form', title: 'Your choices on the form', cards: 'Defaults, Brands, Materials, Variants, Your chips' },
+    { id: 'data', title: 'Your saved data', cards: 'My filaments, Saved colors, Backup' },
+    { id: 'colors', title: 'Brand colors', cards: 'Color database, Color overrides, Closest brand colors' },
+    { id: 'app', title: 'App', cards: 'Appearance, About' },
+  ];
+  let group = $state(null); // the group on screen; null is the menu
+
+  function showGroup(id) {
+    group = id;
+    restoring = null; // a half-finished restore doesn't wait behind another page
+    // The new page starts at the top, not where the menu was scrolled to
+    globalThis.scrollTo?.(0, 0);
+  }
 
   // --- Collapsible cards (closed to start; which are open is remembered) ---
 
@@ -523,6 +540,21 @@
 </script>
 
 <div class="settings">
+  {#if !group}
+    <nav class="menu" aria-label="Settings groups">
+      {#each GROUPS as g (g.id)}
+        <button type="button" class="menu-row" onclick={() => showGroup(g.id)}>
+          <span class="menu-text">
+            <strong>{g.title}{#if g.id === 'colors' && dbOld}<span class="tag">Out of date</span>{/if}</strong>
+            <span class="hint small">{g.cards}</span>
+          </span>
+        </button>
+      {/each}
+    </nav>
+  {:else}
+    <button type="button" class="btn small quiet back" onclick={() => showGroup(null)}>‹ Settings</button>
+    <h2 class="group-title" id="set-group">{GROUPS.find((g) => g.id === group)?.title}</h2>
+    {#if group === 'form'}
   <details class="card" open={open.includes('defaults')} ontoggle={(e) => toggled('defaults', e)}>
     <summary><h2 id="set-defaults">Defaults for new tags</h2></summary>
     <div class="body">
@@ -687,7 +719,7 @@
     {/if}
     </div>
   </details>
-
+    {:else if group === 'data'}
   <details class="card" open={open.includes('filaments')} ontoggle={(e) => toggled('filaments', e)}>
     <summary><h2 id="set-filaments">My filaments</h2></summary>
     <div class="body">
@@ -738,40 +770,42 @@
     </div>
   </details>
 
-  <details class="card" open={open.includes('overrides')} ontoggle={(e) => toggled('overrides', e)}>
-    <summary><h2 id="set-overrides">Color overrides</h2></summary>
+  <details class="card" open={open.includes('backup')} ontoggle={(e) => toggled('backup', e)}>
+    <summary><h2 id="set-backup">Backup</h2></summary>
     <div class="body">
-    {#if overrides.length}
-      <p class="hint">{overrides.length} brand {overrides.length === 1 ? 'color' : 'colors'} with your own hex. Yours always wins over the database.</p>
-      <ul class="saved-list">
-        {#each overrides as o (describeOverride(o))}
-          <li>
-            <span class="swatches pair" aria-hidden="true">
-              <span style:background={dot(o.was)}></span>
-              <span style:background={dot(o.hex)}></span>
-            </span>
-            <span class="what">
-              {describeOverride(o)}
-              <span class="note">{hexText(o.was)} → {hexText(o.hex)}</span>
-              {#if o.state === 'changed'}<span class="note warn">The database now says {hexText(o.dbNow)}</span>{/if}
-              {#if o.state === 'missing'}<span class="note warn">No longer in the database. Reset to remove it.</span>{/if}
-            </span>
-            <button type="button" class="btn small quiet danger" aria-label={`Reset ${describeOverride(o)}`} onclick={() => resetOverride(o)}>Reset</button>
-          </li>
+    <p class="hint">Everything you’ve set up in one file: keep it safe, or move it to another phone.</p>
+    {#if restoring}
+      <p class="backup-file"><strong>{restoring.name}</strong></p>
+      <ul class="backup-list">
+        {#each restoring.rows as r (r.label)}
+          <li><span>{r.label}</span><span>{r.total}{r.added ? ` (${r.added} new)` : ''}</span></li>
         {/each}
+        <li><span>Settings and theme</span><span>from the file</span></li>
       </ul>
+      <div class="actions">
+        <button type="button" class="btn small primary" onclick={() => restore(false)}>Add what’s new</button>
+        <button type="button" class="btn small" onclick={() => (restoring = null)}>Cancel</button>
+        <button type="button" class="btn small quiet danger" onclick={() => restore(true)}>Replace everything</button>
+      </div>
+      <p class="hint small">Add what’s new keeps everything you have. Replace everything deletes what’s on this device first, and asks you to confirm.</p>
     {:else}
-      <p class="hint">None yet. On Create, pick a brand color and tap Override this color to give it your own hex.</p>
+      <ul class="backup-list">
+        {#each counts as r (r.label)}
+          <li><span>{r.label}</span><span>{r.total}</span></li>
+        {/each}
+        <li><span>Brands, materials, variants</span><span>your choices</span></li>
+        <li><span>Defaults and other settings</span><span>yes</span></li>
+      </ul>
+      <div class="actions">
+        <button type="button" class="btn small primary" onclick={saveBackup}>Save backup</button>
+        <button type="button" class="btn small" onclick={() => backupInput?.click()}>Restore backup</button>
+        <input bind:this={backupInput} type="file" accept="application/json,.json" class="visually-hidden" tabindex="-1" aria-label="Backup file" onchange={chooseBackup} />
+      </div>
+      <p class="hint small">App: opens the share sheet, so you can save it to Files or Drive. Website: downloads a file.</p>
     {/if}
-    <div class="actions">
-      <button type="button" class="btn small" onclick={exportOverrides} disabled={!overrides.length}>Export color overrides</button>
-      <button type="button" class="btn small" onclick={() => overridesInput?.click()}>Import color overrides</button>
-      {#if overrides.length}<button type="button" class="btn small quiet danger" onclick={clearOverrides}>Clear all</button>{/if}
-      <input bind:this={overridesInput} type="file" accept="application/json,.json" class="visually-hidden" tabindex="-1" aria-label="Color overrides file" onchange={importOverrides} />
-    </div>
     </div>
   </details>
-
+    {:else if group === 'colors'}
   <details class="card" open={open.includes('colordb')} ontoggle={(e) => toggled('colordb', e)}>
     <summary><h2 id="set-colordb">Color database</h2>{#if dbOld}<span class="tag">Out of date</span>{/if}</summary>
     <div class="body">
@@ -833,6 +867,40 @@
     </div>
   </details>
 
+  <details class="card" open={open.includes('overrides')} ontoggle={(e) => toggled('overrides', e)}>
+    <summary><h2 id="set-overrides">Color overrides</h2></summary>
+    <div class="body">
+    {#if overrides.length}
+      <p class="hint">{overrides.length} brand {overrides.length === 1 ? 'color' : 'colors'} with your own hex. Yours always wins over the database.</p>
+      <ul class="saved-list">
+        {#each overrides as o (describeOverride(o))}
+          <li>
+            <span class="swatches pair" aria-hidden="true">
+              <span style:background={dot(o.was)}></span>
+              <span style:background={dot(o.hex)}></span>
+            </span>
+            <span class="what">
+              {describeOverride(o)}
+              <span class="note">{hexText(o.was)} → {hexText(o.hex)}</span>
+              {#if o.state === 'changed'}<span class="note warn">The database now says {hexText(o.dbNow)}</span>{/if}
+              {#if o.state === 'missing'}<span class="note warn">No longer in the database. Reset to remove it.</span>{/if}
+            </span>
+            <button type="button" class="btn small quiet danger" aria-label={`Reset ${describeOverride(o)}`} onclick={() => resetOverride(o)}>Reset</button>
+          </li>
+        {/each}
+      </ul>
+    {:else}
+      <p class="hint">None yet. On Create, pick a brand color and tap Override this color to give it your own hex.</p>
+    {/if}
+    <div class="actions">
+      <button type="button" class="btn small" onclick={exportOverrides} disabled={!overrides.length}>Export color overrides</button>
+      <button type="button" class="btn small" onclick={() => overridesInput?.click()}>Import color overrides</button>
+      {#if overrides.length}<button type="button" class="btn small quiet danger" onclick={clearOverrides}>Clear all</button>{/if}
+      <input bind:this={overridesInput} type="file" accept="application/json,.json" class="visually-hidden" tabindex="-1" aria-label="Color overrides file" onchange={importOverrides} />
+    </div>
+    </div>
+  </details>
+
   <details class="card" open={open.includes('closest')} ontoggle={(e) => toggled('closest', e)}>
     <summary><h2 id="set-closest">Closest brand colors</h2></summary>
     <div class="body">
@@ -840,43 +908,7 @@
       <Palette label="How many to show" items={SUGGEST_ITEMS} bind:value={suggestCount} allowCustom={false} onpick={pickSuggestCount} />
     </div>
   </details>
-
-  <details class="card" open={open.includes('backup')} ontoggle={(e) => toggled('backup', e)}>
-    <summary><h2 id="set-backup">Backup</h2></summary>
-    <div class="body">
-    <p class="hint">Everything you’ve set up in one file: keep it safe, or move it to another phone.</p>
-    {#if restoring}
-      <p class="backup-file"><strong>{restoring.name}</strong></p>
-      <ul class="backup-list">
-        {#each restoring.rows as r (r.label)}
-          <li><span>{r.label}</span><span>{r.total}{r.added ? ` (${r.added} new)` : ''}</span></li>
-        {/each}
-        <li><span>Settings and theme</span><span>from the file</span></li>
-      </ul>
-      <div class="actions">
-        <button type="button" class="btn small primary" onclick={() => restore(false)}>Add what’s new</button>
-        <button type="button" class="btn small" onclick={() => (restoring = null)}>Cancel</button>
-        <button type="button" class="btn small quiet danger" onclick={() => restore(true)}>Replace everything</button>
-      </div>
-      <p class="hint small">Add what’s new keeps everything you have. Replace everything deletes what’s on this device first, and asks you to confirm.</p>
-    {:else}
-      <ul class="backup-list">
-        {#each counts as r (r.label)}
-          <li><span>{r.label}</span><span>{r.total}</span></li>
-        {/each}
-        <li><span>Brands, materials, variants</span><span>your choices</span></li>
-        <li><span>Defaults and other settings</span><span>yes</span></li>
-      </ul>
-      <div class="actions">
-        <button type="button" class="btn small primary" onclick={saveBackup}>Save backup</button>
-        <button type="button" class="btn small" onclick={() => backupInput?.click()}>Restore backup</button>
-        <input bind:this={backupInput} type="file" accept="application/json,.json" class="visually-hidden" tabindex="-1" aria-label="Backup file" onchange={chooseBackup} />
-      </div>
-      <p class="hint small">App: opens the share sheet, so you can save it to Files or Drive. Website: downloads a file.</p>
-    {/if}
-    </div>
-  </details>
-
+    {:else if group === 'app'}
   <details class="card" open={open.includes('look')} ontoggle={(e) => toggled('look', e)}>
     <summary><h2 id="set-look">Appearance</h2></summary>
     <div class="body">
@@ -904,6 +936,8 @@
     </ul>
     </div>
   </details>
+    {/if}
+  {/if}
 </div>
 
 <style>
@@ -936,6 +970,36 @@
   .body { display: grid; gap: var(--s3); padding-bottom: var(--s4); }
   h2 { margin: 0; font-family: var(--font-label); font-size: 1.25rem; }
   .body > .hint, .body > p { margin: 0; }
+  .menu { display: grid; gap: var(--s3); }
+  .menu-row {
+    display: flex;
+    align-items: center;
+    gap: var(--s3);
+    width: 100%;
+    min-height: 64px;
+    padding: var(--s3) var(--s4);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--surface);
+    color: var(--ink);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .menu-row::after {
+    content: '';
+    margin-left: auto;
+    flex: none;
+    width: 9px;
+    height: 9px;
+    border-right: 2px solid var(--muted);
+    border-bottom: 2px solid var(--muted);
+    transform: rotate(-45deg);
+  }
+  .menu-text { display: grid; gap: 2px; }
+  .menu-text strong { font-family: var(--font-label); font-size: 1.25rem; font-weight: 600; }
+  .back { justify-self: start; }
+  .group-title { font-size: 1.5rem; }
   .small { font-size: 0.8125rem; }
   .check { display: flex; gap: var(--s3); align-items: flex-start; cursor: pointer; }
   .check input { width: 22px; height: 22px; margin-top: 2px; flex: none; accent-color: var(--action); }

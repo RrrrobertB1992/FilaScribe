@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { test, expect, status } from './nfc.js';
+import { test, expect, status, settingsCard } from './nfc.js';
 
 // Settings > Color database. The files the app downloads are served from here.
 const snapshot = JSON.parse(readFileSync('src/data/brand-colors.json', 'utf8'));
@@ -22,12 +22,7 @@ async function serve(page, { colors = snapshot, vendors = orca } = {}) {
   });
 }
 
-async function openCard(page) {
-  await page.getByRole('tab', { name: 'Settings' }).click();
-  const c = page.locator('details.card', { has: page.getByRole('heading', { name: 'Color database' }) });
-  if (!(await c.evaluate((d) => d.open))) await c.locator('summary').click();
-  return c;
-}
+const openCard = (page) => settingsCard(page, 'Color database');
 
 const brandCount = snapshot.brands.length;
 let colorCount = 0;
@@ -135,6 +130,9 @@ test.describe('Color database', () => {
   test('warns when the database is more than 35 days old', async ({ page }) => {
     await page.clock.setFixedTime(new Date('2026-12-20T12:00:00Z')); // 49 days after the bundled date
     await page.goto('/');
+    // the warning also shows on the menu row, so it isn't hidden behind a tap
+    await page.getByRole('tab', { name: 'Settings' }).click();
+    await expect(page.getByRole('button', { name: /^Brand colors/ })).toContainText('Out of date');
     const c = await openCard(page);
     await expect(c.getByRole('alert')).toContainText('over 35 days old');
     await expect(page.locator('summary', { hasText: 'Color database' })).toContainText('Out of date');
@@ -143,6 +141,8 @@ test.describe('Color database', () => {
   test('no warning on the 35th day', async ({ page }) => {
     await page.clock.setFixedTime(new Date('2026-12-06T12:00:00Z')); // 35 days after 2026-11-01
     await page.goto('/');
+    await page.getByRole('tab', { name: 'Settings' }).click();
+    await expect(page.getByRole('button', { name: /^Brand colors/ })).not.toContainText('Out of date');
     const c = await openCard(page);
     await expect(c.getByText(/days old/)).toHaveCount(0);
   });

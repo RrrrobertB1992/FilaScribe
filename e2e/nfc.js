@@ -151,3 +151,36 @@ export async function openCustom(page) {
 /** Gradient / Segments under Multi-color style (a brand may also have a "Gradient" variant). */
 export const colorStyle = (page, name) =>
   page.getByRole('group', { name: 'Multi-color style' }).getByRole('button', { name, exact: true });
+
+// Settings opens to a menu of groups; each card is inside one of them.
+const SETTINGS_GROUP = {
+  'Defaults for new tags': 'Your choices on the form',
+  Brands: 'Your choices on the form',
+  Materials: 'Your choices on the form',
+  Variants: 'Your choices on the form',
+  'Your chips': 'Your choices on the form',
+  'My filaments': 'Your saved data',
+  'Saved colors': 'Your saved data',
+  Backup: 'Your saved data',
+  'Color database': 'Brand colors',
+  'Color overrides': 'Brand colors',
+  'Closest brand colors': 'Brand colors',
+  Appearance: 'App',
+  About: 'App',
+};
+
+/** Open Settings and one of its groups ('Your saved data', …), starting from the menu whatever page it was on. */
+export async function openSettingsGroup(page, group) {
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  const back = page.getByRole('button', { name: '‹ Settings' });
+  if (await back.isVisible()) await back.click();
+  await page.getByRole('button', { name: new RegExp(`^${group}`) }).click();
+}
+
+/** A Settings card, opened (they start closed), going through its group. */
+export async function settingsCard(page, name) {
+  await openSettingsGroup(page, SETTINGS_GROUP[name]);
+  const c = page.locator('details.card', { has: page.getByRole('heading', { name, exact: true }) });
+  if (!(await c.evaluate((d) => d.open))) await c.locator('summary').click();
+  return c;
+}
