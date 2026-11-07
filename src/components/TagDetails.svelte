@@ -73,7 +73,7 @@
     margin: var(--s2) 0 0;
     padding: var(--s3);
     background: var(--surface);
-    border-radius: 6px;
+    border-radius: var(--r-control);
     overflow-x: auto;
     font-size: 0.8125rem;
   }

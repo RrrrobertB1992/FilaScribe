@@ -50,14 +50,14 @@
   .fold {
     padding: 0 var(--s4);
     border: 1px solid var(--line);
-    border-radius: 14px;
+    border-radius: var(--r-card);
     background: var(--surface);
   }
   summary {
     display: flex;
     align-items: center;
     gap: var(--s3);
-    min-height: 56px;
+    min-height: var(--h-row);
     padding: var(--s2) 0;
     cursor: pointer;
     list-style: none;

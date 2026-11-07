@@ -28,6 +28,15 @@
   --s4: 16px;
   --s5: 24px;
   --s6: 36px;
+
+  /* One set of shapes and sizes, so every control matches */
+  --r-control: 8px; /* buttons, inputs, tiles, steppers, boxes inside cards */
+  --r-card: 12px; /* cards, folds, lists, menu rows */
+  --r-pill: 999px; /* chips, tabs, filters */
+  --h-small: 36px; /* small buttons and filters */
+  --h-chip: 40px; /* chips, tabs and the segmented switches */
+  --h-control: 44px; /* inputs, buttons, steppers */
+  --h-row: 56px; /* tappable rows and card headers */
   color-scheme: light;
 }
 
@@ -108,18 +117,18 @@ button { cursor: pointer; }
 
 input[type='text'], input[type='number'], input:not([type]) {
   width: 100%;
-  min-height: 44px;
+  min-height: var(--h-control);
   padding: var(--s2) var(--s3);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--r-control);
   background: var(--surface);
 }
 input[aria-invalid='true'] { border-color: var(--danger); }
 
 .btn {
-  min-height: 44px;
+  min-height: var(--h-control);
   padding: var(--s2) var(--s4);
-  border-radius: 6px;
+  border-radius: var(--r-control);
   border: 1px solid var(--line);
   background: var(--surface);
   font-family: var(--font-label);
@@ -127,7 +136,9 @@ input[aria-invalid='true'] { border-color: var(--danger); }
   font-size: 1rem;
 }
 .btn.primary { background: var(--action); border-color: var(--action); color: var(--action-ink); }
-.btn.small { min-height: 36px; padding: var(--s1) var(--s3); font-size: 0.9375rem; }
-.btn.quiet { background: transparent; border-color: transparent; color: var(--action); padding-inline: var(--s2); }
+.btn.small { min-height: var(--h-small); padding: var(--s1) var(--s3); font-size: 0.9375rem; }
 .btn.danger { color: var(--danger); }
+
+/* Links: always the action blue with an underline */
+a { color: var(--action); text-decoration: underline; text-underline-offset: 2px; }
 .btn:disabled { opacity: 0.5; cursor: default; }

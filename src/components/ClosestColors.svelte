@@ -21,7 +21,7 @@
 {#if backTo}
   <div class="back">
     <span>Was your color {backTo}</span>
-    <button type="button" class="btn small quiet" onclick={onback}>Back to my color</button>
+    <button type="button" class="btn small" onclick={onback}>Back to my color</button>
   </div>
 {:else if suggestions?.length}
   <div class="suggest" role="group" aria-label="Closest brand colors">
@@ -46,10 +46,10 @@
     display: flex;
     align-items: center;
     gap: var(--s3);
-    min-height: 56px;
+    min-height: var(--h-row);
     padding: var(--s1) var(--s3);
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: var(--r-control);
     background: var(--bg);
     color: var(--ink);
     text-align: left;

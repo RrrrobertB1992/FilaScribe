@@ -561,7 +561,7 @@
       {/each}
     </nav>
   {:else}
-    <button type="button" class="btn small quiet back" onclick={() => showGroup(null)}>‹ Settings</button>
+    <button type="button" class="btn small back" onclick={() => showGroup(null)}>‹ Settings</button>
     <h2 class="group-title" id="set-group">{GROUPS.find((g) => g.id === group)?.title}</h2>
     {#if group === 'form'}
   <details class="card" open={open.includes('defaults')} ontoggle={(e) => toggled('defaults', e)}>
@@ -576,7 +576,7 @@
     <p class="hint small">{hasDefaults ? 'Your defaults.' : 'The built-in defaults.'}</p>
     <div class="actions">
       <button type="button" class="btn small" onclick={useForm}>Use the form as it is now</button>
-      <button type="button" class="btn small quiet" onclick={resetDefaults} disabled={!hasDefaults}>Reset to built-in</button>
+      <button type="button" class="btn small" onclick={resetDefaults} disabled={!hasDefaults}>Reset to built-in</button>
     </div>
     </div>
   </details>
@@ -618,7 +618,7 @@
     {/if}
     <p class="hint small">“colors” brands have colors under Brand in the color card.</p>
     <div class="actions">
-      <button type="button" class="btn small quiet" onclick={resetBrands}>Show the default brands</button>
+      <button type="button" class="btn small" onclick={resetBrands}>Show the default brands</button>
     </div>
     </div>
   </details>
@@ -652,7 +652,7 @@
       <button type="button" class="btn small" onclick={addOwnMaterialNow}>Add “{addOwnMaterial}” as your own material</button>
     {/if}
     <div class="actions">
-      <button type="button" class="btn small quiet" onclick={resetMaterials}>Show the default materials</button>
+      <button type="button" class="btn small" onclick={resetMaterials}>Show the default materials</button>
     </div>
     </div>
   </details>
@@ -668,8 +668,8 @@
     {:else}
       <input type="search" bind:value={findVariant} placeholder="Find a variant" aria-label="Find a variant" autocomplete="off" />
       <div class="actions">
-        <button type="button" class="btn small quiet" onclick={showEveryVariant} disabled={!hiddenVariants.length}>Show all</button>
-        <button type="button" class="btn small quiet" onclick={hideEveryVariant} disabled={hiddenCount === kinds.length}>Hide all</button>
+        <button type="button" class="btn small" onclick={showEveryVariant} disabled={!hiddenVariants.length}>Show all</button>
+        <button type="button" class="btn small" onclick={hideEveryVariant} disabled={hiddenCount === kinds.length}>Hide all</button>
       </div>
       <p class="hint small" aria-live="polite">{kinds.length} {kinds.length === 1 ? 'kind' : 'kinds'} · {hiddenCount} hidden</p>
       <div class="vcards" role="group" aria-label="Variants">
@@ -721,7 +721,7 @@
         </div>
       {/each}
       <div class="actions">
-        <button type="button" class="btn small quiet danger" onclick={clearChips}>Remove all your chips</button>
+        <button type="button" class="btn small danger" onclick={clearChips}>Remove all your chips</button>
       </div>
     {:else}
       <p class="hint">None yet. Tap Save next to a Custom variant, or write a tag with one. Brands and materials are above.</p>
@@ -745,7 +745,7 @@
     <div class="actions">
       <button type="button" class="btn small" onclick={exportFilaments} disabled={!filaments.length}>Export My filaments</button>
       <button type="button" class="btn small" onclick={() => filamentsInput?.click()}>Import My filaments</button>
-      {#if filaments.length}<button type="button" class="btn small quiet danger" onclick={clearFilaments}>Clear all</button>{/if}
+      {#if filaments.length}<button type="button" class="btn small danger" onclick={clearFilaments}>Clear all</button>{/if}
       <input bind:this={filamentsInput} type="file" accept="application/json,.json" class="visually-hidden" tabindex="-1" aria-label="My filaments file" onchange={importFilaments} />
     </div>
     </div>
@@ -763,7 +763,7 @@
               {#each g.list.slice(0, 6) as e}<span style:background={bar(e)}></span>{/each}
             </span>
             <span class="what">{g.label} <span class="n">{g.list.length}</span></span>
-            <button type="button" class="btn small quiet danger" aria-label={`Clear ${g.label}`} onclick={() => clearSaved(g.key)}>Clear</button>
+            <button type="button" class="btn small danger" aria-label={`Clear ${g.label}`} onclick={() => clearSaved(g.key)}>Clear</button>
           </li>
         {/each}
       </ul>
@@ -773,7 +773,7 @@
     <div class="actions">
       <button type="button" class="btn small" onclick={exportSaved} disabled={!savedCount}>Export saved colors</button>
       <button type="button" class="btn small" onclick={() => importInput?.click()}>Import saved colors</button>
-      {#if savedCount}<button type="button" class="btn small quiet danger" onclick={clearAllSaved}>Clear all</button>{/if}
+      {#if savedCount}<button type="button" class="btn small danger" onclick={clearAllSaved}>Clear all</button>{/if}
       <input bind:this={importInput} type="file" accept="application/json,.json" class="visually-hidden" tabindex="-1" aria-label="Saved colors file" onchange={importSaved} />
     </div>
     </div>
@@ -794,7 +794,7 @@
       <div class="actions">
         <button type="button" class="btn small primary" onclick={() => restore(false)}>Add what’s new</button>
         <button type="button" class="btn small" onclick={() => (restoring = null)}>Cancel</button>
-        <button type="button" class="btn small quiet danger" onclick={() => restore(true)}>Replace everything</button>
+        <button type="button" class="btn small danger" onclick={() => restore(true)}>Replace everything</button>
       </div>
       <p class="hint small">Add what’s new keeps everything you have. Replace everything deletes what’s on this device first, and asks you to confirm.</p>
     {:else}
@@ -870,7 +870,7 @@
     {/if}
     <div class="actions">
       <button type="button" class="btn small" onclick={checkDatabase} disabled={dbBusy}>{dbBusy && !dbCheck ? 'Checking…' : 'Check for updates'}</button>
-      {#if dbInfo?.origin === 'downloaded'}<button type="button" class="btn small quiet" onclick={goBackToBuiltIn} disabled={dbBusy}>Go back to the built-in copy</button>{/if}
+      {#if dbInfo?.origin === 'downloaded'}<button type="button" class="btn small" onclick={goBackToBuiltIn} disabled={dbBusy}>Go back to the built-in copy</button>{/if}
     </div>
     <p class="hint small">Your saved colors and color overrides are never changed by an update.</p>
     </div>
@@ -894,7 +894,7 @@
               {#if o.state === 'changed'}<span class="note warn">The database now says {hexText(o.dbNow)}</span>{/if}
               {#if o.state === 'missing'}<span class="note warn">No longer in the database. Reset to remove it.</span>{/if}
             </span>
-            <button type="button" class="btn small quiet danger" aria-label={`Reset ${describeOverride(o)}`} onclick={() => resetOverride(o)}>Reset</button>
+            <button type="button" class="btn small danger" aria-label={`Reset ${describeOverride(o)}`} onclick={() => resetOverride(o)}>Reset</button>
           </li>
         {/each}
       </ul>
@@ -904,7 +904,7 @@
     <div class="actions">
       <button type="button" class="btn small" onclick={exportOverrides} disabled={!overrides.length}>Export color overrides</button>
       <button type="button" class="btn small" onclick={() => overridesInput?.click()}>Import color overrides</button>
-      {#if overrides.length}<button type="button" class="btn small quiet danger" onclick={clearOverrides}>Clear all</button>{/if}
+      {#if overrides.length}<button type="button" class="btn small danger" onclick={clearOverrides}>Clear all</button>{/if}
       <input bind:this={overridesInput} type="file" accept="application/json,.json" class="visually-hidden" tabindex="-1" aria-label="Color overrides file" onchange={importOverrides} />
     </div>
     </div>
@@ -956,13 +956,13 @@
   .card {
     padding: 0 var(--s4);
     border: 1px solid var(--line);
-    border-radius: 14px;
+    border-radius: var(--r-card);
     background: var(--surface);
   }
   summary {
     display: flex;
     align-items: center;
-    min-height: 56px;
+    min-height: var(--h-row);
     cursor: pointer;
     list-style: none;
   }
@@ -990,7 +990,7 @@
     min-height: 64px;
     padding: var(--s3) var(--s4);
     border: 1px solid var(--line);
-    border-radius: 14px;
+    border-radius: var(--r-card);
     background: var(--surface);
     color: var(--ink);
     font: inherit;
@@ -1033,10 +1033,10 @@
     display: inline-flex;
     align-items: center;
     gap: 2px;
-    min-height: 36px;
+    min-height: var(--h-small);
     padding: 0 2px 0 var(--s3);
     border: 2px dashed var(--muted);
-    border-radius: 999px;
+    border-radius: var(--r-pill);
     font-family: var(--font-label);
     font-weight: 500;
   }
@@ -1054,10 +1054,10 @@
   }
 
   .chip-add {
-    min-height: 36px;
+    min-height: var(--h-small);
     padding: 0 var(--s3);
     border: 2px solid var(--line);
-    border-radius: 999px;
+    border-radius: var(--r-pill);
     background: transparent;
     font: inherit;
     font-family: var(--font-label);
@@ -1075,7 +1075,7 @@
     min-width: 0;
     padding: var(--s2) var(--s3) var(--s3);
     border: 2px solid var(--action);
-    border-radius: 12px;
+    border-radius: var(--r-card);
     background: var(--surface);
     text-align: left;
     font: inherit;
@@ -1087,7 +1087,7 @@
     flex: none;
     width: 40px;
     height: 24px;
-    border-radius: 999px;
+    border-radius: var(--r-pill);
     background: var(--action);
     transition: background 0.15s;
   }
@@ -1112,10 +1112,10 @@
   .vcard.off .vmain { text-decoration: line-through; }
   .vcard.off .vstate { color: var(--muted); }
   .hchip {
-    min-height: 36px;
+    min-height: var(--h-small);
     padding: 0 var(--s3);
     border: 2px solid var(--action);
-    border-radius: 999px;
+    border-radius: var(--r-pill);
     background: var(--surface);
     font: inherit;
     font-family: var(--font-label);
@@ -1130,7 +1130,7 @@
     align-items: center;
     gap: var(--s3);
     width: 100%;
-    min-height: 44px;
+    min-height: var(--h-control);
     padding: 0 var(--s1);
     border: 0;
     border-bottom: 1px solid var(--line);
@@ -1170,18 +1170,17 @@
   .note { display: block; font-family: var(--font-body, inherit); font-weight: 400; font-size: 0.8125rem; color: var(--muted); }
   .note.warn { color: var(--brass); }
   .swatches.pair span:first-child { outline: 1px dashed var(--muted); outline-offset: 1px; }
-  .n { margin-left: 4px; padding: 0 6px; border-radius: 999px; background: var(--chip); color: var(--muted); font-size: 0.8125rem; }
+  .n { margin-left: 4px; padding: 0 6px; border-radius: var(--r-pill); background: var(--chip); color: var(--muted); font-size: 0.8125rem; }
 
-  .about a { color: var(--action); }
   .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s2); }
-  .tile { display: grid; gap: 2px; padding: var(--s2) var(--s3); border: 1px solid var(--line); border-radius: 10px; }
+  .tile { display: grid; gap: 2px; padding: var(--s2) var(--s3); border: 1px solid var(--line); border-radius: var(--r-control); }
   .tile strong { font-family: var(--font-label); font-size: 1.375rem; }
-  .tag { margin-left: var(--s2); padding: 2px 8px; border-radius: 999px; border: 1px solid var(--danger); color: var(--danger); font-size: 0.75rem; }
-  .notice { display: grid; gap: 2px; padding: var(--s3); border: 1px solid var(--action); border-radius: 10px; }
+  .tag { margin-left: var(--s2); padding: 2px 8px; border-radius: var(--r-pill); border: 1px solid var(--danger); color: var(--danger); font-size: 0.75rem; }
+  .notice { display: grid; gap: 2px; padding: var(--s3); border: 1px solid var(--action); border-radius: var(--r-control); }
   .changes { display: grid; gap: var(--s2); }
   .changes p { margin: 0; }
-  .change { border: 1px solid var(--line); border-radius: 10px; padding: 0 var(--s3); }
-  .change summary { min-height: 44px; gap: var(--s2); }
+  .change { border: 1px solid var(--line); border-radius: var(--r-control); padding: 0 var(--s3); }
+  .change summary { min-height: var(--h-control); gap: var(--s2); }
   .change ul { margin: 0 0 var(--s2); padding-left: 1.1em; display: grid; gap: 2px; font-size: 0.875rem; }
   .kind { font-weight: 700; }
   .sources { margin: 0; padding-left: 1.2em; display: grid; gap: var(--s1); color: var(--muted); }

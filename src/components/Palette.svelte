@@ -194,7 +194,7 @@
       </div>
     {/if}
   {:else if removable.includes(value)}
-    <button type="button" class="btn small quiet danger remove" onclick={() => onremove(value)}>Remove “{value}” from your chips</button>
+    <button type="button" class="btn small danger remove" onclick={() => onremove(value)}>Remove “{value}” from your chips</button>
   {/if}
   {#if error}<p class="error-text">{error}</p>{/if}
 </div>
@@ -204,9 +204,9 @@
   .head .hint { margin: 0; }
   .chips { display: flex; flex-wrap: wrap; gap: var(--s2); }
   .chip {
-    min-height: 40px;
+    min-height: var(--h-chip);
     padding: 0 var(--s3);
-    border-radius: 999px;
+    border-radius: var(--r-pill);
     border: 1px solid transparent;
     background: var(--chip);
     font-family: var(--font-label);
@@ -215,13 +215,13 @@
   }
   .customrow { display: flex; gap: var(--s2); align-items: center; }
   .customrow input { flex: 1; min-width: 0; }
-  .save { flex: none; min-height: 44px; }
+  .save { flex: none; min-height: var(--h-control); }
   .remove { justify-self: start; }
   .matches { display: flex; flex-wrap: wrap; gap: var(--s1); }
   .match {
-    min-height: 34px;
+    min-height: var(--h-small);
     padding: 0 var(--s3);
-    border-radius: 999px;
+    border-radius: var(--r-pill);
     border: 1px dashed var(--line);
     background: transparent;
     font-family: var(--font-label);
