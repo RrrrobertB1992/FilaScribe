@@ -101,7 +101,7 @@
   .area {
     position: relative;
     height: 160px;
-    border-radius: 6px;
+    border-radius: var(--r-control);
     background:
       linear-gradient(to top, #000, transparent),
       linear-gradient(to right, #fff, transparent),
@@ -124,7 +124,7 @@
     height: 28px;
     margin: 0;
     appearance: none;
-    border-radius: 14px;
+    border-radius: var(--r-card);
     background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
   }
   .hue::-webkit-slider-thumb {

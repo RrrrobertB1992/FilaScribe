@@ -454,7 +454,7 @@
       <p>{nfcState.reason}</p>
       {#if nfcState.available && nfcState.enabled === false}
         <button type="button" class="btn small" onclick={async () => { await nfc.openSettings(); }}>Open NFC settings</button>
-        <button type="button" class="btn small quiet" onclick={async () => { nfcState = await nfc.status(); }}>Check again</button>
+        <button type="button" class="btn small" onclick={async () => { nfcState = await nfc.status(); }}>Check again</button>
       {/if}
     </div>
   {/if}
@@ -626,7 +626,7 @@
       <button type="button" class="btn save-spool" onclick={saveFilament}>+ Save this spool as a filament</button>
 
       {#if mode === 'create'}
-        <button type="button" class="btn quiet start-over" onclick={startOver}>Start over</button>
+        <button type="button" class="btn start-over" onclick={startOver}>Start over</button>
       {/if}
     </form>
   {/if}
@@ -645,7 +645,7 @@
       <div class="offer" role="group" aria-label="Save this spool">
         <p>Save this spool to My filaments?</p>
         <button type="button" class="btn small" onclick={saveFilament}>Save</button>
-        <button type="button" class="btn small quiet" onclick={() => (offer = null)}>Not now</button>
+        <button type="button" class="btn small" onclick={() => (offer = null)}>Not now</button>
       </div>
     {/if}
     {#if status}
@@ -685,12 +685,12 @@
   }
   header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s3); }
   h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: 0.01em; }
-  .modes { display: inline-flex; padding: 3px; border-radius: 8px; background: var(--chip); }
+  .modes { display: inline-flex; padding: 3px; border-radius: var(--r-control); background: var(--chip); }
   .modes button {
-    min-height: 40px;
+    min-height: var(--h-chip);
     padding: 0 var(--s3);
     border: 0;
-    border-radius: 6px;
+    border-radius: calc(var(--r-control) - 3px);
     background: transparent;
     font-family: var(--font-label);
     font-weight: 600;
@@ -722,13 +722,13 @@
   .trio { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s3); margin-top: var(--s3); }
   .pair label, .trio label { display: grid; gap: var(--s1); font-size: 0.875rem; color: var(--muted); }
   .pair input, .trio input { color: var(--ink); font-variant-numeric: tabular-nums; }
-  .seg { display: flex; padding: 3px; border-radius: 10px; background: var(--chip); }
+  .seg { display: flex; padding: 3px; border-radius: var(--r-control); background: var(--chip); }
   .seg button {
     flex: 1;
-    min-height: 40px;
+    min-height: var(--h-chip);
     padding: 0 var(--s2);
     border: 0;
-    border-radius: 8px;
+    border-radius: calc(var(--r-control) - 3px);
     background: transparent;
     font-family: var(--font-label);
     font-weight: 600;
@@ -740,7 +740,7 @@
     margin: 0;
     padding: var(--s3);
     background: var(--surface);
-    border-radius: 6px;
+    border-radius: var(--r-control);
     overflow-x: auto;
     font-size: 0.8125rem;
   }
@@ -752,13 +752,12 @@
     gap: var(--s2);
     padding: var(--s2) var(--s3);
     border: 1px solid var(--line);
-    border-radius: 12px;
+    border-radius: var(--r-card);
     background: var(--surface);
   }
   .offer p { margin: 0; flex: 1; font-size: 0.9375rem; }
 
   footer { margin-top: var(--s6); color: var(--muted); font-size: 0.8125rem; }
-  footer a { color: inherit; }
 
   .dock {
     position: fixed;

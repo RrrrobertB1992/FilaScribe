@@ -71,10 +71,10 @@
 <style>
   .find {
     width: 100%;
-    min-height: 44px;
+    min-height: var(--h-control);
     padding: 0 var(--s3);
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: var(--r-control);
     background: var(--bg);
     color: var(--ink);
     font: inherit;
@@ -84,7 +84,7 @@
     margin: 0;
     padding: 0;
     border: 1px solid var(--line);
-    border-radius: 12px;
+    border-radius: var(--r-card);
     background: var(--bg);
     /* About five rows, then it scrolls inside the card */
     max-height: 21rem;
@@ -105,7 +105,7 @@
     align-items: center;
     gap: var(--s3);
     padding: var(--s2) var(--s2) var(--s2) var(--s3);
-    min-height: 56px;
+    min-height: var(--h-row);
     border: 0;
     background: none;
     color: inherit;
@@ -134,7 +134,7 @@
     margin-right: var(--s2);
     padding: 0 var(--s2);
     border: 1px solid var(--line);
-    border-radius: 999px;
+    border-radius: var(--r-pill);
     font-size: 0.75rem;
     font-weight: 700;
     color: var(--ink);

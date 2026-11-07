@@ -39,7 +39,7 @@
     <HsvPicker bind:hex={picked} {label} />
     <div class="actions">
       <button bind:this={doneBtn} type="button" class="btn primary" disabled={!valid} onclick={() => onuse(picked)}>Use this color</button>
-      <button type="button" class="btn quiet" onclick={oncancel}>Cancel</button>
+      <button type="button" class="btn" onclick={oncancel}>Cancel</button>
     </div>
   </div>
 </div>
@@ -72,10 +72,10 @@
   .hexbox input {
     flex: 1;
     min-width: 0;
-    min-height: 40px;
+    min-height: var(--h-chip);
     padding: 0 var(--s2);
     border: 1px solid var(--line);
-    border-radius: 8px;
+    border-radius: var(--r-control);
     background: var(--bg);
     color: var(--ink);
     font: inherit;

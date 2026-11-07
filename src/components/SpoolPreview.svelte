@@ -44,7 +44,7 @@
     margin-bottom: var(--s3);
     padding: var(--s4);
     border: 1px solid var(--line);
-    border-radius: 14px;
+    border-radius: var(--r-card);
     background: var(--surface);
   }
   .reel {

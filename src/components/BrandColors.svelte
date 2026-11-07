@@ -439,7 +439,7 @@
             </label>
             <button type="button" class="btn small" aria-label={editor.hexes.length > 1 ? `Pick color ${i + 1}` : 'Pick a color'} onclick={() => (popup = i)}>Pick</button>
             {#if editor.mode === 'clone' && editor.hexes.length > 1}
-              <button type="button" class="btn small quiet danger" aria-label={`Remove color ${i + 1}`} onclick={() => removeColor(i)}>Remove</button>
+              <button type="button" class="btn small danger" aria-label={`Remove color ${i + 1}`} onclick={() => removeColor(i)}>Remove</button>
             {/if}
           </div>
         {/each}
@@ -472,8 +472,8 @@
           {:else}
             <button type="button" class="btn small primary" onclick={saveEditor}>Save override</button>
           {/if}
-          <button type="button" class="btn small quiet" onclick={() => (editor = null)}>Cancel</button>
-          {#if editor.mode === 'override' && pickedEdit}<button type="button" class="btn small quiet danger" onclick={resetEditor}>Reset to database</button>{/if}
+          <button type="button" class="btn small" onclick={() => (editor = null)}>Cancel</button>
+          {#if editor.mode === 'override' && pickedEdit}<button type="button" class="btn small danger" onclick={resetEditor}>Reset to database</button>{/if}
         </div>
       </div>
     {/if}
@@ -527,7 +527,7 @@
       {#if !tiles.length}<p class="hint">No colors match “{search}”.</p>{/if}
       {#if tiles.length > shown}
         {@const left = tiles.length - shown}
-        <button type="button" class="btn small quiet" onclick={() => (shown += PAGE)}>Show {Math.min(PAGE, left)} more ({left} left)</button>
+        <button type="button" class="btn small" onclick={() => (shown += PAGE)}>Show {Math.min(PAGE, left)} more ({left} left)</button>
       {/if}
     {/if}
 
@@ -550,23 +550,23 @@
   .filters, .actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
   .lines { display: flex; flex-wrap: wrap; gap: var(--s1); }
   .line {
-    min-height: 34px;
+    min-height: var(--h-small);
     padding: 0 var(--s3);
-    border-radius: 999px;
-    border: 1px solid var(--line);
-    background: transparent;
+    border-radius: var(--r-pill);
+    border: 1px solid transparent;
+    background: var(--chip);
     font-family: var(--font-label);
     font-size: 0.9375rem;
   }
-  .line[aria-pressed='true'] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
-  .search { min-height: 40px; }
+  .line[aria-pressed='true'] { background: var(--ink); color: var(--bg); font-weight: 600; }
+  .search { min-height: var(--h-chip); }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: var(--s2); }
   .tile {
     display: grid;
     gap: 3px;
     align-content: start;
     padding: var(--s2);
-    border-radius: 8px;
+    border-radius: var(--r-control);
     border: 2px solid transparent;
     background: var(--bg);
     text-align: center;
@@ -581,7 +581,7 @@
     gap: var(--s2);
     padding: var(--s3);
     border: 1px dashed var(--muted);
-    border-radius: 10px;
+    border-radius: var(--r-control);
     background: var(--bg);
   }
   .override .head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s3); }
@@ -605,13 +605,13 @@
   .override .style { display: flex; gap: var(--s2); }
   .override .style .btn[aria-pressed='true'] { background: var(--ink); color: var(--bg); }
   .namebox { display: grid; gap: 2px; font-size: 0.8125rem; color: var(--muted); }
-  .namebox input { min-height: 40px; padding: 0 var(--s2); border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; }
+  .namebox input { min-height: var(--h-chip); padding: 0 var(--s2); border: 1px solid var(--line); border-radius: var(--r-control); background: var(--bg); color: var(--ink); font: inherit; }
   .override .db { display: block; color: var(--muted); font-size: 0.8125rem; }
   .hexrow { display: flex; align-items: center; gap: var(--s3); }
-  .hexrow .chip { flex: none; width: 34px; height: 34px; border-radius: 8px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25); }
+  .hexrow .chip { flex: none; width: 34px; height: 34px; border-radius: var(--r-control); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25); }
   .hexrow label { flex: 1; display: grid; gap: 2px; font-size: 0.8125rem; color: var(--muted); }
   .hexbox { display: flex; align-items: center; gap: 2px; font-family: var(--font-label); font-size: 1.0625rem; color: var(--ink); }
-  .hexbox input { flex: 1; min-width: 0; min-height: 40px; letter-spacing: 0.06em; }
+  .hexbox input { flex: 1; min-width: 0; min-height: var(--h-chip); letter-spacing: 0.06em; }
   .all { display: flex; gap: var(--s2); align-items: flex-start; font-size: 0.9375rem; }
   .all input { width: 20px; height: 20px; margin-top: 2px; flex: none; accent-color: var(--action); }
   .bar {
@@ -627,5 +627,4 @@
   .line-name { font-size: 0.6875rem; color: var(--muted); line-height: 1.2; }
   .multi { font-size: 0.6875rem; font-weight: 700; color: var(--action); line-height: 1.2; }
   .credit { margin: 0; padding-top: var(--s1); border-top: 1px solid var(--line); font-size: 0.75rem; color: var(--muted); }
-  .credit a { color: inherit; }
 </style>
