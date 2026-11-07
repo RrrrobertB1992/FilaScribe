@@ -33,6 +33,7 @@
     onchange = () => {},
     onclone = () => {}, // Clone: save these colors (hexes, name, color type) as a new saved color
     suggestLimit = 0, // how many closest brand colors to suggest (Settings); 0 is off
+    suggestMaxDelta = 12, // how far apart (CIEDE2000) a suggestion may be (Settings: How close)
     suggestions = $bindable(null), // null: none to offer here; [] = nothing close; else the closest colors
     backTo = $bindable(''), // after picking a suggestion: the custom color it replaced, as text
   } = $props();
@@ -142,7 +143,7 @@
       suggestions = null;
       return;
     }
-    suggestions = CM.nearest(candidateTiles, mine, suggestLimit).map((s) => ({
+    suggestions = CM.nearest(candidateTiles, mine, suggestLimit, suggestMaxDelta).map((s) => ({
       id: s.tile.id,
       name: s.tile.info.name,
       line: s.tile.line.name,

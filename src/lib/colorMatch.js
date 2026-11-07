@@ -3,12 +3,15 @@
 //
 // "Near" is how the eye sees it: the colors are compared in CIELAB with the
 // CIEDE2000 formula, not by raw RGB distance. A color is only offered when
-// it's also in the same color family, so orange never matches red and pink
-// never matches red even when the numbers say they're not far apart:
-//   - real colors (not greys) must be within HUE_LIMIT degrees of hue, both
-//     in Lab and on the ordinary color wheel (Lab alone puts blue and violet
-//     close together);
+// it's also in the same color family, so blue never matches violet even when
+// the numbers say they're not far apart:
+//   - real colors must be within WHEEL_LIMIT degrees of each other on the
+//     ordinary color wheel (Lab hue alone puts blue and violet close
+//     together). It is a plain check with no special cases, so a color is
+//     never turned away by a narrow miss at some cutoff;
 //   - a grey only matches a grey (or a very muted color).
+// How close is close enough is a setting (Strict, Normal, Loose), which is
+// the limit passed in as `maxDelta`.
 // Gradients and segments compare color by color, in order, and only against
 // colors with the same number of parts.
 
@@ -16,15 +19,10 @@
 export const MAX_DELTA = 12;
 /** Up to this, the label says "Very close"; beyond it, "Close". */
 export const VERY_CLOSE = 5;
-/** How far apart the hues can be, in degrees, for colors with real color. */
-export const HUE_LIMIT = 15;
-/** Muted colors have a noisy hue, so they get a wider limit. */
-export const MUTED_HUE_LIMIT = 25;
-/** The same check on the ordinary color wheel (HSV), for saturated colors. */
+/** How far apart two colors can be on the ordinary color wheel, in degrees. */
 export const WHEEL_LIMIT = 20;
-/** Below this chroma a color counts as a grey; below MUTED_CHROMA, as muted. */
+/** Below this chroma a color counts as a grey. */
 export const GREY_CHROMA = 8;
-export const MUTED_CHROMA = 25;
 
 const rad = (d) => (d * Math.PI) / 180;
 const deg = (r) => (r * 180) / Math.PI;
@@ -111,14 +109,13 @@ const gapBetween = (x, y) => {
 };
 
 const chroma = ([, a, b]) => Math.hypot(a, b);
-const hueOf = ([, a, b]) => (deg(Math.atan2(b, a)) + 360) % 360;
 
 /**
  * How two single colors compare: { delta, ok }. `ok` means near enough in
  * shade AND in the same color family; `delta` is the CIEDE2000 distance.
  * Colors that aren't valid hex never match.
  */
-export function compare(hexA, hexB) {
+export function compare(hexA, hexB, maxDelta = MAX_DELTA) {
   const A = toLab(hexA);
   const B = toLab(hexB);
   if (!A || !B) return { delta: Infinity, ok: false };
@@ -130,12 +127,10 @@ export function compare(hexA, hexB) {
   } else if (ca < GREY_CHROMA || cb < GREY_CHROMA) {
     family = Math.abs(ca - cb) <= 12; // a grey doesn't match a vivid color
   } else {
-    const labGap = gapBetween(hueOf(A), hueOf(B));
-    family = labGap <= (Math.min(ca, cb) < MUTED_CHROMA ? MUTED_HUE_LIMIT : HUE_LIMIT);
     const [wa, wb] = [wheelHue(hexA), wheelHue(hexB)];
-    if (family && wa !== null && wb !== null) family = gapBetween(wa, wb) <= WHEEL_LIMIT;
+    family = wa === null || wb === null || gapBetween(wa, wb) <= WHEEL_LIMIT;
   }
-  return { delta, ok: family && delta <= MAX_DELTA };
+  return { delta, ok: family && delta <= maxDelta };
 }
 
 /**
@@ -143,12 +138,12 @@ export function compare(hexA, hexB) {
  * { delta, label } or null when it's not a match. Colors are compared in
  * order, and only when there are as many of them.
  */
-export function closeness(mine, theirs) {
+export function closeness(mine, theirs, maxDelta = MAX_DELTA) {
   if (!mine.length || mine.length !== theirs.length) return null;
   let sum = 0;
   let worst = 0;
   for (let i = 0; i < mine.length; i++) {
-    const { delta, ok } = compare(mine[i], theirs[i]);
+    const { delta, ok } = compare(mine[i], theirs[i], maxDelta);
     if (!ok) return null;
     sum += delta;
     worst = Math.max(worst, delta);
@@ -160,13 +155,13 @@ export function closeness(mine, theirs) {
  * The nearest of `tiles` ({ info: { colors } }, see tilesFor in
  * brandColors.js) to the colors `mine`, nearest first, at most `limit`.
  * Returns [{ tile, delta, label }]; fewer than `limit`, or none, when not
- * enough of them are close.
+ * enough of them are within `maxDelta`.
  */
-export function nearest(tiles, mine, limit = 3) {
+export function nearest(tiles, mine, limit = 3, maxDelta = MAX_DELTA) {
   if (limit < 1) return [];
   const out = [];
   for (const tile of tiles) {
-    const c = closeness(mine, tile.info.colors);
+    const c = closeness(mine, tile.info.colors, maxDelta);
     if (c) out.push({ tile, ...c });
   }
   return out.sort((a, b) => a.delta - b.delta).slice(0, limit);

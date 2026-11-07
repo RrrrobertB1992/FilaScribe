@@ -11,6 +11,7 @@ const HERE = {
   'filascribe-saved-colors': JSON.stringify({ 'Generic|PETG': [{ colors: ['ABCDEF'], name: 'Sky', variants: ['Basic'] }] }),
   'filascribe-custom-chips': JSON.stringify({ brands: [], materials: [], variants: { 'Generic|PLA': ['Rapid'] } }),
   'filascribe-closest-colors': '5',
+  'filascribe-closest-closeness': 'loose',
 };
 
 // A backup made on another phone: one spool you have, one you don't, other settings
@@ -29,6 +30,7 @@ const THERE = {
     hiddenVariants: [],
     defaults: {},
     closestColors: 1,
+    closestCloseness: 'strict',
     theme: 'dark',
   },
 };
@@ -71,6 +73,7 @@ test.describe('Backup', () => {
     expect(Object.keys(file.data.savedColors)).toEqual(['Generic|PETG']);
     expect(file.data.customChips.variants['Generic|PLA']).toEqual(['Rapid']);
     expect(file.data.closestColors).toBe(5);
+    expect(file.data.closestCloseness).toBe('loose');
     await expect(status(page)).toHaveText('Backup saved to your downloads.');
   });
 
@@ -117,6 +120,7 @@ test.describe('Backup', () => {
     expect(names).toHaveLength(3);
     // settings come from the file, and show straight away
     expect(await stored(page, 'filascribe-closest-colors')).toBe('1');
+    expect(await stored(page, 'filascribe-closest-closeness')).toBe('strict');
     expect(await stored(page, 'filascribe-theme')).toBe('dark');
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     expect(await stored(page, 'filascribe-filaments-auto')).toBe('1');

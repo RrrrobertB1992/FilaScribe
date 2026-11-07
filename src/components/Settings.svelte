@@ -11,6 +11,7 @@
   import { getEdits, removeEdit, clearEdits, importEdits, replaceEdits } from '../lib/manualColorsStore.svelte.js';
   import * as Theme from '../lib/theme.js';
   import { getSuggestionCount, setSuggestionCount } from '../lib/suggestionCountStore.svelte.js';
+  import { getCloseness, setCloseness } from '../lib/suggestionClosenessStore.svelte.js';
   import { exportJson, readJsonFile } from '../lib/backup.js';
   import * as Backup from '../lib/backup.js';
   import { Capacitor } from '@capacitor/core';
@@ -493,6 +494,8 @@
     defaults = d.defaults;
     suggestCount = String(d.closestColors);
     setSuggestionCount(d.closestColors);
+    closeness = d.closestCloseness;
+    setCloseness(d.closestCloseness);
     theme = d.theme;
     Theme.apply(d.theme);
   }
@@ -529,6 +532,12 @@
     ...[1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: String(n) })),
   ];
   const pickSuggestCount = (v) => setSuggestionCount(Number(v));
+  let closeness = $state(getCloseness());
+  const CLOSENESS_ITEMS = [
+    { value: 'strict', label: 'Strict' },
+    { value: 'normal', label: 'Normal' },
+    { value: 'loose', label: 'Loose' },
+  ];
 
   // --- About ---
 
@@ -904,8 +913,10 @@
   <details class="card" open={open.includes('closest')} ontoggle={(e) => toggled('closest', e)}>
     <summary><h2 id="set-closest">Closest brand colors</h2></summary>
     <div class="body">
-      <p class="hint">When a color isn’t a brand color, suggest the nearest ones from the brand you picked. Only colors that are close in shade and in color family are suggested, so fewer than this may show.</p>
+      <p class="hint">When a color isn’t a brand color, suggest the nearest ones from the brand you picked. Colors from a different color family, like blue and violet, are never suggested, so fewer than this may show.</p>
       <Palette label="How many to show" items={SUGGEST_ITEMS} bind:value={suggestCount} allowCustom={false} onpick={pickSuggestCount} />
+      <Palette label="How close" items={CLOSENESS_ITEMS} bind:value={closeness} allowCustom={false} onpick={setCloseness} />
+      <p class="hint small">Normal suggests shades that are clearly alike. Strict only suggests near-identical ones. Loose also suggests shades that are a little different.</p>
     </div>
   </details>
     {:else if group === 'app'}

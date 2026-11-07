@@ -15,6 +15,7 @@ import * as MaterialList from './materialList.js';
 import * as VariantList from './variantList.js';
 import * as Defaults from './defaults.js';
 import * as SuggestionCount from './suggestionCount.js';
+import * as Closeness from './suggestionCloseness.js';
 import * as Theme from './theme.js';
 
 function download(json, filename) {
@@ -79,6 +80,7 @@ export function snapshot(storage = globalThis.localStorage) {
     hiddenVariants: VariantList.load(storage),
     defaults: Defaults.load(storage),
     closestColors: SuggestionCount.load(storage),
+    closestCloseness: Closeness.load(storage),
     theme: Theme.load(storage),
   };
 }
@@ -95,6 +97,7 @@ export function apply(data, storage = globalThis.localStorage) {
   VariantList.store(data.hiddenVariants, storage);
   Defaults.store(data.defaults, storage);
   SuggestionCount.store(data.closestColors, storage);
+  Closeness.store(data.closestCloseness, storage);
   Theme.store(data.theme, storage);
 }
 
@@ -123,6 +126,7 @@ export function parse(file) {
   put(VariantList.STORAGE_KEY, Array.isArray(d.hiddenVariants) ? { hidden: d.hiddenVariants } : undefined);
   put(Defaults.STORAGE_KEY, d.defaults);
   if (d.closestColors !== undefined) mem.setItem(SuggestionCount.STORAGE_KEY, String(d.closestColors));
+  if (typeof d.closestCloseness === 'string') mem.setItem(Closeness.STORAGE_KEY, d.closestCloseness);
   if (typeof d.theme === 'string') mem.setItem(Theme.STORAGE_KEY, d.theme);
   if (d.autoFilaments === true) mem.setItem(Filaments.AUTO_KEY, '1');
   return snapshot(mem);
