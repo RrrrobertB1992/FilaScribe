@@ -28,6 +28,8 @@
     setVariant = () => {},
     onstatus = () => {},
     errors = [],
+    foldId = 'colors', // Read & update remembers its own open or shut state
+    foldOpen = true, // open to start with, unless the user shut it
     showSuggestions = true, // the closest brand colors strip here; Quick edits shows it instead on Read & update
     suggestions = $bindable(null), // the closest brand colors (see BrandColors)
     backTo = $bindable(''), // the colors a picked suggestion replaced
@@ -179,7 +181,7 @@
   }
 </script>
 
-<Fold id="colors" defaultOpen forceOpen={errors.length > 0} cls="colorsec">
+<Fold id={foldId} defaultOpen={foldOpen} forceOpen={errors.length > 0} cls="colorsec">
   {#snippet head()}
     <span class="current" role="group" aria-labelledby="colorsec-label">
       <span class="swatch" class:edited={summary.edited} style:background={swatch} aria-hidden="true"></span>

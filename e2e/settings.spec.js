@@ -1,4 +1,4 @@
-import { test, expect, chip, writeTag, lastWrite, status, temps, placeTag, showAllMaterials } from './nfc.js';
+import { test, expect, chip, writeTag, lastWrite, status, temps, placeTag, showAllMaterials, openCards } from './nfc.js';
 
 const settings = (page) => page.getByRole('tab', { name: 'Settings' }).click();
 // A Settings card, opened (they start closed)
@@ -199,6 +199,7 @@ test.describe('Settings', () => {
     await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'PEEK', brand: 'Generic', color_hex: 'FFFFFF' });
     await page.getByRole('button', { name: 'Read tag' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
+    await openCards(page);
     await expect(chip(page, 'PEEK')).toHaveAttribute('aria-pressed', 'true');
     // pick something else and it goes away again
     await chip(page, 'PLA').click();
@@ -377,6 +378,7 @@ test.describe('Settings', () => {
     await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'PLA', brand: 'Bambu Lab', color_hex: 'FFFFFF', subtype: 'Glow' });
     await page.getByRole('button', { name: 'Read tag' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
+    await openCards(page);
     await expect(vbtn(row, 'None')).toBeVisible();
     await expect(vbtn(row, 'Glow')).toHaveAttribute('aria-pressed', 'true');
     // pick something else and it goes away again

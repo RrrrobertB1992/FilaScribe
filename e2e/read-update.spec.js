@@ -1,4 +1,4 @@
-import { test, expect, colorStyle, placeTag, lastWrite, writeCount, chip, status, temps } from './nfc.js';
+import { test, expect, colorStyle, placeTag, lastWrite, writeCount, chip, status, temps, openCards } from './nfc.js';
 
 const U1_TAG = {
   protocol: 'openspool', version: '1.0', type: 'PETG', subtype: 'Rapid', color_hex: '#AFAFAF',
@@ -9,6 +9,12 @@ const U1_TAG = {
 async function readTag(page) {
   await page.getByRole('button', { name: /^Read (tag|another)$/ }).click();
   await expect(page.getByRole('dialog')).toBeHidden();
+}
+
+// Read, then open the cards that start shut so a test can look inside them
+async function readOpen(page) {
+  await readTag(page);
+  await openCards(page);
 }
 
 test.describe('Read & update', () => {
@@ -23,7 +29,7 @@ test.describe('Read & update', () => {
 
   test('reads a U1 tag into the form', async ({ page }) => {
     await placeTag(page, U1_TAG);
-    await readTag(page);
+    await readOpen(page);
     await expect(status(page)).toHaveText('Tag read. Change what you need, then update the tag.');
     await expect(chip(page, 'OpenSpool + Snapmaker U1 fields')).toHaveAttribute('aria-pressed', 'true');
     await expect(chip(page, 'PETG')).toHaveAttribute('aria-pressed', 'true');
@@ -40,7 +46,7 @@ test.describe('Read & update', () => {
 
   test('updates the tag and drops undocumented fields', async ({ page }) => {
     await placeTag(page, U1_TAG);
-    await readTag(page);
+    await readOpen(page);
     await chip(page, 'Translucent').click(); // one of Elegoo's PETG variants
     await page.getByRole('button', { name: 'Update tag' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
@@ -56,14 +62,14 @@ test.describe('Read & update', () => {
 
   test('a brand chip spelled differently on the tag reads as that chip', async ({ page }) => {
     await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'PLA', color_hex: 'FFFFFF', brand: 'esun' });
-    await readTag(page);
+    await readOpen(page);
     await expect(chip(page, 'eSUN')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByLabel('Other brand')).toHaveCount(0);
   });
 
   test('a Prusament tag reads as OrcaSlicer’s Prusa Polymers', async ({ page }) => {
     await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'PETG', color_hex: 'FFFFFF', brand: 'Prusament' });
-    await readTag(page);
+    await readOpen(page);
     await expect(chip(page, 'Prusa Polymers')).toHaveAttribute('aria-pressed', 'true');
     await page.getByRole('button', { name: 'Update tag' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
@@ -112,15 +118,15 @@ test.describe('Read & update', () => {
       { recordType: 'url', mediaType: undefined, data: 'https://openspool.io' },
       { data: JSON.stringify({ protocol: 'openspool', version: '1.0', type: 'ASA', color_hex: '000000' }) },
     ]);
-    await readTag(page);
+    await readOpen(page);
     await expect(chip(page, 'ASA')).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('Read another loads the next tag', async ({ page }) => {
     await placeTag(page, U1_TAG);
-    await readTag(page);
+    await readOpen(page);
     await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'TPU', color_hex: '123456' });
-    await readTag(page);
+    await readOpen(page);
     await expect(chip(page, 'TPU')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByRole('button', { name: /^Color \d,/ })).toHaveCount(1);
   });

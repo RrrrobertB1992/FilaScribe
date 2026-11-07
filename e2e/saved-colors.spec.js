@@ -1,4 +1,4 @@
-import { test, expect, colorStyle, colorTab, openCustom, placeTag, lastWrite, chip, writeTag, status } from './nfc.js';
+import { test, expect, colorStyle, colorTab, openCustom, placeTag, lastWrite, chip, writeTag, status, openCards } from './nfc.js';
 
 const panel = (page) => page.locator('.saved');
 const tiles = (page) => panel(page).getByRole('button', { pressed: undefined }).filter({ has: page.locator('.hex') });
@@ -178,6 +178,7 @@ test.describe('Saved colors', () => {
     await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'PLA', brand: 'Polymaker', color_hex: '5A5A5A' });
     await page.getByRole('button', { name: 'Read tag' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
+    await openCards(page);
     await expect(colorTab(page, 'Saved')).toHaveAttribute('aria-pressed', 'true');
     await expect(panel(page).getByRole('button', { name: 'Rename' })).toBeVisible();
     await expect(page.locator('#hex-input')).toBeHidden();

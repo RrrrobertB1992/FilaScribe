@@ -11,6 +11,15 @@
   let { id, title = '', summary = '', defaultOpen = false, forceOpen = false, cls = '', head = null, children } = $props();
 
   let isOpen = $state(Folds.isOpen(id, defaultOpen));
+  let shownId = id;
+  // The same card can be used for two screens with different ids (Create and
+  // Read & update each remember their own); when the id changes, take what that
+  // id was last set to
+  $effect.pre(() => {
+    if (id === shownId) return;
+    shownId = id;
+    isOpen = forceOpen || Folds.isOpen(id, defaultOpen);
+  });
   $effect(() => {
     if (forceOpen) isOpen = true;
   });

@@ -107,6 +107,7 @@ test.describe('Closest brand colors in Quick edits', () => {
   test('tap one: it is the color, the Brand tab opens, and the change is listed', async ({ page }) => {
     await readTag(page);
     await quick(page).getByRole('button', { name: /^Use Blue, PLA Basic/ }).click();
+    await page.locator('details[data-fold="read-colors"] > summary').click(); // the Colors card starts shut here
     await expect(colorTab(page, 'Brand')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('.colorsec .now-name')).toHaveText('Blue');
     await expect(quickChanges(page)).toContainText('Color');

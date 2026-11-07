@@ -4,6 +4,7 @@
   // numbers); this card also lists what changed since the tag was read, with
   // a way back. Nothing is written until Update tag.
   import { bump, changes } from '../lib/quickEdits.js';
+  import Fold from './Fold.svelte';
   import ClosestColors from './ClosestColors.svelte';
 
   // form: the fields to edit. before: what the tag held when it was read.
@@ -26,6 +27,15 @@
   } = $props();
 
   const list = $derived(changes(before, form, colorName).filter((c) => showWeight || c.field !== 'weight'));
+  // What the card shows while it is shut
+  const summary = $derived(
+    [
+      showWeight && String(form.weight ?? '').trim() ? `${String(form.weight).trim()} g` : '',
+      String(form.minTemp ?? '').trim() || String(form.maxTemp ?? '').trim() ? `${String(form.minTemp ?? '').trim() || '?'}–${String(form.maxTemp ?? '').trim() || '?'} °C` : '',
+    ]
+      .filter(Boolean)
+      .join(' · '),
+  );
   const mine = $derived((form.colors ?? []).map((h) => `#${String(h).toUpperCase()}`).join(' + '));
   const empty = (f) => String(form[f] ?? '').trim() === '';
 </script>
@@ -52,10 +62,10 @@
 {/snippet}
 
 <section class="quick" aria-label="Quick edits">
-  <div class="head">
-    <h2>Quick edits</h2>
-    {#if list.length}<button type="button" class="btn small quiet" onclick={onundo}>Undo changes</button>{/if}
-  </div>
+<Fold id="quick" title="Quick edits" {summary} defaultOpen>
+  {#if list.length}
+    <div class="undo"><button type="button" class="btn small quiet" onclick={onundo}>Undo changes</button></div>
+  {/if}
 
   {#if showWeight}
     <div class="group">
@@ -95,27 +105,12 @@
       {/each}
     </ul>
   {/if}
+</Fold>
 </section>
 
 <style>
-  .quick {
-    display: grid;
-    gap: var(--s4);
-    padding: var(--s3) var(--s4) var(--s4);
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    background: var(--surface);
-  }
-  .head { display: flex; align-items: center; justify-content: space-between; min-height: 36px; }
-  h2 {
-    margin: 0;
-    font-family: var(--font-label);
-    font-weight: 700;
-    font-size: 0.8125rem;
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
-    color: var(--action);
-  }
+  .quick { margin-bottom: var(--s3); }
+  .undo { display: flex; justify-content: flex-end; }
   .group { display: grid; gap: var(--s2); }
   .label, .mini { font-size: 0.875rem; color: var(--muted); }
   .mini { font-size: 0.75rem; }
