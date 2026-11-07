@@ -1,4 +1,4 @@
-import { test, expect, chip, writeTag, status, openCustom } from './nfc.js';
+import { test, expect, chip, writeTag, status, openCustom, settingsCard } from './nfc.js';
 
 const fold = (page, id) => page.locator(`[data-fold="${id}"]`);
 const rows = (page) => fold(page, 'filaments').getByRole('list', { name: 'Saved filaments' }).getByRole('listitem');
@@ -164,9 +164,7 @@ test.describe('My filaments', () => {
   });
 
   test('Settings: save every write automatically', async ({ page }) => {
-    await page.getByRole('tab', { name: 'Settings' }).click();
-    const card = page.locator('details.card', { has: page.getByRole('heading', { name: 'My filaments' }) });
-    await card.locator('summary').click();
+    const card = await settingsCard(page, 'My filaments');
     await card.getByRole('checkbox', { name: /Save every write automatically/ }).check();
     await page.getByRole('tab', { name: 'Create' }).click();
 
@@ -177,15 +175,13 @@ test.describe('My filaments', () => {
     await expect(fold(page, 'filaments').locator('.sum')).toHaveText('1 saved');
 
     await page.reload(); // the choice is kept
-    await page.getByRole('tab', { name: 'Settings' }).click();
+    await settingsCard(page, 'My filaments');
     await expect(page.getByRole('checkbox', { name: /Save every write automatically/ })).toBeChecked();
   });
 
   test('Settings: Clear all asks first, and has no list of its own', async ({ page }) => {
     await saveSpool(page, 'Overture', 'PLA');
-    await page.getByRole('tab', { name: 'Settings' }).click();
-    const card = page.locator('details.card', { has: page.getByRole('heading', { name: 'My filaments' }) });
-    await card.locator('summary').click();
+    const card = await settingsCard(page, 'My filaments');
     await expect(card.getByRole('list')).toHaveCount(0);
     await expect(card).toContainText('1 saved filament');
 
@@ -202,9 +198,7 @@ test.describe('My filaments', () => {
 
   test('Settings: export and import round-trip', async ({ page }) => {
     await saveSpool(page, 'Overture', 'PLA');
-    await page.getByRole('tab', { name: 'Settings' }).click();
-    const card = page.locator('details.card', { has: page.getByRole('heading', { name: 'My filaments' }) });
-    await card.locator('summary').click();
+    const card = await settingsCard(page, 'My filaments');
     const json = JSON.stringify([{ profile: 'u1', brand: 'Overture', type: 'PLA', subtype: 'Matte', minTemp: '190', maxTemp: '220', bedMinTemp: '50', bedMaxTemp: '60', colors: ['111111'], colorName: 'Black' }]);
     await card.getByLabel('My filaments file').setInputFiles({ name: 'f.json', mimeType: 'application/json', buffer: Buffer.from(json) });
     await expect(status(page)).toContainText('Imported 1 filament');

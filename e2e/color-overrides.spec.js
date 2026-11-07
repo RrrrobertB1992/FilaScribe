@@ -1,4 +1,4 @@
-import { test, expect, colorTab, chip, openCustom } from './nfc.js';
+import { test, expect, colorTab, chip, openCustom, settingsCard } from './nfc.js';
 
 // Bambu Lab PLA Basic Black is #000000 in the bundled database snapshot
 const brand = (page) => page.locator('.brand');
@@ -104,12 +104,7 @@ test.describe('Color overrides', () => {
 });
 
 test.describe('Color overrides in Settings', () => {
-  async function openSettings(page) {
-    await page.getByRole('tab', { name: 'Settings' }).click();
-    const card = page.locator('details.card', { has: page.getByRole('heading', { name: 'Color overrides' }) });
-    if (!(await card.evaluate((d) => d.open))) await card.locator('summary').click();
-    return card;
-  }
+  const openSettings = (page) => settingsCard(page, 'Color overrides');
 
   test('lists each override with its own Reset, and Clear all, both asking first', async ({ page }) => {
     await pickBlack(page);
