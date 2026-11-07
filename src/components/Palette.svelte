@@ -239,7 +239,7 @@
     color: var(--muted);
     font-size: 0.9375rem;
   }
-  /* Your own chips (saved Custom values): a dashed outline, as in PrintTag-Web-Rrrrobert */
+  /* Your own chips (saved Custom values): a dashed outline */
   .chip.saved {
     border: 2px dashed var(--muted);
     padding: 0 calc(var(--s3) - 1px);

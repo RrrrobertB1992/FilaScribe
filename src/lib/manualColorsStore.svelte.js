@@ -16,6 +16,8 @@ function update(next) {
 export const setEdit = (edit) => update(Manual.set(edits, edit));
 export const removeEdit = (edit) => update(Manual.remove(edits, edit));
 export const clearEdits = () => update([]);
+// A restored backup: set the list in use (the backup already wrote it to storage)
+export const replaceEdits = (list) => { edits = list; };
 
 export function importEdits(incoming) {
   const r = Manual.importInto(edits, incoming);

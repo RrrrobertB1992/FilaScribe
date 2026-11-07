@@ -1,7 +1,5 @@
 // Saved colors: remembers the colors used for each brand + material type
-// so a replacement spool can reuse them. Same data shape and rules as the
-// saved-colors feature in PrintTag-Web-Rrrrobert, so a list exported from
-// there can be imported here.
+// so a replacement spool can reuse them.
 //
 // Data: { "<brand>|<type>": [ { colors: ["2B2B2D", ...], name: "",
 //          variants: ["Matte", ...], colorType?: "0" | "1" } ] }
@@ -158,7 +156,7 @@ export function renameBrands(all, rename) {
 export const clearKey = (all, key) => setEntries(all, key, []);
 
 /**
- * Merge an exported list (this app's or PrintTag-Web-Rrrrobert's) into
+ * Merge an exported list into
  * the saved colors. Rows already saved gain any new variants and a name.
  * Returns { all, added }.
  */

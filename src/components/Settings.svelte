@@ -8,10 +8,12 @@
   import * as SC from '../lib/savedColors.js';
   import * as Filaments from '../lib/filaments.js';
   import * as Manual from '../lib/manualColors.js';
-  import { getEdits, removeEdit, clearEdits, importEdits } from '../lib/manualColorsStore.svelte.js';
+  import { getEdits, removeEdit, clearEdits, importEdits, replaceEdits } from '../lib/manualColorsStore.svelte.js';
   import * as Theme from '../lib/theme.js';
   import { getSuggestionCount, setSuggestionCount } from '../lib/suggestionCountStore.svelte.js';
   import { exportJson, readJsonFile } from '../lib/backup.js';
+  import * as Backup from '../lib/backup.js';
+  import { Capacitor } from '@capacitor/core';
   import { buildParts } from '../lib/buildInfo.js';
   import * as BrandList from '../lib/brandList.js';
   import * as MaterialList from '../lib/materialList.js';
@@ -436,6 +438,59 @@
     }
   }
 
+  // --- Backup ---
+
+  let backupInput = $state();
+  let restoring = $state(null); // { name, rows, data } once a backup file is chosen
+  const counts = $derived(Backup.totals({ filaments, savedColors: saved, colorOverrides: getEdits(), customChips: chips }));
+
+  async function saveBackup() {
+    const r = await Backup.saveBackup();
+    if (!r.ok) onstatus(r.message, true);
+    else if (!Capacitor.isNativePlatform()) onstatus('Backup saved to your downloads.');
+  }
+
+  async function chooseBackup(e) {
+    const file = e.currentTarget.files?.[0];
+    e.currentTarget.value = '';
+    if (!file) return;
+    try {
+      const data = Backup.parse(await readJsonFile(file));
+      restoring = { name: file.name, rows: Backup.summary(Backup.snapshot(), data), data };
+    } catch (err) {
+      restoring = null;
+      onstatus(err?.message === 'Newer backup' ? 'That backup is from a newer version of FilaScribe. Update the app first.' : 'That file isn’t a FilaScribe backup.', true);
+    }
+  }
+
+  // Put a snapshot on screen: everything shown here and on the other tabs is held in state
+  function showRestored(d) {
+    filaments = d.filaments;
+    autoFilaments = d.autoFilaments;
+    saved = d.savedColors;
+    replaceEdits(d.colorOverrides);
+    chips = d.customChips;
+    shownBrands = d.brands;
+    shownMaterials = d.materials;
+    hiddenVariants = d.hiddenVariants;
+    defaults = d.defaults;
+    suggestCount = String(d.closestColors);
+    setSuggestionCount(d.closestColors);
+    theme = d.theme;
+    Theme.apply(d.theme);
+  }
+
+  function restore(replace) {
+    if (!restoring) return;
+    if (replace && !confirm('Replace everything on this device with this backup? Your filaments, saved colors, color overrides, chips and settings now will be deleted. This can’t be undone.')) return;
+    const data = replace ? restoring.data : Backup.merge(Backup.snapshot(), restoring.data);
+    Backup.apply(data);
+    showRestored(Backup.snapshot());
+    const added = restoring.rows.reduce((n, r) => n + r.added, 0);
+    restoring = null;
+    onstatus(replace ? 'Backup restored. Everything now matches it.' : added ? `Backup restored. Added ${added} new ${added === 1 ? 'item' : 'items'}.` : 'Backup restored. Nothing was new.');
+  }
+
   // --- Appearance ---
 
   let theme = $state(Theme.load());
@@ -680,7 +735,6 @@
       {#if savedCount}<button type="button" class="btn small quiet danger" onclick={clearAllSaved}>Clear all</button>{/if}
       <input bind:this={importInput} type="file" accept="application/json,.json" class="visually-hidden" tabindex="-1" aria-label="Saved colors file" onchange={importSaved} />
     </div>
-    <p class="hint small">Import also takes a list exported from PrintTag-Web-Rrrrobert.</p>
     </div>
   </details>
 
@@ -787,6 +841,42 @@
     </div>
   </details>
 
+  <details class="card" open={open.includes('backup')} ontoggle={(e) => toggled('backup', e)}>
+    <summary><h2 id="set-backup">Backup</h2></summary>
+    <div class="body">
+    <p class="hint">Everything you’ve set up in one file: keep it safe, or move it to another phone.</p>
+    {#if restoring}
+      <p class="backup-file"><strong>{restoring.name}</strong></p>
+      <ul class="backup-list">
+        {#each restoring.rows as r (r.label)}
+          <li><span>{r.label}</span><span>{r.total}{r.added ? ` (${r.added} new)` : ''}</span></li>
+        {/each}
+        <li><span>Settings and theme</span><span>from the file</span></li>
+      </ul>
+      <div class="actions">
+        <button type="button" class="btn small primary" onclick={() => restore(false)}>Add what’s new</button>
+        <button type="button" class="btn small" onclick={() => (restoring = null)}>Cancel</button>
+        <button type="button" class="btn small quiet danger" onclick={() => restore(true)}>Replace everything</button>
+      </div>
+      <p class="hint small">Add what’s new keeps everything you have. Replace everything deletes what’s on this device first, and asks you to confirm.</p>
+    {:else}
+      <ul class="backup-list">
+        {#each counts as r (r.label)}
+          <li><span>{r.label}</span><span>{r.total}</span></li>
+        {/each}
+        <li><span>Brands, materials, variants</span><span>your choices</span></li>
+        <li><span>Defaults and other settings</span><span>yes</span></li>
+      </ul>
+      <div class="actions">
+        <button type="button" class="btn small primary" onclick={saveBackup}>Save backup</button>
+        <button type="button" class="btn small" onclick={() => backupInput?.click()}>Restore backup</button>
+        <input bind:this={backupInput} type="file" accept="application/json,.json" class="visually-hidden" tabindex="-1" aria-label="Backup file" onchange={chooseBackup} />
+      </div>
+      <p class="hint small">App: opens the share sheet, so you can save it to Files or Drive. Website: downloads a file.</p>
+    {/if}
+    </div>
+  </details>
+
   <details class="card" open={open.includes('look')} ontoggle={(e) => toggled('look', e)}>
     <summary><h2 id="set-look">Appearance</h2></summary>
     <div class="body">
@@ -850,6 +940,10 @@
   .check { display: flex; gap: var(--s3); align-items: flex-start; cursor: pointer; }
   .check input { width: 22px; height: 22px; margin-top: 2px; flex: none; accent-color: var(--action); }
   .check span { display: grid; gap: 2px; }
+  .backup-file { margin: 0 0 var(--s2); overflow-wrap: anywhere; }
+  .backup-list { list-style: none; margin: 0 0 var(--s3); padding: 0; }
+  .backup-list li { display: flex; justify-content: space-between; gap: var(--s3); padding: var(--s1) 0; border-bottom: 1px solid var(--line); font-size: 0.9375rem; }
+  .backup-list li span:last-child { color: var(--muted); }
   .actions { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
 
   .rows { display: grid; gap: 2px; margin: 0; }
