@@ -194,10 +194,6 @@
     </span>
   {/snippet}
 
-  {#if showSuggestions}
-    <ClosestColors {suggestions} {backTo} label={brandLabel} onuse={useSuggestion} onback={() => brandList?.backToMine()} />
-  {/if}
-
   <div class="tabs" role="group" aria-label="Color source">
     {#each tabs as t (t.id)}
       <button type="button" class="tab" aria-pressed={tab === t.id} disabled={t.disabled} onclick={() => choose(t.id)}>
@@ -250,6 +246,7 @@
 
   <div class="panel" hidden={tab !== 'custom'}>
     <ColorEditor bind:colors bind:colorType {max} showLabel={false} />
+    {#if tab === 'custom'}{@render closest()}{/if}
     {#if editing}
       <div class="editbar">
         <span>Editing saved color <strong>{savedName || hexes}</strong></span>
@@ -268,8 +265,18 @@
     {/if}
   </div>
 
+  {#if tab !== 'custom'}{@render closest()}{/if}
+
   {#each errors as e}<p class="error-text">{e.message}</p>{/each}
 </Fold>
+
+<!-- The closest brand colors sit under the picker (or under the list on the other tabs), never above it:
+     they come and go as the color moves, and anything above would push the picker out from under the finger. -->
+{#snippet closest()}
+  {#if showSuggestions}
+    <ClosestColors {suggestions} {backTo} label={brandLabel} onuse={useSuggestion} onback={() => brandList?.backToMine()} />
+  {/if}
+{/snippet}
 
 <style>
   .current { display: flex; align-items: center; gap: var(--s3); min-width: 0; }

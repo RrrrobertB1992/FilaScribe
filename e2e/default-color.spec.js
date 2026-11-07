@@ -1,4 +1,4 @@
-import { test, expect, colorTab, chip, temps } from './nfc.js';
+import { test, expect, colorTab, chip, temps, openCustom } from './nfc.js';
 
 // The app opens on a brand color when the remembered brand has some:
 // White, else Black, else the first color in the list.
@@ -53,5 +53,36 @@ test.describe('Starting color', () => {
     await chip(page, 'Bambu Lab').click();
     await expect(colorTab(page, 'Brand')).toHaveAttribute('aria-pressed', 'true');
     await expect(nowName(page)).toHaveText('Custom colors');
+  });
+});
+
+// Settings replaces the form, and the color lists forget what they had picked.
+// Coming back must show the same choice, not turn a brand color into Custom.
+test.describe('Colors after a visit to Settings', () => {
+  const toSettingsAndBack = async (page) => {
+    await page.getByRole('tab', { name: 'Settings' }).click();
+    await page.getByRole('tab', { name: 'Create' }).click();
+  };
+
+  test('a brand color stays a brand color', async ({ page }) => {
+    await openWith(page, { profile: 'u1', brand: 'Anycubic', type: 'PLA', subtype: 'Basic' });
+    await expect(nowName(page)).toHaveText('White');
+    await expect(nowFrom(page)).toContainText('Brand color');
+    await toSettingsAndBack(page);
+    await expect(nowName(page)).toHaveText('White');
+    await expect(nowFrom(page)).toContainText('Brand color');
+    await expect(colorTab(page, 'Brand')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.brand .tile[aria-pressed="true"]')).toHaveCount(1);
+  });
+
+  test('a custom color stays custom', async ({ page }) => {
+    await openWith(page, { profile: 'u1', brand: 'Bambu Lab', type: 'PLA', subtype: 'Basic' });
+    await openCustom(page);
+    await page.locator('#hex-input').fill('123456');
+    await expect(nowFrom(page)).not.toContainText('Brand color');
+    await toSettingsAndBack(page);
+    await expect(nowFrom(page)).not.toContainText('Brand color');
+    await openCustom(page);
+    await expect(page.locator('#hex-input')).toHaveValue('123456');
   });
 });
