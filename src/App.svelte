@@ -294,12 +294,19 @@
     colorSection?.autoPick();
   }
 
-  function switchMode(next) {
+  async function switchMode(next) {
     if (next === mode) return;
+    const fromSettings = mode === 'settings';
     mode = next;
     offer = null;
     series = null;
     say(null);
+    // Settings replaces the form, and the color lists forget which color they had picked.
+    // Mark again what the colors match, as after reading a tag, so a brand color stays a brand color.
+    if (fromSettings) {
+      await tick();
+      colorSection?.afterLoad();
+    }
   }
 
   // Done with this spool: back to a plain Write tag button

@@ -168,3 +168,22 @@ test.describe('Closest brand colors in Quick edits', () => {
     await expect(quick(page).getByText('No Bambu Lab PLA Basic color is close to this one.')).toBeVisible();
   });
 });
+
+test.describe('Closest brand colors: placement', () => {
+  test('the strip sits under the picker, so the picker never moves', async ({ page }) => {
+    await bambuBasic(page);
+    await setHex(page, '808080');
+    await expect(strip(page)).toBeVisible();
+    const hex = page.locator('#hex-input');
+    const before = (await hex.boundingBox()).y;
+    const stripTop = (await strip(page).boundingBox()).y;
+    expect(stripTop).toBeGreaterThan(before);
+    // Go to a brand color (strip disappears) and back to a far-off one (strip appears).
+    await setHex(page, '000000');
+    await expect(strip(page)).toHaveCount(0);
+    expect((await hex.boundingBox()).y).toBe(before);
+    await setHex(page, '808080');
+    await expect(strip(page)).toBeVisible();
+    expect((await hex.boundingBox()).y).toBe(before);
+  });
+});
