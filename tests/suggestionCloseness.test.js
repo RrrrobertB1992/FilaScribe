@@ -1,23 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import * as Closeness from '../src/lib/suggestionCloseness.js';
-
-const memory = () => {
-  const m = new Map();
-  return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) };
-};
-const broken = {
-  getItem() { throw new Error('no storage'); },
-  setItem() { throw new Error('no storage'); },
-  removeItem() { throw new Error('no storage'); },
-};
+import { memoryStorage, brokenStorage } from './storage.js';
 
 describe('how close setting', () => {
   it('is Normal until you choose', () => {
-    expect(Closeness.load(memory())).toBe('normal');
+    expect(Closeness.load(memoryStorage())).toBe('normal');
   });
 
   it('keeps Strict and Loose, and nothing is stored for the default', () => {
-    const s = memory();
+    const s = memoryStorage();
     for (const level of ['strict', 'loose']) {
       Closeness.store(level, s);
       expect(Closeness.load(s)).toBe(level);
@@ -37,13 +28,13 @@ describe('how close setting', () => {
       expect(Closeness.clean(junk)).toBe('normal');
       expect(Closeness.limitFor(junk)).toBe(12);
     }
-    const s = memory();
+    const s = memoryStorage();
     s.setItem(Closeness.STORAGE_KEY, 'very');
     expect(Closeness.load(s)).toBe('normal');
   });
 
   it('survives storage being unavailable', () => {
-    expect(Closeness.load(broken)).toBe('normal');
-    expect(() => Closeness.store('loose', broken)).not.toThrow();
+    expect(Closeness.load(brokenStorage)).toBe('normal');
+    expect(() => Closeness.store('loose', brokenStorage)).not.toThrow();
   });
 });

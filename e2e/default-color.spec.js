@@ -1,9 +1,7 @@
-import { test, expect, colorTab, chip, temps, openCustom } from './nfc.js';
+import { test, expect, colorTab, chip, temps, openCustom, nowName, nowFrom } from './nfc.js';
 
 // The app opens on a brand color when the remembered brand has some:
 // White, else Black, else the first color in the list.
-const nowName = (page) => page.locator('.colorsec .now-name');
-const nowFrom = (page) => page.locator('.colorsec .now-from');
 
 async function openWith(page, defaults) {
   await page.evaluate((d) => localStorage.setItem('filascribe-defaults', JSON.stringify(d)), defaults);

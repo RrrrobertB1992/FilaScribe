@@ -1,14 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import * as CC from '../src/lib/customChips.js';
-
-const memory = () => {
-  const m = new Map();
-  return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, v) };
-};
+import { memoryStorage } from './storage.js';
 
 describe('custom chips', () => {
   it('saves brands and materials once, skipping built-in chips and blanks', () => {
-    let c = CC.load(memory());
+    let c = CC.load(memoryStorage());
     c = CC.add(c, 'brand', ' Zephyr ', { builtIn: ['Generic'] });
     c = CC.add(c, 'brand', 'Zephyr');
     c = CC.add(c, 'brand', 'Generic', { builtIn: ['Generic'] });
@@ -21,7 +17,7 @@ describe('custom chips', () => {
   });
 
   it('keeps variants per brand + material', () => {
-    let c = CC.add(CC.load(memory()), 'variant', 'Rapid', { brand: 'Elegoo', type: 'PETG' });
+    let c = CC.add(CC.load(memoryStorage()), 'variant', 'Rapid', { brand: 'Elegoo', type: 'PETG' });
     expect(CC.variantsFor(c, 'Elegoo', 'PETG')).toEqual(['Rapid']);
     expect(CC.variantsFor(c, 'Elegoo', 'PLA')).toEqual([]);
     expect(CC.add(c, 'variant', 'X', { brand: '', type: 'PLA' })).toBe(c); // no brand: nowhere to keep it
@@ -30,7 +26,7 @@ describe('custom chips', () => {
   });
 
   it('removes, stores and loads', () => {
-    const s = memory();
+    const s = memoryStorage();
     let c = CC.add(CC.add(CC.load(s), 'brand', 'A'), 'brand', 'B');
     c = CC.remove(c, 'brand', 'A');
     CC.store(c, s);
@@ -39,14 +35,14 @@ describe('custom chips', () => {
   });
 
   it('keeps at most MAX per list, dropping the oldest', () => {
-    let c = CC.load(memory());
+    let c = CC.load(memoryStorage());
     for (let i = 0; i < CC.MAX + 5; i++) c = CC.add(c, 'material', `M${i}`);
     expect(c.materials).toHaveLength(CC.MAX);
     expect(c.materials[0]).toBe('M5');
   });
 
   it('ignores junk in storage', () => {
-    const s = memory();
+    const s = memoryStorage();
     s.setItem(CC.STORAGE_KEY, JSON.stringify({ brands: ['ok', 3, '', 'x'.repeat(50)], materials: 'nope', variants: { bad: ['a'], 'B|T': ['v', null] } }));
     expect(CC.load(s)).toEqual({ brands: ['ok'], materials: [], variants: { 'B|T': ['v'] } });
     s.setItem(CC.STORAGE_KEY, 'not json');

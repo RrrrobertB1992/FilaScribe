@@ -124,8 +124,11 @@ When a test is needed:
 - Behavior on screen gets an `e2e/<feature>.spec.js`. Import from `e2e/nfc.js`:
   it fakes Web NFC, clears localStorage before each test, auto-accepts
   `confirm()` dialogs, and fails a test on any console error. Helpers:
-  `placeTag`, `lastWrite`, `writeTag`, `chip`, `openCustom`, `colorTab`,
-  `temps`, `showAllMaterials`.
+  `placeTag`, `readTag`, `readFrom`, `lastWrite`, `writeTag`, `chip`, `fold`,
+  `openCustom`, `colorTab`, `brandPanel`, `brandTile`, `temps`,
+  `showAllMaterials`. Use these instead of writing the same steps again.
+  Unit tests get a fake storage from `tests/storage.js` (`memoryStorage`,
+  `brokenStorage`).
 - Anything that changes what is written to a tag must keep
   `tests/fuzz.test.js` and the `tests/compat` reader checks passing.
 - The Java plugin cannot be tested here. CI compiles it in the test APK build,

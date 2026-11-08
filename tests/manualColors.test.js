@@ -1,11 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import * as M from '../src/lib/manualColors.js';
 import { colorInfo, findColor, linesForMaterial, tilesFor } from '../src/lib/brandColors.js';
+import { memoryStorage } from './storage.js';
 
-const memory = (init) => {
-  const m = new Map(init ? [[M.STORAGE_KEY, init]] : []);
-  return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) };
-};
+const memory = (value) => memoryStorage(value ? { [M.STORAGE_KEY]: value } : {});
+
 
 const db = () => ({
   brands: [

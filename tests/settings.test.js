@@ -2,15 +2,11 @@ import { describe, it, expect } from 'vitest';
 import * as Defaults from '../src/lib/defaults.js';
 import * as Theme from '../src/lib/theme.js';
 import { emptyForm } from '../src/lib/formats/openspool.js';
-
-const memory = () => {
-  const m = new Map();
-  return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) };
-};
+import { memoryStorage } from './storage.js';
 
 describe('defaults for new tags', () => {
   it('starts from the built-in form when nothing is saved', () => {
-    expect(Defaults.load(memory())).toEqual({});
+    expect(Defaults.load(memoryStorage())).toEqual({});
     expect(Defaults.newForm({})).toEqual(emptyForm('u1'));
   });
 
@@ -24,7 +20,7 @@ describe('defaults for new tags', () => {
   });
 
   it('stores, clears and ignores junk', () => {
-    const s = memory();
+    const s = memoryStorage();
     Defaults.store({ brand: 'Zephyr' }, s);
     expect(Defaults.load(s)).toEqual({ brand: 'Zephyr' });
     Defaults.store({}, s);
@@ -38,7 +34,7 @@ describe('defaults for new tags', () => {
 
 describe('theme', () => {
   it('follows the system unless light or dark is saved', () => {
-    const s = memory();
+    const s = memoryStorage();
     expect(Theme.load(s)).toBe('system');
     Theme.store('dark', s);
     expect(Theme.load(s)).toBe('dark');

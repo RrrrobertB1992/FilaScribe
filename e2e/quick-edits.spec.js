@@ -1,4 +1,4 @@
-import { test, expect, placeTag, lastWrite, writeCount, status, temps } from './nfc.js';
+import { test, expect, placeTag, lastWrite, writeCount, status, temps, readTag } from './nfc.js';
 
 const TAG = {
   protocol: 'openspool', version: '1.0', type: 'PLA', brand: 'Generic', color_hex: 'FF0000',
@@ -11,11 +11,6 @@ const weight = (page) => card(page).getByLabel('Weight', { exact: true });
 const nozzle = (page, which) => card(page).getByLabel(`Nozzle ${which}`, { exact: true });
 const tap = (page, name) => card(page).getByRole('button', { name, exact: true }).click();
 const changes = (page) => card(page).getByRole('list', { name: 'Changes' });
-
-async function readTag(page) {
-  await page.getByRole('button', { name: /^Read (tag|another)$/ }).click();
-  await expect(page.getByRole('dialog')).toBeHidden();
-}
 
 test.describe('Quick edits', () => {
   test('shows on Read & update after a read, and not before or on Create', async ({ page }) => {
