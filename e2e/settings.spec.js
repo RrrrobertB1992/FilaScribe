@@ -563,13 +563,13 @@ test.describe('Settings', () => {
     const bg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
     await chip(page, 'Dark').click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-    expect(await bg()).toBe('rgb(22, 26, 32)');
+    expect(await bg()).toBe('rgb(14, 16, 20)');
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     await settings(page);
     await card(page, 'Appearance');
     await chip(page, 'Light').click();
-    expect(await bg()).toBe('rgb(230, 233, 237)');
+    expect(await bg()).toBe('rgb(246, 245, 243)');
     await chip(page, 'Follow the system').click();
     await expect(page.locator('html')).not.toHaveAttribute('data-theme', /./);
   });

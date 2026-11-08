@@ -244,5 +244,5 @@
     border: 2px dashed var(--muted);
     padding: 0 calc(var(--s3) - 1px);
   }
-  .chip.saved[aria-pressed='true'] { border-color: var(--bg); box-shadow: 0 0 0 2px var(--ink); }
+  .chip.saved[aria-pressed='true'] { border-color: var(--bg); box-shadow: 0 0 0 2px var(--action); }
 </style>

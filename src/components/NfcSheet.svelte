@@ -60,7 +60,7 @@
     position: absolute;
     inset: 0;
     border-radius: 50%;
-    border: 4px solid var(--brass);
+    border: 4px solid var(--highlight);
   }
   .pulse span { animation: ring 1.6s ease-out infinite; }
   .pulse::after {
@@ -68,7 +68,7 @@
     width: 30px;
     height: 30px;
     border-radius: 50%;
-    background: var(--brass);
+    background: var(--highlight);
   }
   @keyframes ring {
     from { transform: scale(1); opacity: 0.9; }

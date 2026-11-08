@@ -59,8 +59,8 @@ Where things are:
 2. **Show a mock-up image.** Render a picture of the change (the inline visual
    tool, HTML or SVG, is fine) so the maintainer can see it. Match the real
    app: phone width (about 390 px), the colors and fonts from `src/app.css`
-   (cobalt `--action`, brass accent, slate ink, Barlow Semi Condensed for
-   labels, Atkinson Hyperlegible for text), cards with small accent titles, and
+   (orange `--action`, violet `--highlight`, near-black ink, Outfit for
+   labels, Figtree for text), cards with small accent titles, and
    show the light theme (dark too if the colors matter). Show the changed state,
    and the before state if it helps. Change the mock-up until they are happy.
 3. **Ask questions** when anything is unclear. Do it at the description or

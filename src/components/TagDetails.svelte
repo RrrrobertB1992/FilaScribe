@@ -63,7 +63,7 @@
 
 <style>
   .details { display: grid; gap: var(--s3); }
-  .notice { border-left: 4px solid var(--brass); padding: var(--s1) var(--s3); }
+  .notice { border-left: 4px solid var(--highlight); padding: var(--s1) var(--s3); }
   .notice p { margin: 0; }
   dl { display: grid; grid-template-columns: max-content 1fr; gap: var(--s1) var(--s4); margin: 0; }
   dt { font-family: var(--font-label); font-weight: 600; }

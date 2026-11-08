@@ -1,26 +1,27 @@
-@import '@fontsource/barlow-semi-condensed/latin-500.css';
-@import '@fontsource/barlow-semi-condensed/latin-600.css';
-@import '@fontsource/barlow-semi-condensed/latin-700.css';
-@import '@fontsource/atkinson-hyperlegible/latin-400.css';
-@import '@fontsource/atkinson-hyperlegible/latin-700.css';
+@import '@fontsource/outfit/latin-500.css';
+@import '@fontsource/outfit/latin-600.css';
+@import '@fontsource/outfit/latin-700.css';
+@import '@fontsource/figtree/latin-400.css';
+@import '@fontsource/figtree/latin-500.css';
+@import '@fontsource/figtree/latin-700.css';
 
 :root {
-  /* Machined aluminum, slate ink, cobalt actions, brass for the tag moment */
-  --bg: #e6e9ed;
-  --surface: #f6f7f9;
-  --ink: #1d2733;
-  --muted: #5a6676;
-  --line: #c9cfd7;
-  --action: #2a49c7;
+  /* Near-black and warm paper, filament orange for actions, violet for the tag moment */
+  --bg: #f6f5f3;
+  --surface: #ffffff;
+  --ink: #16181c;
+  --muted: #666a73;
+  --line: #e0ddd8;
+  --action: #d9480f;
   --action-ink: #ffffff;
-  --brass: #b5852a;
-  --danger: #b3261e;
-  --ok: #1f7a4a;
-  --focus: #2a49c7;
-  --chip: #dde1e7;
+  --highlight: #6d4fd6;
+  --danger: #c81e3a;
+  --ok: #167a45;
+  --focus: #d9480f;
+  --chip: #ebe9e5;
 
-  --font-label: 'Barlow Semi Condensed', 'Arial Narrow', sans-serif;
-  --font-body: 'Atkinson Hyperlegible', system-ui, sans-serif;
+  --font-label: 'Outfit', system-ui, sans-serif;
+  --font-body: 'Figtree', system-ui, sans-serif;
 
   --s1: 4px;
   --s2: 8px;
@@ -44,35 +45,35 @@
    Settings says Dark. data-theme is set in lib/theme.js. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --bg: #161a20;
-    --surface: #1f252d;
-    --ink: #e4e8ed;
-    --muted: #9aa5b3;
-    --line: #333c47;
-    --action: #6f8cff;
-    --action-ink: #0c1230;
-    --brass: #d9aa4c;
-    --danger: #ff8a80;
-    --ok: #6fd49b;
-    --focus: #8fa6ff;
-    --chip: #2a313b;
+    --bg: #0e1014;
+    --surface: #181b21;
+    --ink: #f2f3f5;
+    --muted: #99a1ae;
+    --line: #2b303a;
+    --action: #ff7a3d;
+    --action-ink: #1d0b02;
+    --highlight: #a78bfa;
+    --danger: #ff5d73;
+    --ok: #5fd38d;
+    --focus: #ffa66d;
+    --chip: #232830;
     color-scheme: dark;
   }
 }
 
 :root[data-theme='dark'] {
-  --bg: #161a20;
-  --surface: #1f252d;
-  --ink: #e4e8ed;
-  --muted: #9aa5b3;
-  --line: #333c47;
-  --action: #6f8cff;
-  --action-ink: #0c1230;
-  --brass: #d9aa4c;
-  --danger: #ff8a80;
-  --ok: #6fd49b;
-  --focus: #8fa6ff;
-  --chip: #2a313b;
+  --bg: #0e1014;
+  --surface: #181b21;
+  --ink: #f2f3f5;
+  --muted: #99a1ae;
+  --line: #2b303a;
+  --action: #ff7a3d;
+  --action-ink: #1d0b02;
+  --highlight: #a78bfa;
+  --danger: #ff5d73;
+  --ok: #5fd38d;
+  --focus: #ffa66d;
+  --chip: #232830;
   color-scheme: dark;
 }
 
