@@ -256,13 +256,13 @@
         <div class="row">
           <button type="button" class="btn small" onclick={saveEdit}>Save changes</button>
           <button type="button" class="btn small" onclick={saveEditAsNew}>Save as new</button>
-          <button type="button" class="btn small quiet" onclick={cancelEdit}>Cancel</button>
+          <button type="button" class="btn small" onclick={cancelEdit}>Cancel</button>
         </div>
       </div>
     {:else}
       <div class="row">
         <button type="button" class="btn small" onclick={saveCurrent} disabled={!brand || !type}>Save colors</button>
-        <button type="button" class="btn small quiet" onclick={() => savedList?.openImport()}>Import saved colors</button>
+        <button type="button" class="btn small" onclick={() => savedList?.openImport()}>Import saved colors</button>
       </div>
       <p class="hint">Saved colors are kept for {[brand, type].filter(Boolean).join(' ') || 'this brand and material'}. Colors are also saved when you write a tag.</p>
     {/if}
@@ -319,7 +319,7 @@
     grid-template-columns: repeat(3, 1fr);
     gap: 4px;
     padding: 4px;
-    border-radius: 999px;
+    border-radius: var(--r-pill);
     background: var(--chip);
   }
   .tab {
@@ -327,10 +327,10 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    min-height: 40px;
+    min-height: var(--h-chip);
     padding: 0 var(--s2);
     border: 0;
-    border-radius: 999px;
+    border-radius: var(--r-pill);
     background: transparent;
     font-family: var(--font-label);
     font-weight: 500;
@@ -342,7 +342,7 @@
   .count {
     min-width: 1.6em;
     padding: 0 6px;
-    border-radius: 999px;
+    border-radius: var(--r-pill);
     background: var(--bg);
     color: var(--muted);
     font-size: 0.8125rem;
@@ -359,7 +359,7 @@
     display: grid;
     gap: var(--s2);
     padding: var(--s3);
-    border-radius: 10px;
+    border-radius: var(--r-control);
     background: var(--bg);
     border-left: 4px solid var(--action);
   }

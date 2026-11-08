@@ -64,7 +64,7 @@
 <section class="quick" aria-label="Quick edits">
 <Fold id="quick" title="Quick edits" {summary} defaultOpen>
   {#if list.length}
-    <div class="undo"><button type="button" class="btn small quiet" onclick={onundo}>Undo changes</button></div>
+    <div class="undo"><button type="button" class="btn small" onclick={onundo}>Undo changes</button></div>
   {/if}
 
   {#if showWeight}
@@ -115,13 +115,13 @@
   .label, .mini { font-size: 0.875rem; color: var(--muted); }
   .mini { font-size: 0.75rem; }
   .row { display: flex; align-items: center; gap: var(--s1); }
-  .row input { flex: 1; min-width: 0; text-align: center; font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; min-height: 48px; }
+  .row input { flex: 1; min-width: 0; text-align: center; font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; min-height: var(--h-control); }
   .step {
     flex: none;
     min-width: 44px;
-    min-height: 48px;
+    min-height: var(--h-control);
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: var(--r-control);
     background: var(--surface);
     color: var(--ink);
     font-family: var(--font-label);

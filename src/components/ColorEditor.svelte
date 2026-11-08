@@ -103,7 +103,7 @@
         aria-invalid={!!textError}
       />
       {#if shown.length > 1}
-        <button type="button" class="btn small quiet danger" onclick={() => remove(active)}>Remove</button>
+        <button type="button" class="btn small danger" onclick={() => remove(active)}>Remove</button>
       {/if}
     </div>
     {#if textError}<p class="error-text">{textError}</p>{/if}
@@ -131,7 +131,7 @@
     width: 56px;
     padding: 6px 0 4px;
     border: 2px solid transparent;
-    border-radius: 8px;
+    border-radius: var(--r-control);
     background: transparent;
   }
   .slot[aria-pressed='true'] { border-color: var(--ink); }

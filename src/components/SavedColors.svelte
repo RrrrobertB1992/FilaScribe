@@ -306,7 +306,7 @@
       </div>
       {#if entries.length > shown}
         {@const left = entries.length - shown}
-        <button type="button" class="btn small quiet" onclick={() => (shown += SC.PAGE_SIZE)}>
+        <button type="button" class="btn small" onclick={() => (shown += SC.PAGE_SIZE)}>
           Show {Math.min(SC.PAGE_SIZE, left)} more ({left} left)
         </button>
       {/if}
@@ -327,7 +327,7 @@
             }}
           />
           <button type="button" class="btn small" onclick={saveRename}>Save name</button>
-          <button type="button" class="btn small quiet" onclick={() => (renaming = false)}>Cancel</button>
+          <button type="button" class="btn small" onclick={() => (renaming = false)}>Cancel</button>
         {:else}
           <button type="button" class="btn small" onclick={startRename}>Rename</button>
           <button type="button" class="btn small" onclick={() => { renaming = false; editing = true; }}>Edit colors</button>
@@ -338,10 +338,10 @@
 
     <div class="backup">
       {#if entries.length}
-        <button type="button" class="btn small quiet danger" onclick={clearAll}>Clear {label}</button>
+        <button type="button" class="btn small danger" onclick={clearAll}>Clear {label}</button>
       {/if}
-      <button type="button" class="btn small quiet" onclick={exportAll}>Export all saved colors</button>
-      <button type="button" class="btn small quiet" onclick={openImport}>Import</button>
+      <button type="button" class="btn small" onclick={exportAll}>Export all saved colors</button>
+      <button type="button" class="btn small" onclick={openImport}>Import</button>
       <input bind:this={importInput} type="file" accept="application/json,.json" class="visually-hidden" tabindex="-1" onchange={importFile} />
     </div>
   </div>
@@ -354,7 +354,7 @@
     display: grid;
     gap: 3px;
     padding: var(--s2);
-    border-radius: 8px;
+    border-radius: var(--r-control);
     border: 2px solid transparent;
     background: var(--bg);
     text-align: center;
