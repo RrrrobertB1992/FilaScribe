@@ -126,12 +126,6 @@
     userChose = true;
   }
 
-  // "Add or remove colors in Custom" in a saved color's editor
-  function openCustomFromSaved() {
-    tab = 'custom';
-    userChose = true;
-  }
-
   // Clone on a brand color: a new saved color, picked, with the Saved tab open
   function cloneColor(hexes, name, style) {
     brandList?.release();
@@ -226,7 +220,7 @@
       bind:colorType
       bind:count={savedCount}
       bind:pickedName={savedName}
-      onopencustom={openCustomFromSaved}
+      {max}
       {onstatus}
     />
   </div>

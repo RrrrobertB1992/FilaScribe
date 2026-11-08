@@ -25,7 +25,7 @@
     onchange = () => {},
     onstatus = () => {},
     onpick = () => {}, // a saved color was picked (Brand colors lets go of its pick)
-    onopencustom = () => {}, // "Add or remove colors in Custom"
+    max = 5, // most colors one saved color can have
   } = $props();
 
   let all = $state(SC.load());
@@ -176,11 +176,12 @@
     editor = null;
     if (!entry) return;
     const newColors = ed.colors.map((c) => c.toUpperCase());
-    let r = SC.replaceColors(all, key, ed.id, newColors, ed.type);
+    const type = newColors.length > 1 ? ed.type || '1' : undefined;
+    let r = SC.replaceColors(all, key, ed.id, newColors, type);
     if (ed.name.trim() !== (entry.name || '')) r = { ...r, all: SC.rename(r.all, key, r.id, ed.name) };
     persist(r.all);
     selected = r.id;
-    apply({ colors: newColors, colorType: ed.type });
+    apply({ colors: newColors, colorType: type });
     onstatus('Saved color updated');
   }
   function removeFromEditor() {
@@ -189,9 +190,18 @@
     removeRow(entry);
     if (!entries.some((e) => SC.entryId(e) === editor?.id)) editor = null;
   }
-  function openInCustom() {
-    editor = null;
-    onopencustom();
+  // + adds a color (a copy of the last one, ready to change); − drops the last one
+  function addToEditor() {
+    if (!editor || editor.colors.length >= max) return;
+    editor.colors.push(editor.colors[editor.colors.length - 1]);
+    editor.active = editor.colors.length - 1;
+    if (editor.colors.length > 1 && !editor.type) editor.type = '1';
+  }
+  function dropFromEditor() {
+    if (!editor || editor.colors.length < 2) return;
+    editor.colors.pop();
+    editor.active = Math.min(editor.active, editor.colors.length - 1);
+    if (editor.colors.length < 2) editor.type = undefined;
   }
   function clearAll() {
     if (!confirm(`Remove all saved colors for ${label}?`)) return;
@@ -336,14 +346,28 @@
                 <span class="dot" style:background={`#${hex}`}></span>#{hex}
               </button>
             {/each}
+            <span class="pm">
+              <button type="button" class="round" onclick={addToEditor} disabled={editor.colors.length >= max} aria-label="Add a color">+</button>
+              {#if editor.colors.length > 1}
+                <button type="button" class="round" onclick={dropFromEditor} aria-label="Remove the last color">−</button>
+              {/if}
+            </span>
           </div>
         </div>
+        {#if editor.colors.length > 1}
+          <div class="field">
+            <span class="lab" id="saved-edit-style">Multi-color style</span>
+            <div class="chips" role="group" aria-labelledby="saved-edit-style">
+              <button type="button" class="chip style" aria-pressed={editor.type !== '0'} onclick={() => (editor.type = '1')}>Segments</button>
+              <button type="button" class="chip style" aria-pressed={editor.type === '0'} onclick={() => (editor.type = '0')}>Gradient</button>
+            </div>
+          </div>
+        {/if}
         <HsvPicker bind:hex={pickerHex} label={`Color ${editor.active + 1}`} />
         <label class="field">
           <span class="lab">Hex</span>
           <input type="text" class="hexbox" value={hexText} oninput={typedHex} maxlength="7" autocapitalize="characters" autocomplete="off" spellcheck="false" aria-label={`Hex for color ${editor.active + 1}`} />
         </label>
-        <button type="button" class="link" onclick={openInCustom}>Add or remove colors in Custom</button>
         <div class="actions">
           <button type="button" class="btn small danger" onclick={removeFromEditor}>Remove</button>
           <span class="spacer"></span>
@@ -426,24 +450,39 @@
     font: inherit;
   }
   .hexbox { font-family: monospace; text-transform: uppercase; }
-  .chips { display: flex; flex-wrap: wrap; gap: var(--s2); }
+  .chips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+  .pm { display: flex; gap: var(--s2); }
   .chip {
     display: inline-flex;
     align-items: center;
     gap: var(--s2);
     min-height: var(--h-chip);
-    padding: 0 var(--s3) 0 var(--s1);
+    padding: 0 var(--s2) 0 var(--s1);
     border: 1px solid var(--line);
     border-radius: var(--r-pill);
     background: none;
     color: inherit;
     font: inherit;
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     cursor: pointer;
   }
   .chip[aria-pressed='true'] { border: 2px solid var(--action); }
-  .chip .dot { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line); }
-  .link { justify-self: start; padding: 0; border: 0; background: none; color: var(--action); font: inherit; font-size: 0.875rem; text-decoration: underline; cursor: pointer; }
+  .chip .dot { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line); }
+  .chip.style { padding: 0 var(--s4); }
+  .chip.style[aria-pressed='true'] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+  .round {
+    flex: none;
+    width: var(--h-small);
+    height: var(--h-small);
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    background: none;
+    color: var(--ink);
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .round:disabled { opacity: 0.4; cursor: default; }
   .actions .spacer { flex: 1; }
   .bar {
     display: flex;

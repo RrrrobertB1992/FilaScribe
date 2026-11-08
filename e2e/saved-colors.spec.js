@@ -115,11 +115,19 @@ test.describe('Saved colors', () => {
     await expect(tiles(page).first()).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('.colorsec .now-hex')).toHaveText('#111111 + #333333 · Segments');
 
-    // Adding or removing colors happens in Custom
+    // + adds a color and shows the style buttons; − takes the last one off
     await panel(page).getByRole('button', { name: /^Edit / }).click();
-    await editor.getByRole('button', { name: 'Add or remove colors in Custom' }).click();
-    await expect(colorTab(page, 'Custom')).toHaveAttribute('aria-pressed', 'true');
-    await expect(editor).toHaveCount(0);
+    await editor.getByRole('button', { name: 'Add a color' }).click();
+    await expect(editor.getByRole('button', { name: /^Color 3,/ })).toBeVisible();
+    await editor.getByRole('button', { name: 'Gradient' }).click();
+    await editor.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('.colorsec .now-hex')).toHaveText('#111111 + #333333 + #333333 · Gradient');
+    await panel(page).getByRole('button', { name: /^Edit / }).click();
+    await editor.getByRole('button', { name: 'Remove the last color' }).click();
+    await editor.getByRole('button', { name: 'Remove the last color' }).click();
+    await expect(editor.getByRole('button', { name: 'Gradient' })).toHaveCount(0); // one color: no style
+    await editor.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('.colorsec .now-hex')).toHaveText('#111111');
   });
 
   test('colors saved by a write are not edited by later changes', async ({ page }) => {
