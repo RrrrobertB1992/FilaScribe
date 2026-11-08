@@ -124,9 +124,9 @@ When a test is needed:
 - Behavior on screen gets an `e2e/<feature>.spec.js`. Import from `e2e/nfc.js`:
   it fakes Web NFC, clears localStorage before each test, auto-accepts
   `confirm()` dialogs, and fails a test on any console error. Helpers:
-  `placeTag`, `readTag`, `readFrom`, `lastWrite`, `writeTag`, `chip`, `fold`,
-  `openCustom`, `colorTab`, `brandPanel`, `brandTile`, `temps`,
-  `showAllMaterials`. Use these instead of writing the same steps again.
+  `placeTag`, `readTag`, `readFrom`, `lastWrite`, `writeTag`, `goCreate`,
+  `chip`, `choiceRow`, `typeOther`, `fold`, `openCustom`, `colorTab`,
+  `brandPanel`, `brandTile`, `temps`, `showAllMaterials`. Use these instead of writing the same steps again.
   Unit tests get a fake storage from `tests/storage.js` (`memoryStorage`,
   `brokenStorage`).
 - Anything that changes what is written to a tag must keep

@@ -1,4 +1,4 @@
-import { test, expect, placeTag, lastWrite, writeCount, status, temps, readTag } from './nfc.js';
+import { test, expect, placeTag, lastWrite, writeCount, status, temps, readTag, goCreate } from './nfc.js';
 
 const TAG = {
   protocol: 'openspool', version: '1.0', type: 'PLA', brand: 'Generic', color_hex: 'FF0000',
@@ -23,7 +23,7 @@ test.describe('Quick edits', () => {
     await expect(weight(page)).toHaveValue('1000');
     await expect(nozzle(page, 'min')).toHaveValue('190');
     await expect(nozzle(page, 'max')).toHaveValue('220');
-    await page.getByRole('tab', { name: 'Create' }).click();
+    await goCreate(page);
     await expect(card(page)).toHaveCount(0);
   });
 

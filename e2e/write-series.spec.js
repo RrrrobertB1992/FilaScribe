@@ -1,4 +1,4 @@
-import { test, expect, chip, placeTag, writeCount, lastWrite, status, temps } from './nfc.js';
+import { test, expect, chip, placeTag, writeCount, lastWrite, status, temps, goCreate } from './nfc.js';
 
 const count = (page) => page.locator('.series');
 const writeAnother = (page) => page.getByRole('button', { name: 'Write another tag' });
@@ -91,7 +91,7 @@ test.describe('Write several tags in a row', () => {
     await write(page, writeButton(page));
     await expect(count(page)).toHaveText('1 tag written for this spool');
     await page.getByRole('tab', { name: 'Settings' }).click();
-    await page.getByRole('tab', { name: 'Create' }).click();
+    await goCreate(page);
     await expect(count(page)).toHaveCount(0);
     await expect(writeButton(page)).toBeVisible();
   });

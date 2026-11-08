@@ -1,4 +1,4 @@
-import { test, expect, colorStyle, placeTag, lastWrite, writeCount, chip, status, temps, openCards, readTag } from './nfc.js';
+import { test, expect, colorStyle, placeTag, lastWrite, writeCount, chip, status, temps, openCards, readTag, goCreate } from './nfc.js';
 
 const U1_TAG = {
   protocol: 'openspool', version: '1.0', type: 'PETG', subtype: 'Rapid', color_hex: '#AFAFAF',
@@ -137,7 +137,7 @@ test.describe('Read & update', () => {
   test('a tag read can be copied onto a new tag from Create', async ({ page }) => {
     await placeTag(page, U1_TAG);
     await readTag(page);
-    await page.getByRole('tab', { name: 'Create' }).click();
+    await goCreate(page);
     await page.getByRole('button', { name: 'Write tag' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
     expect(await lastWrite(page)).toMatchObject({ type: 'PETG', brand: 'Elegoo', subtype: 'Rapid' });

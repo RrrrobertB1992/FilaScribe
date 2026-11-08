@@ -1,4 +1,4 @@
-import { test, expect, chip, writeTag, status, settingsCard, fold } from './nfc.js';
+import { test, expect, chip, writeTag, status, settingsCard, fold, goCreate } from './nfc.js';
 
 const rows = (page) => fold(page, 'filaments').getByRole('list', { name: 'Saved filaments' }).getByRole('listitem');
 const saveButton = (page) => page.getByRole('button', { name: '+ Save this spool as a filament' });
@@ -165,7 +165,7 @@ test.describe('My filaments', () => {
   test('Settings: save every write automatically', async ({ page }) => {
     const card = await settingsCard(page, 'My filaments');
     await card.getByRole('checkbox', { name: /Save every write automatically/ }).check();
-    await page.getByRole('tab', { name: 'Create' }).click();
+    await goCreate(page);
 
     await chip(page, 'Polymaker').click();
     await writeTag(page);
