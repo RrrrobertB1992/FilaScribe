@@ -7,7 +7,9 @@
   $effect(() => { writeBtn?.focus(); });
 </script>
 
-<div class="scrim">
+<!-- Tapping the dim area outside the sheet (or Escape) is the same as Cancel -->
+<svelte:window onkeydown={(e) => e.key === 'Escape' && oncancel()} />
+<div class="scrim" role="presentation" onclick={(e) => e.target === e.currentTarget && oncancel()}>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
     <p class="kicker">Write a tag</p>
     <div class="who">
