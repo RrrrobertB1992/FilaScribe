@@ -4,6 +4,7 @@
   // asks first); search narrows the list. Each row
   // has a star (pin to the top) and ⋯ (name, note and remove). Name, note and
   // pin stay on this device: they are never written to a tag.
+  import { fold } from '../lib/motion.js';
   import * as Filaments from '../lib/filaments.js';
 
   let { list = [], current = '', onuse = () => {}, onremove = () => {}, onchange = () => {} } = $props();
@@ -49,7 +50,7 @@
     {#if shown.length}
       <ul class="rows" aria-label="Saved filaments">
         {#each shown as e (Filaments.keyOf(e))}
-          <li class:on={Filaments.keyOf(e) === current}>
+          <li class:on={Filaments.keyOf(e) === current} transition:fold>
             <div class="row">
               <button type="button" class="use" onclick={() => onuse(e)} aria-label={`Use ${label(e)}${Filaments.isCustom(e) ? ' (custom color)' : ''}`}>
                 <span class="dot" style:background={swatch(e)} aria-hidden="true"></span>
@@ -63,7 +64,7 @@
               <button type="button" class="ic" aria-expanded={editing === Filaments.keyOf(e)} aria-label={`Edit ${label(e)}`} onclick={() => toggleEdit(e)}>⋯</button>
             </div>
             {#if editing === Filaments.keyOf(e)}
-              <div class="edit">
+              <div class="edit" transition:fold>
                 <label>
                   <span class="lab">Name</span>
                   <input type="text" value={e.name || ''} maxlength={Filaments.NAME_MAX} placeholder={`${Filaments.title(e)} · ${Filaments.colorLabel(e)}`} oninput={(ev) => onchange(e, { name: ev.currentTarget.value })} autocomplete="off" />

@@ -7,6 +7,7 @@
   // material only, not to a variant. (The variants are still recorded, but
   // nothing here uses them.)
   import { exportJson, readJsonFile } from '../lib/backup.js';
+  import { fold, morph } from '../lib/motion.js';
   import HsvPicker from './HsvPicker.svelte';
   import { normalizeHex } from '../lib/formats/openspool.js';
   import { onMount, untrack } from 'svelte';
@@ -143,10 +144,11 @@
   }
 
   // --- The editor, right under the row of the tile being edited ---
-  // Bring it into view when it opens (a long list may have scrolled the tile away from it)
-  const reveal = (node) => {
-    node.scrollIntoView({ block: 'nearest' });
-  };
+  // It folds open and shut. Once open, bring it into view (a long list may have scrolled the tile away);
+  // once shut, bring the tile back into view so the screen doesn't land somewhere else.
+  let root = $state(null);
+  const reveal = (e) => e.target.scrollIntoView({ block: 'nearest' });
+  const settle = () => root?.querySelector('.cell.on')?.scrollIntoView({ block: 'nearest' });
   function toggleEditor(entry) {
     const id = SC.entryId(entry);
     if (editor?.id === id) {
@@ -194,8 +196,10 @@
   function removeFromEditor() {
     const entry = entries.find((e) => SC.entryId(e) === editor?.id);
     if (!entry) return;
-    removeRow(entry);
-    if (!entries.some((e) => SC.entryId(e) === editor?.id)) editor = null;
+    morph(root, () => {
+      removeRow(entry);
+      if (!entries.some((e) => SC.entryId(e) === editor?.id)) editor = null;
+    });
   }
   // + adds a color (a copy of the last one, ready to change); − drops the last one
   function addToEditor() {
@@ -212,8 +216,10 @@
   }
   function clearAll() {
     if (!confirm(`Remove all saved colors for ${label}?`)) return;
-    persist(SC.clearKey(all, key));
-    deselect();
+    morph(root, () => {
+      persist(SC.clearKey(all, key));
+      deselect();
+    });
   }
 
   // --- Called by the app ---
@@ -299,7 +305,7 @@
 </script>
 
 {#if key}
-  <div class="saved">
+  <div class="saved" bind:this={root}>
     <p class="hint">
       {#if entries.length}
         {entries.length} saved {entries.length === 1 ? 'color' : 'colors'} for {label}.
@@ -330,7 +336,7 @@
             <button type="button" class="edit-btn" class:open={isOpen} aria-expanded={isOpen} aria-label={`Edit ${entry.name || entry.colors.join(' + ')}`} onclick={() => toggleEditor(entry)}>Edit</button>
           </div>
           {#if isOpen && editor}
-          <div class="editor" role="group" aria-label="Edit saved color" use:reveal>
+          <div class="editor" role="group" aria-label="Edit saved color" transition:fold onintroend={reveal} onoutroend={settle}>
             <label class="field">
               <span class="lab">Name</span>
               <input type="text" bind:value={editor.name} maxlength="32" placeholder="Color name" autocomplete="off" />
@@ -377,7 +383,7 @@
       </div>
       {#if entries.length > shown}
         {@const left = entries.length - shown}
-        <button type="button" class="btn small" onclick={() => (shown += SC.PAGE_SIZE)}>
+        <button type="button" class="btn small" onclick={() => morph(root, () => { shown += SC.PAGE_SIZE; })}>
           Show {Math.min(SC.PAGE_SIZE, left)} more ({left} left)
         </button>
       {/if}

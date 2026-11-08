@@ -4,6 +4,7 @@
   // numbers); this card also lists what changed since the tag was read, with
   // a way back. Nothing is written until Update tag.
   import { bump, changes } from '../lib/quickEdits.js';
+  import { fold } from '../lib/motion.js';
   import Fold from './Fold.svelte';
   import ClosestColors from './ClosestColors.svelte';
 
@@ -58,7 +59,7 @@
       <button type="button" class="step" aria-label={`${label} plus ${d}`} onclick={() => onset(field, bump(field, form[field], d))}>{glyph}</button>
     {/each}
   </div>
-  {#if errors[field]}<p class="error-text">{errors[field]}</p>{/if}
+  {#if errors[field]}<p class="error-text" transition:fold>{errors[field]}</p>{/if}
 {/snippet}
 
 <section class="quick" aria-label="Quick edits">

@@ -1,5 +1,6 @@
 <script>
   import { onMount, tick } from 'svelte';
+  import { fold } from './lib/motion.js';
   import Palette from './components/Palette.svelte';
   import ColorSection from './components/ColorSection.svelte';
   import SpoolPreview from './components/SpoolPreview.svelte';
@@ -651,7 +652,7 @@
             <label>Min <input type="text" inputmode="numeric" bind:value={form.minTemp} aria-invalid={!!errorFor('minTemp')} /></label>
             <label>Max <input type="text" inputmode="numeric" bind:value={form.maxTemp} aria-invalid={!!errorFor('maxTemp')} /></label>
           </div>
-          {#if errorFor('minTemp') || errorFor('maxTemp')}<p class="error-text">{errorFor('minTemp') || errorFor('maxTemp')}</p>{/if}
+          {#if errorFor('minTemp') || errorFor('maxTemp')}<p class="error-text" transition:fold>{errorFor('minTemp') || errorFor('maxTemp')}</p>{/if}
         </fieldset>
 
         {#if u1}
@@ -661,7 +662,7 @@
               <label>Min <input type="text" inputmode="numeric" bind:value={form.bedMinTemp} aria-invalid={!!errorFor('bedMinTemp')} /></label>
               <label>Max <input type="text" inputmode="numeric" bind:value={form.bedMaxTemp} aria-invalid={!!errorFor('bedMaxTemp')} /></label>
             </div>
-            {#if errorFor('bedMinTemp') || errorFor('bedMaxTemp')}<p class="error-text">{errorFor('bedMinTemp') || errorFor('bedMaxTemp')}</p>{/if}
+            {#if errorFor('bedMinTemp') || errorFor('bedMaxTemp')}<p class="error-text" transition:fold>{errorFor('bedMinTemp') || errorFor('bedMaxTemp')}</p>{/if}
           </fieldset>
         {/if}
       </Fold>
@@ -673,7 +674,7 @@
             <label>Diameter, mm <input type="text" inputmode="decimal" bind:value={form.diameter} placeholder="1.75" aria-invalid={!!errorFor('diameter')} /></label>
             <label>Opacity (hex) <input type="text" bind:value={form.alpha} maxlength="2" autocapitalize="characters" aria-invalid={!!errorFor('alpha')} /></label>
           </div>
-          {#each ['weight', 'diameter', 'alpha'] as f}{#if errorFor(f)}<p class="error-text">{errorFor(f)}</p>{/if}{/each}
+          {#each ['weight', 'diameter', 'alpha'] as f}{#if errorFor(f)}<p class="error-text" transition:fold>{errorFor(f)}</p>{/if}{/each}
           <p class="hint">Leave a box empty to leave it off the tag. Opacity FF means fully opaque and isn’t written.</p>
         </Fold>
       {/if}

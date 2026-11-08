@@ -1,4 +1,5 @@
 <script>
+  import { fold } from '../lib/motion.js';
   // The closest brand colors for colors that aren't a brand color: a few
   // tiles to tap, or, once one is picked, a way back to the color it replaced.
   // Used in the Colors card (Create) and in Quick edits (Read & update); the
@@ -19,12 +20,12 @@
 </script>
 
 {#if backTo}
-  <div class="back">
+  <div class="back" transition:fold>
     <span>Was your color {backTo}</span>
     <button type="button" class="btn small" onclick={onback}>Back to my color</button>
   </div>
 {:else if suggestions?.length}
-  <div class="suggest" role="group" aria-label="Closest brand colors">
+  <div class="suggest" role="group" aria-label="Closest brand colors" transition:fold>
     <p class="s-title">Closest {label} colors</p>
     {#each suggestions as s (s.id)}
       <button type="button" class="s-tile" aria-label={`Use ${s.name}, ${s.line}, ${s.label}`} onclick={() => onuse(s.id)}>
@@ -36,7 +37,7 @@
     <p class="hint">{mine ? `Your color is ${mine}. Tap one to use it instead.` : 'Tap one to use it. Your color stays here until you do.'}</p>
   </div>
 {:else if suggestions}
-  <p class="hint no-close">No {label} color is close to this one.</p>
+  <p class="hint no-close" transition:fold>No {label} color is close to this one.</p>
 {/if}
 
 <style>

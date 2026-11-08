@@ -2,6 +2,7 @@
   // The Settings tab: defaults for new tags, your chips and saved colors,
   // appearance, and about.
   import Palette from './Palette.svelte';
+  import { fold } from '../lib/motion.js';
   import * as OpenSpool from '../lib/formats/openspool.js';
   import * as Defaults from '../lib/defaults.js';
   import * as CustomChips from '../lib/customChips.js';
@@ -832,10 +833,10 @@
         <div><dt>Last checked</dt><dd>{dbWhen(dbChecked)}</dd></div>
       </dl>
       {#if dbOld}
-        <p class="error-text" role="alert">The brand colors are over {ColorDb.MAX_AGE_DAYS} days old. Check for updates.</p>
+        <p class="error-text" transition:fold role="alert">The brand colors are over {ColorDb.MAX_AGE_DAYS} days old. Check for updates.</p>
       {/if}
     {/if}
-    {#if dbError}<p class="error-text" role="alert">{dbError}</p>{/if}
+    {#if dbError}<p class="error-text" transition:fold role="alert">{dbError}</p>{/if}
     {#if dbCheck?.status === 'current'}
       <p class="hint" role="status">You have the newest database.</p>
     {:else if dbCheck?.status === 'update'}

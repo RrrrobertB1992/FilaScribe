@@ -1,4 +1,5 @@
 <script>
+  import { fold } from '../lib/motion.js';
   // A row of choice chips with an optional Custom chip that reveals a text box.
   // `value` is the chosen string; a value not in `items` counts as custom.
   // With `suggest`, the text box offers matches while typing and only sets
@@ -196,7 +197,7 @@
   {:else if removable.includes(value)}
     <button type="button" class="btn small danger remove" onclick={() => onremove(value)}>Remove “{value}” from your chips</button>
   {/if}
-  {#if error}<p class="error-text">{error}</p>{/if}
+  {#if error}<p class="error-text" transition:fold>{error}</p>{/if}
 </div>
 
 <style>
