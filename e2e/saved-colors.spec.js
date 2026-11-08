@@ -28,7 +28,7 @@ test.describe('Saved colors', () => {
     await colorTab(page, 'Saved').click();
     await expect(page.locator('#hex-input')).toBeHidden();
     await expect(panel(page)).toContainText('1 saved color for Polymaker PLA');
-    await expect(panel(page).getByRole('button', { name: 'Rename' })).toBeVisible();
+    await expect(panel(page).getByRole('button', { name: /^Edit / })).toBeVisible();
   });
 
   test('saved colors belong to their brand + material and survive a reload', async ({ page }) => {
@@ -85,80 +85,74 @@ test.describe('Saved colors', () => {
     await expect(panel(page).getByRole('button', { name: /^Remove “/ })).toHaveCount(0);
   });
 
-  test('picking a saved color, then changing it in Custom, edits that saved color', async ({ page }) => {
-    await setColors(page, '111111');
-    await save(page).click();
-    await page.locator('#hex-input').fill('222222');
+  test('Edit changes one color and the name; Cancel changes nothing; the form follows Save', async ({ page }) => {
+    await setColors(page, '111111', '222222');
     await save(page).click();
     await colorTab(page, 'Saved').click();
-    await tiles(page).filter({ hasText: '111111' }).click();
-    await openCustom(page);
-    await expect(page.locator('.editbar')).toHaveCount(0); // nothing changed yet
-    await page.locator('#hex-input').fill('333333');
-    await expect(page.locator('.editbar')).toContainText('Editing saved color');
-    await expect(save(page)).toHaveCount(0); // only the edit bar's buttons
-    await page.locator('.editbar').getByRole('button', { name: 'Save changes' }).click();
+    await tiles(page).first().click();
+    await panel(page).getByRole('button', { name: /^Edit / }).click();
+    const editor = panel(page).getByRole('group', { name: 'Edit saved color' });
+    await editor.getByRole('button', { name: /^Color 2,/ }).click();
+    await editor.getByLabel('Hex for color 2').fill('333333');
+    await editor.getByLabel('Name').fill('Duo');
+
+    // Nothing is touched until Save
+    await editor.getByRole('button', { name: 'Cancel' }).click();
+    await expect(editor).toHaveCount(0);
+    await expect(tiles(page).first()).toContainText('222222');
+    await expect(tiles(page).first()).not.toContainText('Duo');
+
+    await panel(page).getByRole('button', { name: /^Edit / }).click();
+    await editor.getByRole('button', { name: /^Color 2,/ }).click();
+    await editor.getByLabel('Hex for color 2').fill('333333');
+    await editor.getByLabel('Name').fill('Duo');
+    await editor.getByRole('button', { name: 'Save' }).click();
     await expect(status(page)).toHaveText('Saved color updated');
-    await expect(colorTab(page, 'Saved')).toHaveText(/Saved\s*2/); // updated, not added
-    await expect(tiles(page).filter({ hasText: '333333' })).toHaveAttribute('aria-pressed', 'true');
-    await expect(tiles(page).filter({ hasText: '111111' })).toHaveCount(0);
+    await expect(colorTab(page, 'Saved')).toHaveText(/Saved\s*1/); // updated, not added
+    await expect(tiles(page).first()).toContainText('111111');
+    await expect(tiles(page).first()).toContainText('333333');
+    await expect(tiles(page).first()).toContainText('Duo');
+    await expect(tiles(page).first()).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.colorsec .now-hex')).toHaveText('#111111 + #333333 · Segments');
 
-    // Save as new keeps the original
-    await openCustom(page);
-    await page.locator('#hex-input').fill('444444');
-    await page.locator('.editbar').getByRole('button', { name: 'Save as new' }).click();
-    await expect(colorTab(page, 'Saved')).toHaveText(/Saved\s*3/);
-    await expect(tiles(page).filter({ hasText: '333333' })).toHaveCount(1);
-
-    // Writing while editing keeps the edit in that saved color
-    await openCustom(page);
-    await page.locator('#hex-input').fill('555555');
-    await writeTag(page);
-    await expect(colorTab(page, 'Saved')).toHaveText(/Saved\s*3/);
-    await colorTab(page, 'Saved').click();
-    await expect(tiles(page).filter({ hasText: '555555' })).toHaveCount(1);
-    await expect(tiles(page).filter({ hasText: '444444' })).toHaveCount(0);
+    // + adds a color and shows the style buttons; − takes the last one off
+    await panel(page).getByRole('button', { name: /^Edit / }).click();
+    await editor.getByRole('button', { name: 'Add a color' }).click();
+    await expect(editor.getByRole('button', { name: /^Color 3,/ })).toBeVisible();
+    await editor.getByRole('button', { name: 'Gradient' }).click();
+    await editor.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('.colorsec .now-hex')).toHaveText('#111111 + #333333 + #333333 · Gradient');
+    await panel(page).getByRole('button', { name: /^Edit / }).click();
+    await editor.getByRole('button', { name: 'Remove the last color' }).click();
+    await editor.getByRole('button', { name: 'Remove the last color' }).click();
+    await expect(editor.getByRole('button', { name: 'Gradient' })).toHaveCount(0); // one color: no style
+    await editor.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('.colorsec .now-hex')).toHaveText('#111111');
   });
 
   test('colors saved by a write are not edited by later changes', async ({ page }) => {
     await setColors(page, '666666');
     await writeTag(page); // saved and picked, but not by you
     await page.locator('#hex-input').fill('777777');
-    await expect(page.locator('.editbar')).toHaveCount(0);
     await writeTag(page);
     await expect(colorTab(page, 'Saved')).toHaveText(/Saved\s*2/);
   });
 
-  test('rename, edit colors, remove a row, clear', async ({ page }) => {
+  test('rename, remove a row, clear', async ({ page }) => {
     await setColors(page, '101010');
     await chip(page, 'Basic').click();
     await writeTag(page); // saved + picked
     await colorTab(page, 'Saved').click();
 
-    await panel(page).getByRole('button', { name: 'Rename' }).click();
-    await panel(page).getByLabel('Saved color name').fill('Charcoal');
-    await panel(page).getByRole('button', { name: 'Save name' }).click();
+    await panel(page).getByRole('button', { name: /^Edit / }).click();
+    await panel(page).getByLabel('Name').fill('Charcoal');
+    await panel(page).getByRole('button', { name: 'Save', exact: true }).click();
     await expect(tiles(page).first()).toContainText('Charcoal');
     await expect(page.locator('.colorsec .now-name')).toHaveText('Charcoal');
 
-    // Edit colors opens Custom with Save / Cancel for the saved color
-    await panel(page).getByRole('button', { name: 'Edit colors' }).click();
-    await expect(page.locator('.editbar')).toContainText('Editing saved color Charcoal');
-    await page.locator('#hex-input').fill('202020');
-    await page.locator('.editbar').getByRole('button', { name: 'Save changes' }).click();
-    await expect(colorTab(page, 'Saved')).toHaveAttribute('aria-pressed', 'true');
-    await expect(tiles(page).first()).toContainText('202020');
-    await expect(tiles(page).first()).toContainText('Charcoal');
-
-    // Cancel puts the saved colors back
-    await panel(page).getByRole('button', { name: 'Edit colors' }).click();
-    await page.locator('#hex-input').fill('999999');
-    await page.locator('.editbar').getByRole('button', { name: 'Cancel' }).click();
-    await expect(tiles(page).first()).toContainText('202020');
-    await expect(page.locator('.colorsec .now-hex')).toHaveText('#202020');
-
     // Removing the last one turns Saved off and opens another source
-    await panel(page).getByRole('button', { name: 'Remove color' }).click();
+    await panel(page).getByRole('button', { name: /^Edit / }).click();
+    await panel(page).getByRole('button', { name: 'Remove', exact: true }).click();
     await expect(colorTab(page, 'Saved')).toBeDisabled();
 
     await openCustom(page);
@@ -177,7 +171,7 @@ test.describe('Saved colors', () => {
     await readFrom(page, { protocol: 'openspool', version: '1.0', type: 'PLA', brand: 'Polymaker', color_hex: '5A5A5A' });
     await openCards(page);
     await expect(colorTab(page, 'Saved')).toHaveAttribute('aria-pressed', 'true');
-    await expect(panel(page).getByRole('button', { name: 'Rename' })).toBeVisible();
+    await expect(panel(page).getByRole('button', { name: /^Edit / })).toBeVisible();
     await expect(page.locator('#hex-input')).toBeHidden();
   });
 
