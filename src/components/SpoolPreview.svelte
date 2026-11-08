@@ -83,7 +83,7 @@
   .meta { margin: 0; color: var(--muted); font-size: 0.875rem; }
   .size { grid-column: 1 / -1; display: grid; gap: var(--s1); }
   .bar { height: 6px; border-radius: 3px; background: var(--chip); overflow: hidden; }
-  .bar span { display: block; height: 100%; background: var(--brass); }
+  .bar span { display: block; height: 100%; background: var(--highlight); }
   .over .bar span { background: var(--danger); }
   .over .meta { color: var(--danger); }
 </style>

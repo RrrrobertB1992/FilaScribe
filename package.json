@@ -18,8 +18,8 @@
   "dependencies": {
     "@capacitor/android": "^8.5.3",
     "@capacitor/core": "^8.5.3",
-    "@fontsource/atkinson-hyperlegible": "^5.3.0",
-    "@fontsource/barlow-semi-condensed": "^5.3.0"
+    "@fontsource/figtree": "^5.3.0",
+    "@fontsource/outfit": "^5.3.0"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.3",

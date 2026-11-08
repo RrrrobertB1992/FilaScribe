@@ -182,7 +182,9 @@ Saved colors, color overrides and everything else you saved are never touched. T
 
 ## Look and feel
 
-Every screen uses the same few shapes, set once in `src/app.css`: corners (`--r-control` for buttons, inputs and tiles, `--r-card` for cards and lists, `--r-pill` for chips and tabs) and heights (`--h-small`, `--h-chip`, `--h-control`, `--h-row`). Buttons come in three kinds: filled blue (the main action of a card), outlined (every other action) and red-text outlined (things that remove or delete). No button is plain text; only real links, which are blue and underlined, and the little round × buttons look different. A selected chip, tab or filter is always filled with the strong text color (dark in the light theme, light in the dark one). The top tabs and the OpenSpool / Snapmaker U1 switch are a softer raised pill, because they switch whole views.
+The colors and fonts are the "Filament orange" theme: near-black (dark) or warm paper (light) with orange for actions (`--action`), violet for the tag moment (`--highlight`), Outfit for labels and Figtree for text, all set in `src/app.css`.
+
+Every screen uses the same few shapes, set once in `src/app.css`: corners (`--r-control` for buttons, inputs and tiles, `--r-card` for cards and lists, `--r-pill` for chips and tabs) and heights (`--h-small`, `--h-chip`, `--h-control`, `--h-row`). Buttons come in three kinds: filled orange (the main action of a card), outlined (every other action) and red-text outlined (things that remove or delete). No button is plain text; only real links, which are orange and underlined, and the little round × buttons look different. A selected chip, tab or filter is always filled with the strong text color (dark in the light theme, light in the dark one). The top tabs and the OpenSpool / Snapmaker U1 switch are a softer raised pill, because they switch whole views.
 
 ## Project layout
 

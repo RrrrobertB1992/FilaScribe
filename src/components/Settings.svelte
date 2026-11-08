@@ -1168,7 +1168,7 @@
   }
   .what { flex: 1; min-width: 0; padding-left: 6px; font-family: var(--font-label); font-weight: 600; overflow-wrap: anywhere; }
   .note { display: block; font-family: var(--font-body, inherit); font-weight: 400; font-size: 0.8125rem; color: var(--muted); }
-  .note.warn { color: var(--brass); }
+  .note.warn { color: var(--highlight); }
   .swatches.pair span:first-child { outline: 1px dashed var(--muted); outline-offset: 1px; }
   .n { margin-left: 4px; padding: 0 6px; border-radius: var(--r-pill); background: var(--chip); color: var(--muted); font-size: 0.8125rem; }
 
