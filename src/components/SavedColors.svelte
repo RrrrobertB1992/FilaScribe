@@ -9,7 +9,7 @@
   import { exportJson, readJsonFile } from '../lib/backup.js';
   import HsvPicker from './HsvPicker.svelte';
   import { normalizeHex } from '../lib/formats/openspool.js';
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import * as SC from '../lib/savedColors.js';
   import { canonicalBrand } from '../lib/brandColors.js';
   import { loadBrandColors } from '../lib/brandColorsData.js';
@@ -156,10 +156,13 @@
     if (selected !== id) select(entry);
     editor = { id, name: entry.name, colors: [...entry.colors], type: entry.colorType, active: 0 };
   }
-  // Keep the hex box in step with the active color (not while typing a partial value)
+  // Keep the hex box in step with the active color. It must not read hexText
+  // as a dependency, or erasing or half-typing a value would be put straight back.
   $effect(() => {
     const current = editor?.colors[editor.active];
-    if (current && normalizeHex(hexText) !== current) hexText = current;
+    untrack(() => {
+      if (current && normalizeHex(hexText) !== current) hexText = current;
+    });
   });
   // The picker works on its own copy, as in the Custom panel, so the two never fight
   let pickerHex = $state('FFFFFF');

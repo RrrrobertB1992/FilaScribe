@@ -2,8 +2,8 @@ import { test, expect, chip, settingsCard, brandPanel, brandTile } from './nfc.j
 
 // Bambu Lab PLA Basic Black is #000000 in the bundled database snapshot
 const header = (page) => page.locator('.colorsec');
-const box = (page) => page.getByRole('group', { name: 'Override this color' });
-const overrideBtn = (page) => brandPanel(page).getByRole('button', { name: /^(Override|Edit override)$/ });
+const box = (page) => page.getByRole('group', { name: 'Edit brand color' });
+const editBtn = (page, name = 'Black') => brandPanel(page).getByRole('button', { name: new RegExp(`^Edit ${name}`) });
 
 async function pickBlack(page) {
   await chip(page, 'Bambu Lab').click();
@@ -12,19 +12,22 @@ async function pickBlack(page) {
 }
 
 async function override(page, hex, { all = false } = {}) {
-  await overrideBtn(page).click();
-  await box(page).getByLabel('Override hex').fill(hex);
+  await editBtn(page).click();
+  await box(page).getByLabel('Hex for color 1').fill(hex);
   if (all) await box(page).getByRole('checkbox').check();
-  await box(page).getByRole('button', { name: 'Save override' }).click();
+  await box(page).getByRole('button', { name: 'Override' }).click();
 }
 
 test.describe('Color overrides', () => {
-  test('the button shows next to “Show all” only once a color is picked', async ({ page }) => {
+  test('every tile has an Edit button that picks it and opens the editor under it', async ({ page }) => {
     await chip(page, 'Bambu Lab').click();
     await chip(page, 'Basic').click();
-    await expect(overrideBtn(page)).toHaveCount(0);
-    await brandTile(page, 'Black').click();
-    await expect(overrideBtn(page)).toBeVisible();
+    await expect(box(page)).toHaveCount(0);
+    await expect(brandTile(page, 'Black')).toHaveAttribute('aria-pressed', 'false');
+    await editBtn(page).click();
+    await expect(brandTile(page, 'Black')).toHaveAttribute('aria-pressed', 'true');
+    await expect(box(page)).toBeVisible();
+    await expect(box(page).getByRole('button', { name: 'Reset to database' })).toHaveCount(0); // nothing to reset yet
     await expect(brandPanel(page).getByRole('button', { name: /^Show all Bambu Lab/ })).toBeVisible();
   });
 
@@ -37,32 +40,30 @@ test.describe('Color overrides', () => {
     await expect(header(page).locator('.now-name')).toHaveText('Black (#000000)');
     await expect(header(page).locator('.now-hex')).toHaveText('#111111');
     await expect(header(page).locator('.swatch.edited')).toBeVisible();
-    await expect(overrideBtn(page)).toHaveText('Edit override');
+    await editBtn(page).click();
+    await expect(box(page).getByRole('button', { name: 'Reset to database' })).toBeVisible();
   });
 
-  test('Pick opens the app’s color picker in a pop-up', async ({ page }) => {
-    await pickBlack(page);
-    await overrideBtn(page).click();
-    await box(page).getByRole('button', { name: 'Pick a color' }).click();
-    const pop = page.getByRole('dialog', { name: 'Pick Override color' });
-    await expect(pop).toBeVisible();
-    await pop.getByLabel('Override color hex').fill('336699');
-    await pop.getByRole('button', { name: 'Use this color' }).click();
-    await expect(pop).toHaveCount(0);
-    await expect(box(page).getByLabel('Override hex')).toHaveValue('336699');
-    // Cancel keeps what was there
-    await box(page).getByRole('button', { name: 'Pick a color' }).click();
-    await pop.getByLabel('Override color hex').fill('FF0000');
-    await pop.getByRole('button', { name: 'Cancel' }).click();
-    await expect(box(page).getByLabel('Override hex')).toHaveValue('336699');
+  test('the Hex box can be erased and typed into', async ({ page }) => {
+    await chip(page, 'Bambu Lab').click();
+    await chip(page, 'Basic').click();
+    await editBtn(page).click();
+    const hex = box(page).getByLabel('Hex for color 1');
+    await hex.fill('');
+    await expect(hex).toHaveValue('');
+    await hex.pressSequentially('336699');
+    await expect(hex).toHaveValue('336699');
+    await expect(box(page).getByRole('button', { name: /^Color 1, #336699/ })).toBeVisible();
   });
 
   test('a bad hex is refused', async ({ page }) => {
     await pickBlack(page);
-    await overrideBtn(page).click();
-    await box(page).getByLabel('Override hex').fill('12');
-    await box(page).getByRole('button', { name: 'Save override' }).click();
-    await expect(box(page)).toContainText('6 hex digits');
+    await editBtn(page).click();
+    await box(page).getByLabel('Hex for color 1').fill('12');
+    await expect(box(page)).toContainText('3 or 6 hex digits');
+    await box(page).getByRole('button', { name: 'Override' }).click();
+    await expect(box(page)).toBeVisible(); // nothing saved
+    await expect(brandTile(page, 'Black')).not.toContainText('Edited');
   });
 
   test('stays after a reload, and an old tag with the database hex still matches', async ({ page }) => {
@@ -90,7 +91,7 @@ test.describe('Color overrides', () => {
     let asked = '';
     page.removeAllListeners('dialog');
     page.once('dialog', (d) => { asked = d.message(); d.dismiss(); });
-    await overrideBtn(page).click();
+    await editBtn(page).click();
     await box(page).getByRole('button', { name: 'Reset to database' }).click();
     expect(asked).not.toBe('');
     await expect(brandTile(page, 'Black')).toContainText('Edited');

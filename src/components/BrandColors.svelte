@@ -3,12 +3,14 @@
   // colors for the picked material, narrowed by the variant (see
   // lib/brandColors.js). Works like Saved colors but read-only: pick a color
   // to fill the colors (and the line's temperatures); tap it again to put
-  // back what was there. "Clone" saves a copy of a color, with your changes, as a saved color.
-  import { onMount } from 'svelte';
+  // back what was there. Every tile has an Edit button: it opens an editor right
+  // under that tile's row, with Override (change the color's hex everywhere you
+  // use it) and Clone (save a copy of it as a saved color).
+  import { onMount, untrack } from 'svelte';
   import * as BC from '../lib/brandColors.js';
   import * as CM from '../lib/colorMatch.js';
   import { loadBrandColors } from '../lib/brandColorsData.js';
-  import ColorPopup from './ColorPopup.svelte';
+  import HsvPicker from './HsvPicker.svelte';
   import { normalizeHex } from '../lib/formats/openspool.js';
   import * as Manual from '../lib/manualColors.js';
   import { getEdits, setEdit, removeEdit, withManual } from '../lib/manualColorsStore.svelte.js';
@@ -107,9 +109,9 @@
       }
     }
   });
-  // The override box belongs to the picked color
+  // The editor belongs to the picked color
   $effect(() => {
-    if (!pickedTile) { editor = null; popup = null; }
+    if (!pickedTile) editor = null;
   });
   $effect(() => {
     available = !!db && result.total > 0;
@@ -251,16 +253,41 @@
     picked = { id: BC.colorId(hit.line, hit.entry), lineName: hit.line.name };
   }
 
-  // --- Overriding a color's hex ---
+  // --- Editing a color: Override its hex, or Clone it as a saved color ---
 
-  let popup = $state(null); // index of the color being picked in the pop-up, or null
-  let editor = $state(null); // { mode: 'override' | 'clone', hexes: ['212121'], all: false, error: '' } while the box is open
+  let editor = $state(null); // { id, hexes: ['212121'], active: 0, all: false } while the editor is open under a tile
+  let hexText = $state('');
+  let pickerHex = $state('FFFFFF');
+  const editFor = (tile) => Manual.find(getEdits(), { brand: dbBrandName, material: materialOf(tile.line), line: tile.line.name, color: tile.info.name });
   // The override on the picked color (its line's own, or the all-lines one)
-  const pickedEdit = $derived.by(() => {
-    if (!pickedTile || !db) return null;
-    return Manual.find(getEdits(), { brand: dbBrandName, material: materialOf(pickedTile.line), line: pickedTile.line.name, color: pickedTile.info.name });
-  });
+  const pickedEdit = $derived(pickedTile && db ? editFor(pickedTile) : null);
   const dbBrandName = $derived(BC.findBrand(db, brand)?.name || '');
+  const hexError = $derived(editor && !normalizeHex(hexText) ? 'Use 3 or 6 hex digits, like F80 or FF8800.' : '');
+
+  // Keep the hex box in step with the active color. It must not read hexText
+  // as a dependency, or erasing or half-typing a value would be put straight back.
+  $effect(() => {
+    const current = editor?.hexes[editor.active];
+    untrack(() => {
+      if (current && normalizeHex(hexText) !== current) hexText = current;
+    });
+  });
+  // The picker works on its own copy so the two never fight
+  $effect(() => {
+    if (editor) pickerHex = editor.hexes[editor.active];
+  });
+  $effect(() => {
+    if (editor && normalizeHex(pickerHex) && pickerHex !== editor.hexes[editor.active]) editor.hexes[editor.active] = pickerHex;
+  });
+  function typedHex(e) {
+    hexText = e.currentTarget.value;
+    const hex = normalizeHex(hexText);
+    if (hex && editor) editor.hexes[editor.active] = hex;
+  }
+  // Scroll the editor into view when it opens under a tile
+  const reveal = (node) => {
+    node.scrollIntoView({ block: 'nearest' });
+  };
 
   function materialOf(line) {
     const b = BC.findBrand(db, brand);
@@ -286,41 +313,40 @@
     apply(tile);
   }
 
-  function openEditor() {
-    if (!pickedTile) return;
-    editor = { mode: 'override', hexes: [...pickedTile.info.colors], all: pickedEdit?.line === Manual.ALL_LINES, error: '' };
-  }
-
-  function openClone() {
-    if (!pickedTile) return;
-    editor = { mode: 'clone', hexes: [...pickedTile.info.colors].slice(0, max), all: false, error: '', name: pickedTile.info.name, style: colorType === '0' ? '0' : '1' };
-  }
-
-  // Save the colors in the box as a new saved color named after the brand color
-  function saveClone() {
-    const tile = pickedTile;
-    if (!tile || !editor) return;
-    const hexes = editor.hexes.map((h) => normalizeHex(h));
-    if (hexes.some((h) => !h)) {
-      editor.error = 'Each color needs 6 hex digits, like 212121.';
+  // Edit picks the tile too (so Clone and Override work on the color you see)
+  function toggleEditor(tile) {
+    if (editor?.id === tile.id) {
+      editor = null;
       return;
     }
-    const name = (editor.name || '').trim().slice(0, 32);
-    const gradient = editor.style;
+    if (picked?.id !== tile.id) pick(tile);
+    editor = { id: tile.id, hexes: [...tile.info.colors], active: 0, all: editFor(tile)?.line === Manual.ALL_LINES };
+  }
+
+  // The colors in the editor, when every one is a real hex
+  function editorHexes() {
+    if (!editor || hexError) return null;
+    const hexes = editor.hexes.map((h) => normalizeHex(h));
+    return hexes.every(Boolean) ? hexes : null;
+  }
+
+  // Save the colors as a new saved color named after the brand color, keeping its style
+  function saveClone() {
+    const tile = pickedTile;
+    const hexes = editorHexes();
+    if (!tile || !hexes) return;
+    const name = tile.info.name.trim().slice(0, 32);
+    const style = tile.info.gradient ? '0' : '1';
     editor = null;
     picked = null;
     snapshot = null;
-    onclone(hexes, name, gradient);
+    onclone(hexes.slice(0, max), name, style);
   }
 
   function saveEditor() {
     const tile = pickedTile;
-    if (!tile || !editor) return;
-    const hexes = editor.hexes.map((h) => normalizeHex(h));
-    if (hexes.some((h) => !h)) {
-      editor.error = 'Each color needs 6 hex digits, like 212121.';
-      return;
-    }
+    const hexes = editorHexes();
+    if (!tile || !hexes) return;
     const { name } = tile.info;
     setEdit({
       brand: dbBrandName,
@@ -347,41 +373,6 @@
     repick(tile.line.name, name);
   }
 
-  // The colors in the box as one spool: blended, or in even parts (two split diagonally, more wrapped around)
-  function spoolPreview(ed, tile) {
-    const list = ed.hexes.map((h) => normalizeHex(h)).filter(Boolean).map((h) => `#${h}`);
-    if (!list.length) return 'transparent';
-    if (list.length === 1) return list[0];
-    const gradient = ed.mode === 'clone' ? ed.style === '0' : !!tile.info.gradient;
-    const step = 100 / list.length;
-    if (list.length > 2) {
-      // Three or more wrap around the circle, the first starting at the top left and going clockwise
-      if (gradient) return `conic-gradient(from -45deg, ${[...list, list[0]].join(', ')})`;
-      return `conic-gradient(from -45deg, ${list.map((c, i) => `${c} ${i * step}% ${(i + 1) * step}%`).join(', ')})`;
-    }
-    if (gradient) return `linear-gradient(135deg, ${list.join(', ')})`;
-    return `linear-gradient(135deg, ${list.map((c, i) => `${c} ${i * step}% ${(i + 1) * step}%`).join(', ')})`;
-  }
-
-  function addColor() {
-    if (editor.hexes.length >= max) return;
-    editor.hexes.push(editor.hexes[editor.hexes.length - 1] || 'FFFFFF');
-    editor.error = '';
-  }
-
-  function removeColor(i) {
-    if (editor.hexes.length < 2) return;
-    editor.hexes.splice(i, 1);
-    editor.error = '';
-  }
-
-  function setHex(i, value) {
-    editor.hexes[i] = value.replace(/[^0-9a-fA-F#]/g, '').replace('#', '').slice(0, 6).toUpperCase();
-    editor.error = '';
-  }
-
-  const previewHex = (h) => (normalizeHex(h) ? `#${normalizeHex(h)}` : 'transparent');
-
   function bar(info) {
     const list = info.colors.map((h) => `#${h}`);
     if (list.length > 1 && info.gradient) return `linear-gradient(to right, ${list.join(', ')})`;
@@ -405,86 +396,12 @@
       <p class="hint">Showing {filterNote()}.</p>
     {/if}
 
-    {#if result.filter !== 'all' || showAll || pickedTile}
+    {#if result.filter !== 'all' || showAll}
       <div class="filters">
-        {#if result.filter !== 'all' || showAll}
-          <button type="button" class="btn small" onclick={() => { showAll = !showAll; lineFilter = ''; shown = PAGE; }}>
-            {showAll ? `Show only ${groupName}` : `Show all ${label} lines`}
-          </button>
-        {/if}
-        {#if pickedTile}
-          <button type="button" class="btn small" aria-expanded={editor?.mode === 'override'} onclick={() => (editor?.mode === 'override' ? (editor = null) : openEditor())}>
-            {pickedEdit ? 'Edit override' : 'Override'}
-          </button>
-          <button type="button" class="btn small" aria-expanded={editor?.mode === 'clone'} onclick={() => (editor?.mode === 'clone' ? (editor = null) : openClone())}>Clone</button>
-        {/if}
+        <button type="button" class="btn small" onclick={() => { showAll = !showAll; lineFilter = ''; shown = PAGE; }}>
+          {showAll ? `Show only ${groupName}` : `Show all ${label} lines`}
+        </button>
       </div>
-    {/if}
-
-    {#if editor && pickedTile}
-      <div class="override" role="group" aria-label={editor.mode === 'clone' ? 'Clone this color' : 'Override this color'}>
-        <div class="head">
-          <p class="what">
-            {#if editor.mode === 'clone'}Clone <strong>{pickedTile.info.name}</strong> as a saved color{:else}<strong>{pickedTile.info.name}</strong>, {pickedTile.line.name}{/if}
-            <span class="db">Database: {(pickedTile.info.original || pickedTile.info.colors).map((h) => `#${h}`).join(' + ')}</span>
-          </p>
-          <span class="spool" style:background={spoolPreview(editor, pickedTile)} role="img" aria-label="Preview of these colors"></span>
-        </div>
-        {#each editor.hexes as h, i}
-          <div class="hexrow">
-            <span class="chip" style:background={previewHex(h)} aria-hidden="true"></span>
-            <label>
-              {editor.hexes.length > 1 ? `Color ${i + 1}` : 'Hex'}
-              <span class="hexbox">#<input type="text" value={h} maxlength="7" autocapitalize="characters" spellcheck="false" aria-label={editor.hexes.length > 1 ? `Color ${i + 1} hex` : editor.mode === 'clone' ? 'Clone hex' : 'Override hex'} oninput={(e) => setHex(i, e.currentTarget.value)} /></span>
-            </label>
-            <button type="button" class="btn small" aria-label={editor.hexes.length > 1 ? `Pick color ${i + 1}` : 'Pick a color'} onclick={() => (popup = i)}>Pick</button>
-            {#if editor.mode === 'clone' && editor.hexes.length > 1}
-              <button type="button" class="btn small danger" aria-label={`Remove color ${i + 1}`} onclick={() => removeColor(i)}>Remove</button>
-            {/if}
-          </div>
-        {/each}
-        {#if editor.mode === 'clone'}
-          {#if editor.hexes.length < max}
-            <button type="button" class="btn small" onclick={addColor}>Add a color</button>
-          {/if}
-          {#if editor.hexes.length > 1}
-            <div class="style" role="group" aria-label="Multi-color style">
-              {#each [['0', 'Gradient'], ['1', 'Segments']] as [v, text]}
-                <button type="button" class="btn small" aria-pressed={editor.style === v} onclick={() => (editor.style = v)}>{text}</button>
-              {/each}
-            </div>
-          {/if}
-          <label class="namebox">
-            Name
-            <input type="text" bind:value={editor.name} maxlength="32" autocomplete="off" aria-label="Saved color name" />
-          </label>
-        {/if}
-        {#if editor.mode === 'override' && (result.lines.length > 1 || allLines.length > 1)}
-          <label class="all">
-            <input type="checkbox" bind:checked={editor.all} />
-            <span>Also change “{pickedTile.info.name}” in the other {label} lines</span>
-          </label>
-        {/if}
-        {#if editor.error}<p class="error-text">{editor.error}</p>{/if}
-        <div class="actions">
-          {#if editor.mode === 'clone'}
-            <button type="button" class="btn small primary" onclick={saveClone}>Save as saved color</button>
-          {:else}
-            <button type="button" class="btn small primary" onclick={saveEditor}>Save override</button>
-          {/if}
-          <button type="button" class="btn small" onclick={() => (editor = null)}>Cancel</button>
-          {#if editor.mode === 'override' && pickedEdit}<button type="button" class="btn small danger" onclick={resetEditor}>Reset to database</button>{/if}
-        </div>
-      </div>
-    {/if}
-
-    {#if popup !== null && editor}
-      <ColorPopup
-        hex={editor.hexes[popup]}
-        label={editor.hexes.length > 1 ? `Color ${popup + 1}` : editor.mode === 'clone' ? 'Clone color' : 'Override color'}
-        onuse={(h) => { setHex(popup, h); popup = null; }}
-        oncancel={() => (popup = null)}
-      />
     {/if}
 
     {#if showAll && result.lines.length > 1}
@@ -503,25 +420,66 @@
       <div class="grid">
         {#each tiles.slice(0, shown) as tile (tile.id)}
           {@const isPicked = picked?.id === tile.id}
-          <button
-            type="button"
-            class="tile"
-            class:edited={!!tile.info.original}
-            aria-pressed={isPicked}
-            title={`${tile.info.name}, ${[tile.line.name, ...tile.alsoIn].join(' / ')}: ${tile.info.colors.map((h) => '#' + h).join(' + ')}${tile.info.original ? ` (your override; database: ${tile.info.original.map((h) => '#' + h).join(' + ')})` : ''}`}
-            onclick={() => (isPicked ? unpick() : pick(tile))}
-          >
-            <span class="bar" style:background={bar(tile.info)} aria-hidden="true">
-              {#if !bar(tile.info)}{#each tile.info.colors as h}<span style:background={`#${h}`}></span>{/each}{/if}
-            </span>
-            <span class="name">{tile.info.name}</span>
-            <span class="hex">{tile.info.colors.join('\n')}</span>
-            {#if tile.info.original}<span class="edited-tag">Edited</span>{/if}
-            {#if tile.info.colors.length > 1}<span class="multi">{tile.info.colors.length} colors{tile.info.gradient ? ', gradient' : ''}</span>{/if}
-            {#if !lineFilter && result.lines.length > 1}
-              <span class="line-name">{tile.line.name}{tile.alsoIn.length ? ` +${tile.alsoIn.length}` : ''}</span>
-            {/if}
-          </button>
+          {@const isOpen = editor?.id === tile.id}
+          <div class="cell" class:on={isPicked} class:edited={!!tile.info.original}>
+            <button
+              type="button"
+              class="tile"
+              aria-pressed={isPicked}
+              title={`${tile.info.name}, ${[tile.line.name, ...tile.alsoIn].join(' / ')}: ${tile.info.colors.map((h) => '#' + h).join(' + ')}${tile.info.original ? ` (your override; database: ${tile.info.original.map((h) => '#' + h).join(' + ')})` : ''}`}
+              onclick={() => (isPicked ? unpick() : pick(tile))}
+            >
+              <span class="bar" style:background={bar(tile.info)} aria-hidden="true">
+                {#if !bar(tile.info)}{#each tile.info.colors as h}<span style:background={`#${h}`}></span>{/each}{/if}
+              </span>
+              <span class="name">{tile.info.name}</span>
+              <span class="hex">{tile.info.colors.join('\n')}</span>
+              {#if tile.info.original}<span class="edited-tag">Edited</span>{/if}
+              {#if tile.info.colors.length > 1}<span class="multi">{tile.info.colors.length} colors{tile.info.gradient ? ', gradient' : ''}</span>{/if}
+              {#if !lineFilter && result.lines.length > 1}
+                <span class="line-name">{tile.line.name}{tile.alsoIn.length ? ` +${tile.alsoIn.length}` : ''}</span>
+              {/if}
+            </button>
+            <button type="button" class="edit-btn" class:open={isOpen} aria-expanded={isOpen} aria-label={`Edit ${tile.info.name}${!lineFilter && result.lines.length > 1 ? `, ${tile.line.name}` : ''}`} onclick={() => toggleEditor(tile)}>Edit</button>
+          </div>
+          {#if isOpen && editor}
+            <div class="editor" role="group" aria-label="Edit brand color" use:reveal>
+              <p class="what">
+                <strong>{tile.info.name}</strong>, {tile.line.name}
+                <span class="db">Database: {(tile.info.original || tile.info.colors).map((h) => `#${h}`).join(' + ')}</span>
+              </p>
+              <div class="field">
+                <span class="lab" id="brand-edit-colors">{editor.hexes.length > 1 ? 'Colors (tap one to change it)' : 'Color'}</span>
+                <div class="chips" role="group" aria-labelledby="brand-edit-colors">
+                  {#each editor.hexes as hex, i}
+                    <button type="button" class="chip" aria-pressed={i === editor.active} aria-label={`Color ${i + 1}, #${hex}${i === editor.active ? ', editing' : ''}`} onclick={() => (editor.active = i)}>
+                      <span class="dot" style:background={`#${hex}`}></span>#{hex}
+                    </button>
+                  {/each}
+                </div>
+              </div>
+              <HsvPicker bind:hex={pickerHex} label={`Color ${editor.active + 1}`} />
+              <label class="field">
+                <span class="lab">Hex</span>
+                <input type="text" class="hexbox" value={hexText} oninput={typedHex} maxlength="7" autocapitalize="characters" autocomplete="off" spellcheck="false" aria-label={`Hex for color ${editor.active + 1}`} />
+              </label>
+              {#if hexError}<p class="error-text">{hexError}</p>{/if}
+              {#if result.lines.length > 1 || allLines.length > 1}
+                <label class="all">
+                  <input type="checkbox" bind:checked={editor.all} />
+                  <span>Also change “{tile.info.name}” in the other {label} lines</span>
+                </label>
+              {/if}
+              <div class="actions">
+                <button type="button" class="btn small primary" onclick={saveEditor}>Override</button>
+                <button type="button" class="btn small" onclick={saveClone}>Clone</button>
+                <button type="button" class="btn small" onclick={() => (editor = null)}>Cancel</button>
+              </div>
+              {#if pickedEdit}
+                <div class="actions"><button type="button" class="btn small danger" onclick={resetEditor}>Reset to database</button></div>
+              {/if}
+            </div>
+          {/if}
         {/each}
       </div>
       {#if !tiles.length}<p class="hint">No colors match “{search}”.</p>{/if}
@@ -560,58 +518,91 @@
   }
   .line[aria-pressed='true'] { background: var(--ink); color: var(--bg); font-weight: 600; }
   .search { min-height: var(--h-chip); }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: var(--s2); }
-  .tile {
+  /* dense: the tiles after the edited one fill its row, and the editor opens right under that row */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); grid-auto-flow: dense; gap: var(--s2); }
+  /* The cell is the box (so the picked outline wraps the Edit button too) */
+  .cell {
     display: grid;
-    gap: 3px;
-    align-content: start;
+    grid-template-rows: 1fr auto;
+    gap: var(--s1);
     padding: var(--s2);
     border-radius: var(--r-control);
     border: 2px solid transparent;
     background: var(--bg);
     text-align: center;
   }
-  .tile[aria-pressed='true'] { border-color: var(--action); }
+  .cell.on { border-color: var(--action); }
   /* A color you overrode: a dashed outline, like your own chips */
-  .tile.edited { border-style: dashed; border-color: var(--muted); }
-  .tile.edited[aria-pressed='true'] { border-color: var(--action); }
-  .edited-tag { font-size: 0.6875rem; font-weight: 700; color: var(--muted); line-height: 1.2; }
-  .override {
+  .cell.edited { border-style: dashed; border-color: var(--muted); }
+  .cell.edited.on { border-color: var(--action); }
+  .tile {
     display: grid;
-    gap: var(--s2);
-    padding: var(--s3);
-    border: 1px dashed var(--muted);
+    gap: 3px;
+    align-content: start;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: center;
+    cursor: pointer;
+  }
+  /* Neutral on purpose: orange means "picked", and this must not be mistaken for it */
+  .edit-btn {
+    min-height: var(--h-small);
+    border: 1px solid var(--line);
     border-radius: var(--r-control);
+    background: none;
+    color: var(--ink);
+    font-family: var(--font-label);
+    font-weight: 600;
+    font-size: 0.875rem;
+    cursor: pointer;
+  }
+  .edit-btn.open { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+  .edited-tag { font-size: 0.6875rem; font-weight: 700; color: var(--muted); line-height: 1.2; }
+  .editor {
+    grid-column: 1 / -1;
+    display: grid;
+    gap: var(--s3);
+    padding: var(--s3);
+    border: 1px solid var(--line);
+    border-radius: var(--r-card);
     background: var(--bg);
   }
-  .override .head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s3); }
-  .override .what { margin: 0; min-width: 0; }
-  .spool {
-    flex: none;
-    position: relative;
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+  .editor .what { margin: 0; }
+  .editor .db { display: block; color: var(--muted); font-size: 0.8125rem; }
+  .field { display: grid; gap: var(--s1); }
+  .lab { font-family: var(--font-label); font-weight: 600; font-size: 0.8125rem; }
+  .editor input[type='text'] {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: var(--h-control);
+    padding: 0 var(--s3);
+    border: 1px solid var(--line);
+    border-radius: var(--r-control);
+    background: var(--surface);
+    color: var(--ink);
+    font: inherit;
   }
-  .spool::after {
-    content: '';
-    position: absolute;
-    inset: 18px;
-    border-radius: 50%;
-    background: var(--bg);
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+  .hexbox { font-family: monospace; text-transform: uppercase; }
+  .chips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s2);
+    min-height: var(--h-chip);
+    padding: 0 var(--s2) 0 var(--s1);
+    border: 1px solid var(--line);
+    border-radius: var(--r-pill);
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-size: 0.8125rem;
+    cursor: pointer;
   }
-  .override .style { display: flex; gap: var(--s2); }
-  .override .style .btn[aria-pressed='true'] { background: var(--ink); color: var(--bg); }
-  .namebox { display: grid; gap: 2px; font-size: 0.8125rem; color: var(--muted); }
-  .namebox input { min-height: var(--h-chip); padding: 0 var(--s2); border: 1px solid var(--line); border-radius: var(--r-control); background: var(--bg); color: var(--ink); font: inherit; }
-  .override .db { display: block; color: var(--muted); font-size: 0.8125rem; }
-  .hexrow { display: flex; align-items: center; gap: var(--s3); }
-  .hexrow .chip { flex: none; width: 34px; height: 34px; border-radius: var(--r-control); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25); }
-  .hexrow label { flex: 1; display: grid; gap: 2px; font-size: 0.8125rem; color: var(--muted); }
-  .hexbox { display: flex; align-items: center; gap: 2px; font-family: var(--font-label); font-size: 1.0625rem; color: var(--ink); }
-  .hexbox input { flex: 1; min-width: 0; min-height: var(--h-chip); letter-spacing: 0.06em; }
+  .chip[aria-pressed='true'] { border: 2px solid var(--action); }
+  .chip .dot { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line); }
   .all { display: flex; gap: var(--s2); align-items: flex-start; font-size: 0.9375rem; }
   .all input { width: 20px; height: 20px; margin-top: 2px; flex: none; accent-color: var(--action); }
   .bar {
