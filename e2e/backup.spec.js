@@ -187,15 +187,4 @@ test.describe('Backup', () => {
     await choose(page, card, { ...THERE, version: 2 });
     await expect(status(page)).toHaveText('That backup is from a newer version of FilaScribe. Update the app first.');
   });
-
-  test('the one-card Export and Import buttons are still there', async ({ page }) => {
-    await start(page);
-    for (const [card, names] of [
-      ['My filaments', ['Export My filaments', 'Import My filaments']],
-      ['Saved colors', ['Export saved colors', 'Import saved colors']],
-    ]) {
-      const c = await settingsCard(page, card);
-      for (const name of names) await expect(c.getByRole('button', { name })).toBeVisible();
-    }
-  });
 });

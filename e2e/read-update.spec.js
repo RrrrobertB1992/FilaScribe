@@ -1,15 +1,10 @@
-import { test, expect, colorStyle, placeTag, lastWrite, writeCount, chip, status, temps, openCards } from './nfc.js';
+import { test, expect, colorStyle, placeTag, lastWrite, writeCount, chip, status, temps, openCards, readTag } from './nfc.js';
 
 const U1_TAG = {
   protocol: 'openspool', version: '1.0', type: 'PETG', subtype: 'Rapid', color_hex: '#AFAFAF',
   additional_color_hexes: ['EEFFEE', 'FF00FF'], color_type: 0, brand: 'Elegoo',
   min_temp: 230, max_temp: 260, bed_min_temp: '70', bed_max_temp: '80', spool_id: 7,
 };
-
-async function readTag(page) {
-  await page.getByRole('button', { name: /^Read (tag|another)$/ }).click();
-  await expect(page.getByRole('dialog')).toBeHidden();
-}
 
 // Read, then open the cards that start shut so a test can look inside them
 async function readOpen(page) {

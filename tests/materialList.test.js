@@ -1,16 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import * as ML from '../src/lib/materialList.js';
 import { MATERIALS } from '../src/lib/catalog.js';
-
-const memory = () => {
-  const m = new Map();
-  return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, String(v)) };
-};
+import { memoryStorage } from './storage.js';
 
 describe('material list', () => {
   it('starts with a short common set, plus materials saved as chips before', () => {
-    expect(ML.load(memory())).toEqual(['PLA', 'PETG', 'ABS']);
-    expect(ML.load(memory(), ['PLA+', 'PETG'])).toEqual(['PLA', 'PETG', 'ABS', 'PLA+']);
+    expect(ML.load(memoryStorage())).toEqual(['PLA', 'PETG', 'ABS']);
+    expect(ML.load(memoryStorage(), ['PLA+', 'PETG'])).toEqual(['PLA', 'PETG', 'ABS', 'PLA+']);
   });
 
   it('turns materials on and off, keeping the order they were turned on', () => {
@@ -27,7 +23,7 @@ describe('material list', () => {
   });
 
   it('stores what Settings chose, even an empty list', () => {
-    const st = memory();
+    const st = memoryStorage();
     ML.store([], st);
     expect(ML.load(st, ['PLA+'])).toEqual([]);
     ML.store(['PETG', 'PETG', '', 3, 'PLA+'], st);
@@ -35,7 +31,7 @@ describe('material list', () => {
   });
 
   it('falls back to the default on junk', () => {
-    const st = memory();
+    const st = memoryStorage();
     st.setItem(ML.STORAGE_KEY, 'not json');
     expect(ML.load(st)).toEqual(ML.DEFAULT);
     st.setItem(ML.STORAGE_KEY, JSON.stringify({ shown: 'nope' }));

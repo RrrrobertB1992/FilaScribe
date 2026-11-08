@@ -1,4 +1,4 @@
-import { test, expect, colorTab, openCustom, placeTag, lastWrite, chip, writeTag, settingsCard, openSettingsGroup } from './nfc.js';
+import { test, expect, colorTab, openCustom, lastWrite, chip, writeTag, settingsCard, openSettingsGroup, readFrom } from './nfc.js';
 
 // Closest brand colors: shown when the colors aren't a brand color.
 // Uses the bundled snapshot: Bambu Lab PLA Basic has Blue 0A2989, Black 000000.
@@ -118,16 +118,9 @@ const TAG = { protocol: 'openspool', version: '1.0', type: 'PLA', brand: 'Bambu 
 const quick = (page) => page.getByRole('region', { name: 'Quick edits' });
 const quickChanges = (page) => quick(page).getByRole('list', { name: 'Changes' });
 
-async function readTag(page, tag = TAG) {
-  await page.getByRole('tab', { name: 'Read & update' }).click();
-  await placeTag(page, tag);
-  await page.getByRole('button', { name: /^Read (tag|another)$/ }).click();
-  await expect(page.getByRole('dialog')).toBeHidden();
-}
-
 test.describe('Closest brand colors in Quick edits', () => {
   test('a tag with a color that isn’t a brand color gets them in Quick edits, not in the Colors card', async ({ page }) => {
-    await readTag(page);
+    await readFrom(page, TAG);
     const tiles = quick(page).getByRole('group', { name: 'Closest brand colors' });
     await expect(tiles).toContainText('Closest Bambu Lab PLA Basic colors');
     await expect(tiles).toContainText('Your color is #0A2A8C');
@@ -136,7 +129,7 @@ test.describe('Closest brand colors in Quick edits', () => {
   });
 
   test('tap one: it is the color, the Brand tab opens, and the change is listed', async ({ page }) => {
-    await readTag(page);
+    await readFrom(page, TAG);
     await quick(page).getByRole('button', { name: /^Use Blue, PLA Basic/ }).click();
     await page.locator('details[data-fold="read-colors"] > summary').click(); // the Colors card starts shut here
     await expect(colorTab(page, 'Brand')).toHaveAttribute('aria-pressed', 'true');
@@ -149,7 +142,7 @@ test.describe('Closest brand colors in Quick edits', () => {
   });
 
   test('Back to my color puts it back and the color leaves the list', async ({ page }) => {
-    await readTag(page);
+    await readFrom(page, TAG);
     await quick(page).getByRole('button', { name: /^Use Blue, PLA Basic/ }).click();
     await quick(page).getByRole('button', { name: 'Back to my color' }).click();
     await expect(quick(page).getByRole('group', { name: 'Closest brand colors' })).toBeVisible();
@@ -158,7 +151,7 @@ test.describe('Closest brand colors in Quick edits', () => {
   });
 
   test('Undo changes brings the color back too, with the weight and temperatures', async ({ page }) => {
-    await readTag(page);
+    await readFrom(page, TAG);
     await quick(page).getByRole('button', { name: 'Nozzle max plus 5', exact: true }).click();
     await quick(page).getByRole('button', { name: /^Use Blue, PLA Basic/ }).click();
     await quick(page).getByRole('button', { name: 'Undo changes' }).click();
@@ -169,13 +162,13 @@ test.describe('Closest brand colors in Quick edits', () => {
   });
 
   test('Update tag writes the picked brand color, and the old one if you went back', async ({ page }) => {
-    await readTag(page);
+    await readFrom(page, TAG);
     await quick(page).getByRole('button', { name: /^Use Blue, PLA Basic/ }).click();
     await page.getByRole('button', { name: 'Update tag' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
     expect((await lastWrite(page)).color_hex).toBe('0A2989');
 
-    await readTag(page);
+    await readFrom(page, TAG);
     await quick(page).getByRole('button', { name: /^Use Blue, PLA Basic/ }).click();
     await quick(page).getByRole('button', { name: 'Back to my color' }).click();
     await page.getByRole('button', { name: 'Update tag' }).click();
@@ -184,19 +177,19 @@ test.describe('Closest brand colors in Quick edits', () => {
   });
 
   test('no tiles for a brand color, and none when the setting is Off', async ({ page }) => {
-    await readTag(page, { ...TAG, color_hex: '0A2989' });
+    await readFrom(page, { ...TAG, color_hex: '0A2989' });
     await expect(quick(page)).toBeVisible();
     await expect(page.getByRole('group', { name: 'Closest brand colors' })).toHaveCount(0);
 
     await page.evaluate(() => localStorage.setItem('filascribe-closest-colors', '0'));
     await page.reload();
-    await readTag(page);
+    await readFrom(page, TAG);
     await expect(quick(page)).toBeVisible();
     await expect(page.getByRole('group', { name: 'Closest brand colors' })).toHaveCount(0);
   });
 
   test('a color nothing is close to says so in Quick edits', async ({ page }) => {
-    await readTag(page, { ...TAG, color_hex: 'FF00FF' });
+    await readFrom(page, { ...TAG, color_hex: 'FF00FF' });
     await expect(quick(page).getByText('No Bambu Lab PLA Basic color is close to this one.')).toBeVisible();
   });
 });

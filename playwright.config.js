@@ -5,12 +5,14 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: 'e2e',
   fullyParallel: true,
+  workers: 2, // the default is half the cores, which is 1 on a 2-core runner
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL: 'http://localhost:4173',
     ...devices['Pixel 7'],
+    reducedMotion: 'reduce', // the app then skips its animations, so clicks don't wait for them
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },

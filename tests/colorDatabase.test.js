@@ -4,6 +4,7 @@ import orca from '../src/data/orca-vendors.json' with { type: 'json' };
 import * as DB from '../src/lib/colorDatabase.js';
 import { withOrcaNames } from '../src/lib/brandColors.js';
 import { loadBrandColors } from '../src/lib/brandColorsData.js';
+import { memoryStorage as localStorageFake } from './storage.js';
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
 const builtIn = { colors: snapshot, orca, origin: 'built-in' };
@@ -243,12 +244,8 @@ describe('keeping the downloaded copy', () => {
 });
 
 describe('when it was last checked', () => {
-  const fake = () => {
-    const m = new Map();
-    return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, v) };
-  };
   it('remembers the time, and starts out empty', () => {
-    const s = fake();
+    const s = localStorageFake();
     expect(DB.loadChecked(s)).toBe('');
     DB.storeChecked('2026-11-04T12:00:00.000Z', s);
     expect(DB.loadChecked(s)).toBe('2026-11-04T12:00:00.000Z');

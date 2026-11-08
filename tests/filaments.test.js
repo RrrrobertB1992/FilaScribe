@@ -1,11 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import * as F from '../src/lib/filaments.js';
 import { emptyForm } from '../src/lib/formats/openspool.js';
+import { memoryStorage } from './storage.js';
 
-const memory = (init = {}) => {
-  const m = new Map(Object.entries(init));
-  return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) };
-};
 const form = (over = {}) => ({ ...emptyForm('u1'), brand: 'Elegoo', type: 'PLA', subtype: 'Silk', colors: ['2A49C7'], ...over });
 
 describe('My filaments', () => {
@@ -48,18 +45,18 @@ describe('My filaments', () => {
   });
 
   it('keeps and loads the list, and ignores damaged storage', () => {
-    const s = memory();
+    const s = memoryStorage();
     const list = F.add([], F.fromForm(form(), 'Blue'));
     F.store(list, s);
     expect(F.load(s)).toEqual(list);
     F.store([], s);
     expect(F.load(s)).toEqual([]);
-    expect(F.load(memory({ [F.STORAGE_KEY]: 'not json' }))).toEqual([]);
-    expect(F.load(memory({ [F.STORAGE_KEY]: '[{"brand":"A"},{"brand":"B","type":"PLA","colors":["#abcdef"]}]' }))).toHaveLength(1);
+    expect(F.load(memoryStorage({ [F.STORAGE_KEY]: 'not json' }))).toEqual([]);
+    expect(F.load(memoryStorage({ [F.STORAGE_KEY]: '[{"brand":"A"},{"brand":"B","type":"PLA","colors":["#abcdef"]}]' }))).toHaveLength(1);
   });
 
   it('remembers the automatic-save choice', () => {
-    const s = memory();
+    const s = memoryStorage();
     expect(F.loadAuto(s)).toBe(false);
     F.storeAuto(true, s);
     expect(F.loadAuto(s)).toBe(true);

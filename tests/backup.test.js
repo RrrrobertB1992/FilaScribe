@@ -2,16 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as Backup from '../src/lib/backup.js';
 import * as Filaments from '../src/lib/filaments.js';
 import * as SC from '../src/lib/savedColors.js';
-
-function mem(initial = {}) {
-  const m = new Map(Object.entries(initial));
-  return {
-    getItem: (k) => (m.has(k) ? m.get(k) : null),
-    setItem: (k, v) => void m.set(k, String(v)),
-    removeItem: (k) => void m.delete(k),
-    keys: () => [...m.keys()],
-  };
-}
+import { memoryStorage, brokenStorage } from './storage.js';
 
 const spool = (over = {}) => ({
   profile: 'u1', brand: 'Polymaker', type: 'PLA', subtype: 'Matte', minTemp: '190', maxTemp: '220',
@@ -19,7 +10,7 @@ const spool = (over = {}) => ({
 });
 
 function filled() {
-  const s = mem();
+  const s = memoryStorage();
   s.setItem(Filaments.STORAGE_KEY, JSON.stringify([spool(), spool({ colors: ['FF0000'], colorName: 'Red' })]));
   s.setItem(Filaments.AUTO_KEY, '1');
   s.setItem(SC.STORAGE_KEY, JSON.stringify({ 'Generic|PETG': [{ colors: ['ABCDEF'], name: 'Sky', variants: ['Basic'] }] }));
@@ -70,7 +61,7 @@ describe('backup: save and restore', () => {
 
   it('applies a backup to an empty device and gets the same snapshot back', () => {
     const data = Backup.snapshot(filled());
-    const fresh = mem();
+    const fresh = memoryStorage();
     Backup.apply(data, fresh);
     expect(Backup.snapshot(fresh)).toEqual(data);
   });
@@ -139,7 +130,7 @@ describe('backup: add what is new', () => {
 
   it('counts what is in the file and what is new', () => {
     const incoming = current();
-    incoming.filaments = [...incoming.filaments, Filaments.load(mem({ [Filaments.STORAGE_KEY]: JSON.stringify([spool({ colors: ['00FF00'], colorName: 'Green' })]) }))[0]];
+    incoming.filaments = [...incoming.filaments, Filaments.load(memoryStorage({ [Filaments.STORAGE_KEY]: JSON.stringify([spool({ colors: ['00FF00'], colorName: 'Green' })]) }))[0]];
     incoming.savedColors = SC.save(incoming.savedColors, 'Generic|PLA', ['112233'], '1', 'Basic');
     incoming.customChips = { brands: ['Zephyr', 'Nova'], materials: [], variants: {} };
     const rows = Backup.summary(current(), incoming);
@@ -158,8 +149,8 @@ describe('backup: add what is new', () => {
   it('keeps what you have, adds what is new, and takes settings from the file', () => {
     const now = current();
     const incoming = {
-      ...Backup.snapshot(mem()),
-      filaments: [Filaments.load(mem({ [Filaments.STORAGE_KEY]: JSON.stringify([spool({ colors: ['00FF00'], colorName: 'Green' })]) }))[0]],
+      ...Backup.snapshot(memoryStorage()),
+      filaments: [Filaments.load(memoryStorage({ [Filaments.STORAGE_KEY]: JSON.stringify([spool({ colors: ['00FF00'], colorName: 'Green' })]) }))[0]],
       savedColors: SC.save({}, 'Generic|PLA', ['112233'], '1', 'Basic'),
       customChips: { brands: ['Nova'], materials: [], variants: { 'Zephyr|PLA+': ['Fast'] } },
       theme: 'light',
@@ -181,14 +172,14 @@ describe('backup: add what is new', () => {
 
   it('merging into an empty device gives the backup', () => {
     const incoming = current();
-    const out = Backup.merge(Backup.snapshot(mem()), incoming);
+    const out = Backup.merge(Backup.snapshot(memoryStorage()), incoming);
     expect(out.filaments).toEqual(incoming.filaments);
     expect(out.savedColors).toEqual(incoming.savedColors);
     expect(out.customChips).toEqual(incoming.customChips);
   });
 
   it('restoring over a full device with Replace leaves exactly the backup', () => {
-    const incoming = Backup.snapshot(mem());
+    const incoming = Backup.snapshot(memoryStorage());
     const s = filled();
     Backup.apply(incoming, s);
     expect(Backup.snapshot(s)).toEqual(incoming);
@@ -196,8 +187,7 @@ describe('backup: add what is new', () => {
   });
 
   it('survives storage that throws', () => {
-    const broken = { getItem() { throw new Error('no'); }, setItem() { throw new Error('no'); }, removeItem() { throw new Error('no'); } };
-    expect(() => Backup.snapshot(broken)).not.toThrow();
-    expect(() => Backup.apply(Backup.snapshot(mem()), broken)).not.toThrow();
+    expect(() => Backup.snapshot(brokenStorage)).not.toThrow();
+    expect(() => Backup.apply(Backup.snapshot(memoryStorage()), brokenStorage)).not.toThrow();
   });
 });

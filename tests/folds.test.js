@@ -1,10 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import * as Folds from '../src/lib/folds.js';
+import { memoryStorage, brokenStorage } from './storage.js';
 
-const memory = (initial) => {
-  const m = new Map(initial ? [[Folds.STORAGE_KEY, initial]] : []);
-  return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, String(v)) };
-};
+const memory = (value) => memoryStorage(value ? { [Folds.STORAGE_KEY]: value } : {});
+
 
 describe('Create screen cards', () => {
   it('use their default until the person opens or closes them', () => {
@@ -29,8 +28,7 @@ describe('Create screen cards', () => {
   });
 
   it('keep working when storage is unavailable', () => {
-    const broken = { getItem() { throw new Error('no'); }, setItem() { throw new Error('no'); } };
-    expect(Folds.isOpen('filament', true, broken)).toBe(true);
-    expect(() => Folds.set('filament', false, broken)).not.toThrow();
+    expect(Folds.isOpen('filament', true, brokenStorage)).toBe(true);
+    expect(() => Folds.set('filament', false, brokenStorage)).not.toThrow();
   });
 });

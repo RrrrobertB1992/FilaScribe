@@ -1,6 +1,5 @@
-import { test, expect, chip, writeTag, status, openCustom, settingsCard } from './nfc.js';
+import { test, expect, chip, writeTag, status, settingsCard, fold } from './nfc.js';
 
-const fold = (page, id) => page.locator(`[data-fold="${id}"]`);
 const rows = (page) => fold(page, 'filaments').getByRole('list', { name: 'Saved filaments' }).getByRole('listitem');
 const saveButton = (page) => page.getByRole('button', { name: '+ Save this spool as a filament' });
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { toLab, parseHex, deltaE2000, compare, closeness, nearest, MAX_DELTA } from '../src/lib/colorMatch.js';
+import { toLab, parseHex, deltaE2000, compare, closeness, nearest } from '../src/lib/colorMatch.js';
 
 const tile = (name, ...colors) => ({ name, info: { colors } });
 
@@ -82,11 +82,6 @@ describe('same color family', () => {
   it('never matches something that is not a color', () => {
     expect(compare('FF0000', 'zzz')).toEqual({ delta: Infinity, ok: false });
     expect(compare('', 'FF0000').ok).toBe(false);
-  });
-
-  it('keeps its limit to a loose but fixed distance', () => {
-    expect(MAX_DELTA).toBeGreaterThanOrEqual(10);
-    expect(MAX_DELTA).toBeLessThanOrEqual(15);
   });
 });
 

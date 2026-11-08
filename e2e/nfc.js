@@ -11,7 +11,7 @@ function installFakeNfc() {
   window.__tag = null;
   window.__writes = [];
   window.__nextError = null;
-  window.__tapDelay = 60;
+  window.__tapDelay = 20;
 
   const fail = () => {
     const name = window.__nextError;
@@ -67,14 +67,23 @@ export const test = base.extend({
     page.on('console', (m) => { if (m.type() === 'error') problems.push(m.text()); });
     page.on('dialog', (d) => d.accept()); // confirm() prompts: say yes
     await page.addInitScript(installFakeNfc);
-    await page.goto('/');
-    // Start with the Temperatures, Spool details and Tag data cards open so
-    // tests can reach their fields; fold tests clear this themselves.
-    await page.evaluate(() => {
+    // Seed the storage once, before the app's first load. Start with the
+    // Temperatures, Spool details and Tag data cards open so tests can reach
+    // their fields (fold tests clear this themselves). The flag lives in this
+    // tab's sessionStorage, so a reload or a later goto keeps what a test saved.
+    await page.addInitScript(() => {
+      if (sessionStorage.getItem('e2e-seeded')) return;
+      sessionStorage.setItem('e2e-seeded', '1');
       localStorage.clear();
       localStorage.setItem('filascribe-create-open', JSON.stringify({ temps: true, spool: true, tagdata: true }));
     });
-    await page.reload();
+    // The color database loads as its own chunk just after the page. A click
+    // that lands before it arrives can be undone by it, so wait for it first
+    // (two frames lets the app act on it).
+    const database = page.waitForResponse((r) => /brand-colors.*\.js/.test(r.url()));
+    await page.goto('/');
+    await (await database).finished();
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
     await use(page);
     expect(problems, 'page errors').toEqual([]);
   },
@@ -105,7 +114,28 @@ export async function lastWrite(page) {
 
 export const writeCount = (page) => page.evaluate(() => window.__writes.length);
 
-/** Click a palette chip by its exact label. */
+/** Tap Read tag (or Read another) on Read & update and wait for the sheet to close. */
+export async function readTag(page) {
+  await page.getByRole('button', { name: /^Read (tag|another)$/ }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+}
+
+/** From any screen: open Read & update, put a tag near the phone and read it. */
+export async function readFrom(page, tag) {
+  await page.getByRole('tab', { name: 'Read & update' }).click();
+  await placeTag(page, tag);
+  await readTag(page);
+}
+
+/** A card that folds, by its data-fold id ('quick', 'filaments', …). */
+export const fold = (page, id) => page.locator(`[data-fold="${id}"]`);
+
+/** The Brand color source panel, one of its tiles, and the current-color labels above it. */
+export const brandPanel = (page) => page.locator('.brand');
+export const brandTile = (page, name) => brandPanel(page).locator('.tile', { hasText: name }).first();
+export const nowName = (page) => page.locator('.colorsec .now-name');
+export const nowFrom = (page) => page.locator('.colorsec .now-from');
+
 // Show every built-in material on the Material row (it starts with PLA, PETG and ABS)
 export async function showAllMaterials(page) {
   await page.evaluate(() => {
@@ -122,6 +152,7 @@ export async function openCards(page) {
   for (let i = 0; i < 10 && (await shut.count()); i++) await shut.first().locator('summary').click();
 }
 
+/** Click a palette chip by its exact label: chip(page, 'PLA').click() */
 export const chip = (page, name) => page.getByRole('button', { name, exact: true });
 
 // After a write the button reads "Write another tag" until the form changes

@@ -1,16 +1,14 @@
-import { test, expect, colorTab, chip, openCustom, settingsCard } from './nfc.js';
+import { test, expect, chip, settingsCard, brandPanel, brandTile } from './nfc.js';
 
 // Bambu Lab PLA Basic Black is #000000 in the bundled database snapshot
-const brand = (page) => page.locator('.brand');
-const tile = (page, name) => brand(page).locator('.tile', { hasText: name }).first();
 const header = (page) => page.locator('.colorsec');
 const box = (page) => page.getByRole('group', { name: 'Override this color' });
-const overrideBtn = (page) => brand(page).getByRole('button', { name: /^(Override|Edit override)$/ });
+const overrideBtn = (page) => brandPanel(page).getByRole('button', { name: /^(Override|Edit override)$/ });
 
 async function pickBlack(page) {
   await chip(page, 'Bambu Lab').click();
   await chip(page, 'Basic').click();
-  await tile(page, 'Black').click();
+  await brandTile(page, 'Black').click();
 }
 
 async function override(page, hex, { all = false } = {}) {
@@ -25,17 +23,17 @@ test.describe('Color overrides', () => {
     await chip(page, 'Bambu Lab').click();
     await chip(page, 'Basic').click();
     await expect(overrideBtn(page)).toHaveCount(0);
-    await tile(page, 'Black').click();
+    await brandTile(page, 'Black').click();
     await expect(overrideBtn(page)).toBeVisible();
-    await expect(brand(page).getByRole('button', { name: /^Show all Bambu Lab/ })).toBeVisible();
+    await expect(brandPanel(page).getByRole('button', { name: /^Show all Bambu Lab/ })).toBeVisible();
   });
 
   test('saving changes the color, marks it and the Colors card', async ({ page }) => {
     await pickBlack(page);
     await override(page, '111111');
     await expect(box(page)).toHaveCount(0);
-    await expect(tile(page, 'Black')).toContainText('Edited');
-    await expect(tile(page, 'Black')).toContainText('111111');
+    await expect(brandTile(page, 'Black')).toContainText('Edited');
+    await expect(brandTile(page, 'Black')).toContainText('111111');
     await expect(header(page).locator('.now-name')).toHaveText('Black (#000000)');
     await expect(header(page).locator('.now-hex')).toHaveText('#111111');
     await expect(header(page).locator('.swatch.edited')).toBeVisible();
@@ -73,17 +71,17 @@ test.describe('Color overrides', () => {
     await page.reload();
     await chip(page, 'Bambu Lab').click();
     await chip(page, 'Basic').click();
-    await expect(tile(page, 'Black')).toContainText('Edited');
-    await expect(tile(page, 'Black')).toContainText('111111');
+    await expect(brandTile(page, 'Black')).toContainText('Edited');
+    await expect(brandTile(page, 'Black')).toContainText('111111');
   });
 
   test('“other lines” changes the same color in every line', async ({ page }) => {
     await pickBlack(page);
     await override(page, '111111', { all: true });
-    await brand(page).getByRole('button', { name: /^Show all Bambu Lab/ }).click();
-    await brand(page).getByRole('group', { name: 'Filament lines' }).getByRole('button', { name: 'PLA Tough+', exact: true }).click();
-    await expect(tile(page, 'Black')).toContainText('Edited');
-    await expect(tile(page, 'Black')).toContainText('111111');
+    await brandPanel(page).getByRole('button', { name: /^Show all Bambu Lab/ }).click();
+    await brandPanel(page).getByRole('group', { name: 'Filament lines' }).getByRole('button', { name: 'PLA Tough+', exact: true }).click();
+    await expect(brandTile(page, 'Black')).toContainText('Edited');
+    await expect(brandTile(page, 'Black')).toContainText('111111');
   });
 
   test('Reset to database asks first, then gives the database color back', async ({ page }) => {
@@ -95,10 +93,10 @@ test.describe('Color overrides', () => {
     await overrideBtn(page).click();
     await box(page).getByRole('button', { name: 'Reset to database' }).click();
     expect(asked).not.toBe('');
-    await expect(tile(page, 'Black')).toContainText('Edited');
+    await expect(brandTile(page, 'Black')).toContainText('Edited');
     page.once('dialog', (d) => d.accept());
     await box(page).getByRole('button', { name: 'Reset to database' }).click();
-    await expect(tile(page, 'Black')).not.toContainText('Edited');
+    await expect(brandTile(page, 'Black')).not.toContainText('Edited');
     await expect(header(page).locator('.now-name')).toHaveText('Black');
   });
 });
