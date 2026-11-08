@@ -93,7 +93,13 @@ test.describe('Saved colors', () => {
     await panel(page).getByRole('button', { name: /^Edit / }).click();
     const editor = panel(page).getByRole('group', { name: 'Edit saved color' });
     await editor.getByRole('button', { name: /^Color 2,/ }).click();
-    await editor.getByLabel('Hex for color 2').fill('333333');
+    // The Hex box can be erased and typed into, one key at a time
+    const hex = editor.getByLabel('Hex for color 2');
+    await hex.fill('');
+    await expect(hex).toHaveValue('');
+    await hex.pressSequentially('333');
+    await expect(hex).toHaveValue('333');
+    await hex.fill('333333');
     await editor.getByLabel('Name').fill('Duo');
 
     // Nothing is touched until Save
