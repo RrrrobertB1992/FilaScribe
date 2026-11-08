@@ -6,7 +6,7 @@
   // back what was there. Every tile has an Edit button: it opens an editor right
   // under that tile's row, with Override (change the color's hex everywhere you
   // use it) and Clone (save a copy of it as a saved color).
-  import { onMount, untrack } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import * as BC from '../lib/brandColors.js';
   import * as CM from '../lib/colorMatch.js';
   import { loadBrandColors } from '../lib/brandColorsData.js';
@@ -284,6 +284,14 @@
     const hex = normalizeHex(hexText);
     if (hex && editor) editor.hexes[editor.active] = hex;
   }
+  let root = $state(null);
+  // Closing the editor shrinks the page under you; bring the tile you were editing back into view
+  // (a no-op when it already is) so the screen doesn't land somewhere else
+  async function closeEditor() {
+    editor = null;
+    await tick();
+    root?.querySelector('.cell.on')?.scrollIntoView({ block: 'nearest' });
+  }
   // Scroll the editor into view when it opens under a tile
   const reveal = (node) => {
     node.scrollIntoView({ block: 'nearest' });
@@ -316,7 +324,7 @@
   // Edit picks the tile too (so Clone and Override work on the color you see)
   function toggleEditor(tile) {
     if (editor?.id === tile.id) {
-      editor = null;
+      closeEditor();
       return;
     }
     if (picked?.id !== tile.id) pick(tile);
@@ -356,8 +364,8 @@
       hex: hexes.join(','),
       was: (tile.info.original || tile.info.colors).join(','),
     });
-    editor = null;
     repick(tile.line.name, name);
+    closeEditor();
   }
 
   function resetEditor() {
@@ -369,8 +377,8 @@
     if (!confirm(`Put ${tile.info.name}${where} back to the database color ${orig}?`)) return;
     const name = tile.info.name;
     removeEdit(edit);
-    editor = null;
     repick(tile.line.name, name);
+    closeEditor();
   }
 
   function bar(info) {
@@ -389,7 +397,7 @@
 </script>
 
 {#if db && result.total > 0}
-  <div class="brand">
+  <div class="brand" bind:this={root}>
     {#if result.filter === 'nomatch'}
       <p class="hint">{label} has no {groupName} colors.</p>
     {:else}
@@ -471,9 +479,10 @@
                 </label>
               {/if}
               <div class="actions">
-                <button type="button" class="btn small primary" onclick={saveEditor}>Override</button>
+                <button type="button" class="btn small" onclick={closeEditor}>Cancel</button>
+                <span class="spacer"></span>
                 <button type="button" class="btn small" onclick={saveClone}>Clone</button>
-                <button type="button" class="btn small" onclick={() => (editor = null)}>Cancel</button>
+                <button type="button" class="btn small primary" onclick={saveEditor}>Override</button>
               </div>
               {#if pickedEdit}
                 <div class="actions"><button type="button" class="btn small danger" onclick={resetEditor}>Reset to database</button></div>
@@ -530,6 +539,7 @@
     border: 2px solid transparent;
     background: var(--bg);
     text-align: center;
+    scroll-margin-block: 5rem; /* clear of the dock */
   }
   .cell.on { border-color: var(--action); }
   /* A color you overrode: a dashed outline, like your own chips */
@@ -571,6 +581,7 @@
     background: var(--bg);
   }
   .editor .what { margin: 0; }
+  .editor .actions .spacer { flex: 1; }
   .editor .db { display: block; color: var(--muted); font-size: 0.8125rem; }
   .field { display: grid; gap: var(--s1); }
   .lab { font-family: var(--font-label); font-weight: 600; font-size: 0.8125rem; }
