@@ -1,11 +1,16 @@
-import { test, expect, chip, lastWrite, writeTag, status, settingsCard, fold, goCreate } from './nfc.js';
+import { test, expect, chip, lastWrite, writeCount, writeTag, status, settingsCard, fold, goCreate } from './nfc.js';
 
 const rows = (page) => fold(page, 'filaments').getByRole('list', { name: 'Saved filaments' }).getByRole('listitem');
 const saveButton = (page) => page.getByRole('button', { name: '+ Save this spool as a filament' });
 
-/** Open the My filaments card (it starts closed). */
-async function openCard(page) {
-  if (!(await fold(page, 'filaments').evaluate((d) => d.open))) await fold(page, 'filaments').locator('summary').click();
+/** Open the Filaments tab, where the list lives. */
+const openCard = (page) => page.getByRole('tab', { name: 'Filaments' }).click();
+
+/** Check the list's summary on the Filaments tab, then come back to Create. */
+async function saved(page, text) {
+  await openCard(page);
+  await expect(fold(page, 'filaments').locator('.sum')).toHaveText(text);
+  await goCreate(page);
 }
 
 /** Answer the next confirm() with `yes`, and return what it asked. */
@@ -27,7 +32,7 @@ async function saveSpool(page, brand, material) {
 
 test.describe('My filaments', () => {
   test('starts empty, with the save button at the end of the form', async ({ page }) => {
-    await expect(fold(page, 'filaments').locator('.sum')).toHaveText('None yet');
+    await saved(page, 'None yet');
     await expect(saveButton(page)).toBeVisible();
     // After Tag data and above Start over: nothing to scroll back up for
     const order = await page.evaluate(() => {
@@ -39,28 +44,42 @@ test.describe('My filaments', () => {
     expect(order.findIndex((k) => k.startsWith('+ Save this'))).toBeLessThan(order.findIndex((k) => k.startsWith('Start over')));
   });
 
-  test('saves the spool, keeps it after a reload, and a tap fills the form', async ({ page }) => {
+  test('saves the spool, keeps it after a reload, and a tap writes a tag with it', async ({ page }) => {
     await chip(page, 'Overture').click();
     await chip(page, 'PLA').click();
     await saveButton(page).click();
     await expect(status(page)).toContainText('Saved Overture PLA to My filaments');
-    await expect(fold(page, 'filaments').locator('.sum')).toHaveText('1 saved');
 
     await page.reload();
-    await expect(fold(page, 'filaments').locator('.sum')).toHaveText('1 saved');
+    await saved(page, '1 saved');
+    await chip(page, 'SUNLU').click(); // the form isn't used: the tag is the saved spool
     await openCard(page);
-    await chip(page, 'SUNLU').click();
     await rows(page).first().getByRole('button', { name: /^Use Overture PLA/ }).click();
-    await expect(status(page)).toContainText('Filled in Overture PLA');
-    await expect(fold(page, 'filament').locator('.sum')).toContainText('Overture');
-    await expect(rows(page).first()).toHaveClass(/on/); // the form matches it again
+    const sheet = page.getByRole('dialog');
+    await expect(sheet).toContainText('Overture PLA');
+    await sheet.getByRole('button', { name: 'Cancel' }).click();
+    expect(await writeCount(page)).toBe(0);
+
+    await rows(page).first().getByRole('button', { name: /^Use Overture PLA/ }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Write tag' }).click();
+    await expect(status(page)).toContainText('Tag written');
+    expect(await lastWrite(page)).toMatchObject({ brand: 'Overture', type: 'PLA' });
+    await expect(rows(page).first()).toHaveClass(/on/);
+
+    // Write another: same tag content, counted
+    await expect(page.getByText('1 tag written for Overture PLA')).toBeVisible();
+    await page.getByRole('button', { name: 'Write another tag' }).click();
+    await expect(page.getByText('2 tags written for Overture PLA')).toBeVisible();
+    expect(await writeCount(page)).toBe(2);
+    await page.getByRole('button', { name: 'Done' }).click();
+    await expect(page.getByRole('button', { name: 'Write another tag' })).toHaveCount(0);
   });
 
   test('saving the same spool twice keeps one', async ({ page }) => {
     await saveButton(page).click();
     await saveButton(page).click();
     await expect(status(page)).toContainText('already in My filaments');
-    await expect(fold(page, 'filaments').locator('.sum')).toHaveText('1 saved');
+    await saved(page, '1 saved');
   });
 
   test('a form with a problem is not saved', async ({ page }) => {
@@ -69,7 +88,7 @@ test.describe('My filaments', () => {
     await page.getByLabel('Min').first().fill('900');
     await saveButton(page).click();
     await expect(status(page)).toContainText('Fix');
-    await expect(fold(page, 'filaments').locator('.sum')).toHaveText('None yet');
+    await saved(page, 'None yet');
   });
 
   /** Put `n` saved spools straight into storage: the first white, the rest colorful. */
@@ -152,9 +171,10 @@ test.describe('My filaments', () => {
     await expect(rows(page).first().locator('.name')).toHaveText('Everyday spool');
     await expect(rows(page).first().locator('.note')).toHaveText('Dry box 2');
 
-    // Using it fills the form and writes only tag fields
+    // Writing from it puts only tag fields on the tag
     await rows(page).first().getByRole('button', { name: /^Use/ }).click();
-    await writeTag(page);
+    await page.getByRole('dialog').getByRole('button', { name: 'Write tag' }).click();
+    await expect(status(page)).toContainText('Tag written');
     const text = JSON.stringify(await lastWrite(page));
     expect(text).not.toContain('Everyday spool');
     expect(text).not.toContain('Dry box 2');
@@ -167,7 +187,7 @@ test.describe('My filaments', () => {
     await expect(offer).toBeVisible();
     await offer.getByRole('button', { name: 'Save' }).click();
     await expect(offer).toBeHidden();
-    await expect(fold(page, 'filaments').locator('.sum')).toHaveText('1 saved');
+    await saved(page, '1 saved');
 
     await writeTag(page); // the same spool again: nothing to offer
     await expect(offer).toBeHidden();
@@ -176,7 +196,7 @@ test.describe('My filaments', () => {
     await writeTag(page);
     await offer.getByRole('button', { name: 'Not now' }).click();
     await expect(offer).toBeHidden();
-    await expect(fold(page, 'filaments').locator('.sum')).toHaveText('1 saved');
+    await saved(page, '1 saved');
   });
 
   test('the offer goes away when the form changes', async ({ page }) => {
@@ -196,7 +216,7 @@ test.describe('My filaments', () => {
     await writeTag(page);
     await expect(status(page)).toContainText('Saved to My filaments');
     await expect(page.getByRole('group', { name: 'Save this spool' })).toHaveCount(0);
-    await expect(fold(page, 'filaments').locator('.sum')).toHaveText('1 saved');
+    await saved(page, '1 saved');
 
     await page.reload(); // the choice is kept
     await settingsCard(page, 'My filaments');

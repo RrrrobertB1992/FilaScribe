@@ -180,6 +180,15 @@ export function colorLabel(entry) {
 /** True when the color has no name from the brand's database: you picked it yourself, so its name is only a rough word for the hex. */
 export const isCustom = (e) => !e.colorName;
 
+/** The swatch's CSS background: one color, or the colors side by side (a gradient blends). */
+export function swatch(e) {
+  const c = e.colors.map((h) => `#${h}`);
+  if (c.length === 1) return c[0];
+  if (e.colorType === '0') return `linear-gradient(to right, ${c.join(', ')})`;
+  const step = 100 / c.length;
+  return `linear-gradient(to right, ${c.map((x, i) => `${x} ${i * step}% ${(i + 1) * step}%`).join(', ')})`;
+}
+
 export const title = (e) => [e.brand, e.type, e.subtype].filter(Boolean).join(' ');
 
 const range = (a, b) => (a && b ? `${a}–${b}` : a || b || '');

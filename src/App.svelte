@@ -8,6 +8,7 @@
   import Settings from './components/Settings.svelte';
   import Fold from './components/Fold.svelte';
   import MyFilaments from './components/MyFilaments.svelte';
+  import ConfirmWrite from './components/ConfirmWrite.svelte';
   import * as Defaults from './lib/defaults.js';
   import * as OpenSpool from './lib/formats/openspool.js';
   import { MATERIALS, VARIANTS } from './lib/catalog.js';
@@ -29,7 +30,7 @@
   const nfc = getNfc();
   const buildLabel = buildParts(__BUILD__);
 
-  let mode = $state('create'); // 'create' | 'update' | 'settings'
+  let mode = $state('create'); // 'create' | 'filaments' | 'update' | 'settings'
   let defaults = $state(Defaults.load()); // what new tags start with (Settings)
   let form = $state(Defaults.newForm(defaults));
   let loaded = $state(null); // { tag, raw, unknownKeys, notes, before } after a read (before: the quick-edit fields as read)
@@ -53,6 +54,11 @@
 
   // Write several tags in a row: the tags written from this form so far
   let series = $state(null);
+
+  // Filaments tab: the filament awaiting confirmation, and the one being written
+  // in a row (its entry, and the tags written so far)
+  let pending = $state(null);
+  let fRun = $state(null); // { entry, key, count, lastUid }
 
   // Variant chips: the groups this brand has for this material, in its own
   // words; the full default list until the data loads or for other brands
@@ -266,13 +272,60 @@
     say(`Saved ${Filaments.title(entry)} to My filaments.`, 'ok');
   }
 
-  async function useFilament(entry) {
-    Object.assign(form, Filaments.toForm(entry));
-    showErrors = false;
-    offer = null;
-    say(`Filled in ${Filaments.title(entry)}.`, 'ok');
-    await tick();
-    colorSection?.afterLoad();
+  // The tag for a saved filament: its details on top of your defaults for new tags
+  // (weight, diameter, opacity). Name, note and pin are never part of it.
+  const formFor = (entry) => ({ ...Defaults.newForm(defaults), ...Filaments.toForm(entry) });
+
+  function confirmText(entry) {
+    const f = formFor(entry);
+    const have = [f.weight && `${f.weight} g`, f.diameter && `${f.diameter} mm`].filter(Boolean).join(', ');
+    return have ? `With your defaults for new tags: ${have}.` : 'Weight and diameter aren’t set in your defaults, so they are left out.';
+  }
+
+  async function writeFilament(entry) {
+    pending = null;
+    const f = formFor(entry);
+    const problems = OpenSpool.validate(f);
+    if (problems.length) {
+      say(`${problems[0].message} Open Create to fix it.`, 'error');
+      return;
+    }
+    const built = OpenSpool.build(f);
+    const bytes = encodeMessage([mimeRecord(OpenSpool.MIME_TYPE, new TextEncoder().encode(JSON.stringify(built)))]);
+    const room = maxMessageSize(NTAG.NTAG215.userBytes);
+    if (bytes.length > room) {
+      say(`The data is ${bytes.length} bytes, more than the ${room} that fit on an NTAG215. Remove some colors from it on Create.`, 'error');
+      return;
+    }
+    say(null);
+    const key = JSON.stringify(built);
+    sheet = { mode: 'write', wrongUid: '', note: fRun && fRun.key === key ? `Tag ${fRun.count + 1} of this spool` : '' };
+    try {
+      const record = mimeRecord(OpenSpool.MIME_TYPE, new TextEncoder().encode(JSON.stringify(built)));
+      const r = nfc.kind === 'native'
+        ? await nfc.write(bytes, { expectedUid: '', onWrongTag: (uid) => { if (sheet) sheet.wrongUid = uid; } })
+        : await nfc.write([record]);
+      sheet = null;
+      if (nfc.kind === 'native' && !r.verified) {
+        say('Tag written, but reading it back didn’t match. Read the tag to check it.', 'error');
+        return;
+      }
+      const next = WriteSeries.record(fRun && fRun.key === key ? fRun : null, r.tag?.uid, key);
+      fRun = { entry, ...next.series };
+      if (next.repeat) {
+        say(`That’s the same tag as the last one (${WriteSeries.cleanUid(r.tag.uid)}). It has this spool again, but no new tag was made.`, 'error');
+      } else {
+        say(nfc.kind === 'native' ? 'Tag written and checked.' : 'Tag written.', 'ok');
+      }
+    } catch (e) {
+      sheet = null;
+      if (e.code !== 'CANCELLED') say(e.message, 'error');
+    }
+  }
+
+  function finishRun() {
+    fRun = null;
+    say(null);
   }
 
   function changeFilament(entry, patch) {
@@ -305,6 +358,8 @@
     mode = next;
     offer = null;
     series = null;
+    pending = null;
+    fRun = null;
     say(null);
     // Settings replaces the form, and the color lists forget which color they had picked.
     // Mark again what the colors match, as after reading a tag, so a brand color stays a brand color.
@@ -449,6 +504,7 @@
     <h1>FilaScribe</h1>
     <div class="modes" role="tablist" aria-label="Mode">
       <button type="button" role="tab" aria-selected={mode === 'create'} onclick={() => switchMode('create')}>Create</button>
+      <button type="button" role="tab" aria-selected={mode === 'filaments'} onclick={() => switchMode('filaments')}>Filaments</button>
       <button type="button" role="tab" aria-selected={mode === 'update'} onclick={() => switchMode('update')}>Read & update</button>
       <button type="button" role="tab" aria-selected={mode === 'settings'} onclick={() => switchMode('settings')}>Settings</button>
     </div>
@@ -466,6 +522,10 @@
 
   {#if mode === 'settings'}
     <Settings {form} bind:defaults bind:chips bind:shownBrands bind:shownMaterials bind:hiddenVariants bind:filaments bind:autoFilaments {brandData} onbranddata={(db) => (rawBrandData = db)} onstatus={(t, isError) => say(t, isError ? 'error' : 'ok')} />
+  {:else if mode === 'filaments'}
+    <div class="tabpage">
+      <MyFilaments list={filaments} current={fRun ? Filaments.keyOf(fRun.entry) : ''} onuse={(e) => (pending = e)} onremove={removeFilament} onchange={changeFilament} tab />
+    </div>
   {:else if mode === 'update' && (!loaded || loaded.empty)}
     <section class="empty">
       <h2>Read a tag to change it</h2>
@@ -518,10 +578,6 @@
           </button>
         {/each}
       </div>
-
-      {#if mode === 'create'}
-        <MyFilaments list={filaments} current={currentKey} onuse={useFilament} onremove={removeFilament} onchange={changeFilament} />
-      {/if}
 
       <Fold id={foldId('filament')} title="Filament" summary={filamentSummary} defaultOpen={!reading} forceOpen={filamentError}>
         <Palette
@@ -643,7 +699,7 @@
   </footer>
 </div>
 
-{#if mode !== 'settings' || status}
+{#if (mode !== 'settings' && (mode !== 'filaments' || fRun)) || status}
 <div class="dock">
   <div class="dock-inner">
     {#if offerNow}
@@ -659,7 +715,13 @@
     {#if seriesNow}
       <p class="series">{WriteSeries.label(seriesNow.count)}</p>
     {/if}
-    {#if mode !== 'settings'}
+    {#if mode === 'filaments' && fRun}
+      <p class="series">{fRun.count} {fRun.count === 1 ? 'tag' : 'tags'} written for {fRun.entry.name || Filaments.title(fRun.entry)}</p>
+      <div class="dock-actions">
+        <button type="button" class="btn" onclick={finishRun}>Done</button>
+        <button type="button" class="btn primary wide" onclick={() => writeFilament(fRun.entry)} disabled={!nfcState.available || nfcState.enabled === false}>Write another tag</button>
+      </div>
+    {:else if mode !== 'settings' && mode !== 'filaments'}
     <div class="dock-actions">
       {#if mode === 'create' && seriesNow}
         <button type="button" class="btn" onclick={finishSeries}>Done</button>
@@ -678,8 +740,19 @@
 </div>
 {/if}
 
+{#if pending}
+  <ConfirmWrite
+    name={pending.name || `${Filaments.title(pending)} · ${Filaments.colorLabel(pending)}`}
+    details={pending.name ? `${Filaments.title(pending)} · ${Filaments.colorLabel(pending)}` : Filaments.meta(pending)}
+    defaults={confirmText(pending)}
+    swatch={Filaments.swatch(pending)}
+    onwrite={() => writeFilament(pending)}
+    oncancel={() => (pending = null)}
+  />
+{/if}
+
 {#if sheet}
-  <NfcSheet mode={sheet.mode} wrongUid={sheet.wrongUid} note={sheet.mode === 'write' && seriesNow ? `Tag ${seriesNow.count + 1} of this spool` : ''} oncancel={cancelNfc} />
+  <NfcSheet mode={sheet.mode} wrongUid={sheet.wrongUid} note={sheet.mode === 'write' ? sheet.note || (seriesNow ? `Tag ${seriesNow.count + 1} of this spool` : '') : ''} oncancel={cancelNfc} />
 {/if}
 
 <style>
@@ -690,16 +763,19 @@
   }
   header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s3); }
   h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: 0.01em; }
-  .modes { display: inline-flex; padding: 3px; border-radius: var(--r-control); background: var(--chip); }
+  .tabpage { margin-top: var(--s4); }
+  .modes { display: flex; width: 100%; gap: 2px; padding: 3px; border-radius: var(--r-control); background: var(--chip); }
   .modes button {
+    flex: 1;
+    white-space: nowrap;
     min-height: var(--h-chip);
-    padding: 0 var(--s3);
+    padding: 0 var(--s2);
     border: 0;
     border-radius: calc(var(--r-control) - 3px);
     background: transparent;
     font-family: var(--font-label);
     font-weight: 600;
-    font-size: 1rem;
+    font-size: 0.9375rem;
     color: var(--muted);
   }
   .modes button[aria-selected='true'] { background: var(--surface); color: var(--ink); }

@@ -1,12 +1,12 @@
 <script>
-  // The "My filaments" card on Create: your saved spools. Tap one to fill the
-  // form; search narrows the list; the list scrolls inside the card. Each row
+  // The "My filaments" card on the Filaments tab (`tab`): your saved spools. Tap
+  // one to write a tag with it (App.svelte asks first); search narrows the list; the list scrolls inside the card. Each row
   // has a star (pin to the top) and ⋯ (name, note and remove). Name, note and
   // pin stay on this device: they are never written to a tag.
   import Fold from './Fold.svelte';
   import * as Filaments from '../lib/filaments.js';
 
-  let { list = [], current = '', onuse = () => {}, onremove = () => {}, onchange = () => {} } = $props();
+  let { tab = false, list = [], current = '', onuse = () => {}, onremove = () => {}, onchange = () => {} } = $props();
 
   // The list shows about five rows before it scrolls, so searching only
   // helps once there are clearly more than that
@@ -23,14 +23,7 @@
   const toggleEdit = (e) => (editing = editing === Filaments.keyOf(e) ? '' : Filaments.keyOf(e));
   const label = (e) => e.name || `${Filaments.title(e)}, ${Filaments.colorLabel(e)}`;
 
-  // The swatch: one color, or the colors side by side (a gradient blends)
-  function swatch(e) {
-    const c = e.colors.map((h) => `#${h}`);
-    if (c.length === 1) return c[0];
-    if (e.colorType === '0') return `linear-gradient(to right, ${c.join(', ')})`;
-    const step = 100 / c.length;
-    return `linear-gradient(to right, ${c.map((x, i) => `${x} ${i * step}% ${(i + 1) * step}%`).join(', ')})`;
-  }
+  const swatch = Filaments.swatch;
 
   function remove(e) {
     if (!confirm(`Remove ${Filaments.title(e)} · ${Filaments.colorLabel(e)} from My filaments?`)) return;
@@ -39,7 +32,7 @@
   }
 </script>
 
-<Fold id="filaments" title="My filaments" {summary} cls="filaments">
+<Fold id="filaments" title="My filaments" {summary} cls="filaments" forceOpen={tab}>
   {#if list.length}
     {#if searchable}
       <input
@@ -92,9 +85,9 @@
     {:else}
       <p class="hint">No filament matches “{query}”.</p>
     {/if}
-    <p class="hint">Tap one to fill the form. Brand, material, variant, colors and temperatures are used.</p>
+    <p class="hint">Tap one to write a tag with it. Brand, material, variant, colors and temperatures are used; weight and diameter come from your defaults for new tags.</p>
   {:else}
-    <p class="hint">Fill in the form, then tap “Save this spool as a filament” at the bottom. Writing a tag can offer to save it too.</p>
+    <p class="hint">On Create, fill in the form, then tap “Save this spool as a filament” at the bottom. Writing a tag can offer to save it too.</p>
   {/if}
 </Fold>
 
