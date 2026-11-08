@@ -76,6 +76,23 @@ test.describe('One look for every control', () => {
     expect(look.radius).toBe(chipLook);
   });
 
+  test('a selected color tile is outlined in the action color', async ({ page }) => {
+    await chip(page, 'Bambu Lab').click();
+    await chip(page, 'Basic').click();
+    const tile = page.locator('.brand .tile').first();
+    await tile.click();
+    await expect(tile).toHaveAttribute('aria-pressed', 'true');
+    const look = await tile.evaluate((e) => {
+      const probe = document.createElement('span');
+      probe.style.color = 'var(--action)';
+      document.body.append(probe);
+      const action = getComputedStyle(probe).color;
+      probe.remove();
+      return { border: getComputedStyle(e).borderTopColor, action };
+    });
+    expect(look.border).toBe(look.action);
+  });
+
   test('links are the action color with an underline', async ({ page }) => {
     await openSettingsGroup(page, 'App');
     await openAllCards(page);

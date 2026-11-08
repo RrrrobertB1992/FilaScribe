@@ -134,7 +134,7 @@
     border-radius: var(--r-control);
     background: transparent;
   }
-  .slot[aria-pressed='true'] { border-color: var(--ink); }
+  .slot[aria-pressed='true'] { border-color: var(--action); }
   .swatch, .plus {
     width: 36px;
     height: 36px;

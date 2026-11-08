@@ -571,10 +571,10 @@
     background: var(--bg);
     text-align: center;
   }
-  .tile[aria-pressed='true'] { border-color: var(--ink); }
+  .tile[aria-pressed='true'] { border-color: var(--action); }
   /* A color you overrode: a dashed outline, like your own chips */
   .tile.edited { border-style: dashed; border-color: var(--muted); }
-  .tile.edited[aria-pressed='true'] { border-color: var(--ink); }
+  .tile.edited[aria-pressed='true'] { border-color: var(--action); }
   .edited-tag { font-size: 0.6875rem; font-weight: 700; color: var(--muted); line-height: 1.2; }
   .override {
     display: grid;

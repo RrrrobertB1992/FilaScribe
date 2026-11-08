@@ -359,7 +359,7 @@
     background: var(--bg);
     text-align: center;
   }
-  .tile[aria-pressed='true'] { border-color: var(--ink); }
+  .tile[aria-pressed='true'] { border-color: var(--action); }
   .bar {
     display: flex;
     height: 22px;
