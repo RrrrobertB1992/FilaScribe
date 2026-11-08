@@ -48,7 +48,6 @@
   let brandOriginal = $state(''); // the database's hex for an overridden brand color
   let savedCount = $state(0);
   let savedName = $state(null);
-  let editing = $state(false);
 
   let tab = $state('brand');
   let userChose = false; // the user picked a tab for this brand + material
@@ -57,7 +56,7 @@
 
   const tabs = $derived([
     { id: 'brand', label: 'Brand', count: brandAvailable ? brandCount : null, disabled: !brandAvailable },
-    { id: 'saved', label: 'Saved', count: savedCount || null, disabled: !savedCount && !editing },
+    { id: 'saved', label: 'Saved', count: savedCount || null, disabled: !savedCount },
     { id: 'custom', label: 'Custom', count: null, disabled: false },
   ]);
   const preferred = $derived(brandAvailable ? 'brand' : savedCount ? 'saved' : 'custom');
@@ -78,14 +77,9 @@
   $effect(() => {
     if (tabs.find((t) => t.id === tab)?.disabled) tab = tabs.find((t) => !t.disabled).id;
   });
-  // Editing a saved color's colors happens in Custom
-  $effect(() => {
-    if (editing) tab = 'custom';
-  });
 
   function choose(id) {
     if (id === tab) return;
-    if (editing) savedList?.cancelEdit();
     tab = id;
     userChose = true;
   }
@@ -104,7 +98,7 @@
         ? { name: `${brandName} (${brandOriginal})`, from: `Brand color · ${brandLine} · your override`, edited: true }
         : { name: brandName, from: `Brand color · ${brandLine}` };
     }
-    if (savedName !== null) return { name: savedName || 'Saved color', from: editing ? 'Saved color · editing' : 'Saved color' };
+    if (savedName !== null) return { name: savedName || 'Saved color', from: 'Saved color' };
     return { name: 'Custom colors', from: 'Made with the color picker' };
   });
   const hexes = $derived(colors.slice(0, max).map((h) => `#${h}`).join(' + '));
@@ -132,19 +126,10 @@
     userChose = true;
   }
 
-  function saveEdit() {
-    savedList?.saveEdit();
-    tab = 'saved';
-  }
-
-  function saveEditAsNew() {
-    savedList?.saveEditAsNew();
-    tab = 'saved';
-  }
-
-  function cancelEdit() {
-    savedList?.cancelEdit();
-    tab = 'saved';
+  // "Add or remove colors in Custom" in a saved color's editor
+  function openCustomFromSaved() {
+    tab = 'custom';
+    userChose = true;
   }
 
   // Clone on a brand color: a new saved color, picked, with the Saved tab open
@@ -241,8 +226,7 @@
       bind:colorType
       bind:count={savedCount}
       bind:pickedName={savedName}
-      bind:editing
-      editInPlace={tab === 'custom'}
+      onopencustom={openCustomFromSaved}
       {onstatus}
     />
   </div>
@@ -250,22 +234,11 @@
   <div class="panel" hidden={tab !== 'custom'}>
     <ColorEditor bind:colors bind:colorType {max} showLabel={false} />
     {#if tab === 'custom'}{@render closest()}{/if}
-    {#if editing}
-      <div class="editbar">
-        <span>Editing saved color <strong>{savedName || hexes}</strong></span>
-        <div class="row">
-          <button type="button" class="btn small" onclick={saveEdit}>Save changes</button>
-          <button type="button" class="btn small" onclick={saveEditAsNew}>Save as new</button>
-          <button type="button" class="btn small" onclick={cancelEdit}>Cancel</button>
-        </div>
-      </div>
-    {:else}
-      <div class="row">
-        <button type="button" class="btn small" onclick={saveCurrent} disabled={!brand || !type}>Save colors</button>
-        <button type="button" class="btn small" onclick={() => savedList?.openImport()}>Import saved colors</button>
-      </div>
-      <p class="hint">Saved colors are kept for {[brand, type].filter(Boolean).join(' ') || 'this brand and material'}. Colors are also saved when you write a tag.</p>
-    {/if}
+    <div class="row">
+      <button type="button" class="btn small" onclick={saveCurrent} disabled={!brand || !type}>Save colors</button>
+      <button type="button" class="btn small" onclick={() => savedList?.openImport()}>Import saved colors</button>
+    </div>
+    <p class="hint">Saved colors are kept for {[brand, type].filter(Boolean).join(' ') || 'this brand and material'}. Colors are also saved when you write a tag.</p>
   </div>
 
   {#if tab !== 'custom'}{@render closest()}{/if}
@@ -355,13 +328,5 @@
   .panel[hidden] { display: none; }
   .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
   .panel > .hint { margin: 0; }
-  .editbar {
-    display: grid;
-    gap: var(--s2);
-    padding: var(--s3);
-    border-radius: var(--r-control);
-    background: var(--bg);
-    border-left: 4px solid var(--action);
-  }
   .error-text { margin: 0; }
 </style>
