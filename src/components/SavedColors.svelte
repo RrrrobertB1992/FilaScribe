@@ -1,7 +1,7 @@
 <script>
   // Saved colors for the current brand + material (the "Saved" panel of the
   // color section): pick one to fill the colors. Each tile has an Edit button
-  // that opens an editor under the grid: name, a picker for each of its colors
+  // that opens an editor right under that tile’s row: name, a picker for each of its colors
   // (kept apart from the form until Save), and Remove. Colors are saved
   // automatically after a successful write. Saved colors belong to a brand +
   // material only, not to a variant. (The variants are still recorded, but
@@ -142,7 +142,11 @@
     if (selected === id) deselect();
   }
 
-  // --- The editor under the grid ---
+  // --- The editor, right under the row of the tile being edited ---
+  // Bring it into view when it opens (a long list may have scrolled the tile away from it)
+  const reveal = (node) => {
+    node.scrollIntoView({ block: 'nearest' });
+  };
   function toggleEditor(entry) {
     const id = SC.entryId(entry);
     if (editor?.id === id) {
@@ -322,6 +326,50 @@
             </button>
             <button type="button" class="edit-btn" class:open={isOpen} aria-expanded={isOpen} aria-label={`Edit ${entry.name || entry.colors.join(' + ')}`} onclick={() => toggleEditor(entry)}>Edit</button>
           </div>
+          {#if isOpen && editor}
+          <div class="editor" role="group" aria-label="Edit saved color" use:reveal>
+            <label class="field">
+              <span class="lab">Name</span>
+              <input type="text" bind:value={editor.name} maxlength="32" placeholder="Color name" autocomplete="off" />
+            </label>
+            <div class="field">
+              <span class="lab" id="saved-edit-colors">{editor.colors.length > 1 ? 'Colors (tap one to change it)' : 'Color'}</span>
+              <div class="chips" role="group" aria-labelledby="saved-edit-colors">
+                {#each editor.colors as hex, i}
+                  <button type="button" class="chip" aria-pressed={i === editor.active} aria-label={`Color ${i + 1}, #${hex}${i === editor.active ? ', editing' : ''}`} onclick={() => (editor.active = i)}>
+                    <span class="dot" style:background={`#${hex}`}></span>#{hex}
+                  </button>
+                {/each}
+                <span class="pm">
+                  <button type="button" class="round" onclick={addToEditor} disabled={editor.colors.length >= max} aria-label="Add a color">+</button>
+                  {#if editor.colors.length > 1}
+                    <button type="button" class="round" onclick={dropFromEditor} aria-label="Remove the last color">−</button>
+                  {/if}
+                </span>
+              </div>
+            </div>
+            {#if editor.colors.length > 1}
+              <div class="field">
+                <span class="lab" id="saved-edit-style">Multi-color style</span>
+                <div class="chips" role="group" aria-labelledby="saved-edit-style">
+                  <button type="button" class="chip style" aria-pressed={editor.type !== '0'} onclick={() => (editor.type = '1')}>Segments</button>
+                  <button type="button" class="chip style" aria-pressed={editor.type === '0'} onclick={() => (editor.type = '0')}>Gradient</button>
+                </div>
+              </div>
+            {/if}
+            <HsvPicker bind:hex={pickerHex} label={`Color ${editor.active + 1}`} />
+            <label class="field">
+              <span class="lab">Hex</span>
+              <input type="text" class="hexbox" value={hexText} oninput={typedHex} maxlength="7" autocapitalize="characters" autocomplete="off" spellcheck="false" aria-label={`Hex for color ${editor.active + 1}`} />
+            </label>
+            <div class="actions">
+              <button type="button" class="btn small danger" onclick={removeFromEditor}>Remove</button>
+              <span class="spacer"></span>
+              <button type="button" class="btn small" onclick={() => (editor = null)}>Cancel</button>
+              <button type="button" class="btn small primary" onclick={saveEditor}>Save</button>
+            </div>
+          </div>
+          {/if}
         {/each}
       </div>
       {#if entries.length > shown}
@@ -330,51 +378,6 @@
           Show {Math.min(SC.PAGE_SIZE, left)} more ({left} left)
         </button>
       {/if}
-    {/if}
-
-    {#if editor}
-      <div class="editor" role="group" aria-label="Edit saved color">
-        <label class="field">
-          <span class="lab">Name</span>
-          <input type="text" bind:value={editor.name} maxlength="32" placeholder="Color name" autocomplete="off" />
-        </label>
-        <div class="field">
-          <span class="lab" id="saved-edit-colors">{editor.colors.length > 1 ? 'Colors (tap one to change it)' : 'Color'}</span>
-          <div class="chips" role="group" aria-labelledby="saved-edit-colors">
-            {#each editor.colors as hex, i}
-              <button type="button" class="chip" aria-pressed={i === editor.active} aria-label={`Color ${i + 1}, #${hex}${i === editor.active ? ', editing' : ''}`} onclick={() => (editor.active = i)}>
-                <span class="dot" style:background={`#${hex}`}></span>#{hex}
-              </button>
-            {/each}
-            <span class="pm">
-              <button type="button" class="round" onclick={addToEditor} disabled={editor.colors.length >= max} aria-label="Add a color">+</button>
-              {#if editor.colors.length > 1}
-                <button type="button" class="round" onclick={dropFromEditor} aria-label="Remove the last color">−</button>
-              {/if}
-            </span>
-          </div>
-        </div>
-        {#if editor.colors.length > 1}
-          <div class="field">
-            <span class="lab" id="saved-edit-style">Multi-color style</span>
-            <div class="chips" role="group" aria-labelledby="saved-edit-style">
-              <button type="button" class="chip style" aria-pressed={editor.type !== '0'} onclick={() => (editor.type = '1')}>Segments</button>
-              <button type="button" class="chip style" aria-pressed={editor.type === '0'} onclick={() => (editor.type = '0')}>Gradient</button>
-            </div>
-          </div>
-        {/if}
-        <HsvPicker bind:hex={pickerHex} label={`Color ${editor.active + 1}`} />
-        <label class="field">
-          <span class="lab">Hex</span>
-          <input type="text" class="hexbox" value={hexText} oninput={typedHex} maxlength="7" autocapitalize="characters" autocomplete="off" spellcheck="false" aria-label={`Hex for color ${editor.active + 1}`} />
-        </label>
-        <div class="actions">
-          <button type="button" class="btn small danger" onclick={removeFromEditor}>Remove</button>
-          <span class="spacer"></span>
-          <button type="button" class="btn small" onclick={() => (editor = null)}>Cancel</button>
-          <button type="button" class="btn small primary" onclick={saveEditor}>Save</button>
-        </div>
-      </div>
     {/if}
 
     <div class="backup">
@@ -390,7 +393,8 @@
 
 <style>
   .saved { display: grid; gap: var(--s2); }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: var(--s2); }
+  /* dense: the tiles after the edited one fill its row, and the editor opens right under that row */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); grid-auto-flow: dense; gap: var(--s2); }
   /* The cell is the box (so the picked outline wraps the Edit button too) */
   .cell {
     display: grid;
@@ -429,6 +433,7 @@
   }
   .edit-btn.open { background: var(--ink); border-color: var(--ink); color: var(--bg); }
   .editor {
+    grid-column: 1 / -1;
     display: grid;
     gap: var(--s3);
     padding: var(--s3);
