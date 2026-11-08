@@ -107,4 +107,25 @@ describe('My filaments', () => {
     expect(() => F.importInto(have, [{ nope: true }])).toThrow();
     expect(F.importInto(have, []).added).toBe(0);
   });
+
+  it('keeps a name, note and pin without changing which spool it is, and cleans them', () => {
+    const e = F.fromForm(form());
+    const list = F.add(F.add([], F.fromForm(form({ maxTemp: '221' }))), e);
+    const next = F.update(list, e, { name: '  Everyday  ', note: 'x'.repeat(300), pinned: true });
+    expect(next[0]).toMatchObject({ name: 'Everyday', pinned: true });
+    expect(next[0].note).toHaveLength(F.NOTE_MAX);
+    expect(F.keyOf(next[0])).toBe(F.keyOf(e));
+    expect(F.has(next, e)).toBe(true);
+    // Clearing them leaves the fields out; unpinning drops the flag
+    const cleared = F.update(next, e, { name: '', note: '', pinned: false });
+    expect(cleared[0]).toEqual(e);
+    // Pinned first, otherwise the saved order
+    expect(F.ordered(next).map((x) => x.maxTemp)).toEqual([e.maxTemp, '221']);
+    // Searchable by name and note; survives storage; junk is dropped
+    expect(F.search(next, 'everyday')).toHaveLength(1);
+    const storage = memoryStorage();
+    F.store(next, storage);
+    expect(F.load(storage)[0]).toMatchObject({ name: 'Everyday', pinned: true });
+    expect(F.load(memoryStorage({ [F.STORAGE_KEY]: JSON.stringify([{ ...e, name: 5, note: {}, pinned: 'yes' }]) }))[0]).toEqual(e);
+  });
 });

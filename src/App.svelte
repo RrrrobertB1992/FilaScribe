@@ -275,6 +275,11 @@
     colorSection?.afterLoad();
   }
 
+  function changeFilament(entry, patch) {
+    filaments = Filaments.update(filaments, entry, patch);
+    Filaments.store(filaments);
+  }
+
   function removeFilament(entry) {
     filaments = Filaments.remove(filaments, entry);
     Filaments.store(filaments);
@@ -515,7 +520,7 @@
       </div>
 
       {#if mode === 'create'}
-        <MyFilaments list={filaments} current={currentKey} onuse={useFilament} onremove={removeFilament} />
+        <MyFilaments list={filaments} current={currentKey} onuse={useFilament} onremove={removeFilament} onchange={changeFilament} />
       {/if}
 
       <Fold id={foldId('filament')} title="Filament" summary={filamentSummary} defaultOpen={!reading} forceOpen={filamentError}>
