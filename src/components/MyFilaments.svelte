@@ -1,15 +1,14 @@
 <script>
-  // The "My filaments" card on the Filaments tab (`tab`): your saved spools. Tap
-  // one to write a tag with it (App.svelte asks first); search narrows the list; the list scrolls inside the card. Each row
+  // The Filaments tab: your saved spools as a plain list (no card around it, so
+  // each row gets the full width). Tap one to write a tag with it (App.svelte
+  // asks first); search narrows the list. Each row
   // has a star (pin to the top) and ⋯ (name, note and remove). Name, note and
   // pin stay on this device: they are never written to a tag.
-  import Fold from './Fold.svelte';
   import * as Filaments from '../lib/filaments.js';
 
-  let { tab = false, list = [], current = '', onuse = () => {}, onremove = () => {}, onchange = () => {} } = $props();
+  let { list = [], current = '', onuse = () => {}, onremove = () => {}, onchange = () => {} } = $props();
 
-  // The list shows about five rows before it scrolls, so searching only
-  // helps once there are clearly more than that
+  // Searching only helps once there are clearly more rows than fit on a screen
   const SEARCH_FROM = 8;
   let query = $state('');
   const searchable = $derived(list.length >= SEARCH_FROM);
@@ -32,7 +31,8 @@
   }
 </script>
 
-<Fold id="filaments" title="My filaments" {summary} cls="filaments" forceOpen={tab}>
+<section class="filaments" data-fold="filaments">
+  <h2 class="head"><span class="title">My filaments</span><span class="sum">{summary}</span></h2>
   {#if list.length}
     {#if searchable}
       <input
@@ -55,7 +55,7 @@
                 <span class="dot" style:background={swatch(e)} aria-hidden="true"></span>
                 <span class="text">
                   <span class="name">{e.name || `${Filaments.title(e)} · ${Filaments.colorLabel(e)}`}</span>
-                  <span class="meta">{#if e.name}{Filaments.title(e)} · {Filaments.colorLabel(e)}{#if Filaments.meta(e)} · {/if}{/if}{#if Filaments.isCustom(e) && !e.name}<span class="custom">Custom color</span>{/if}{Filaments.meta(e)}</span>
+                  <span class="meta">{#if e.name}{Filaments.title(e)} · {Filaments.colorLabel(e)}{#if Filaments.meta(e)}{' · '}{/if}{/if}{#if Filaments.isCustom(e) && !e.name}<span class="custom">Custom color</span>{/if}{Filaments.meta(e)}</span>
                   {#if e.note}<span class="note">{e.note}</span>{/if}
                 </span>
               </button>
@@ -89,9 +89,26 @@
   {:else}
     <p class="hint">On Create, fill in the form, then tap “Save this spool as a filament” at the bottom. Writing a tag can offer to save it too.</p>
   {/if}
-</Fold>
+</section>
 
 <style>
+  .filaments { display: grid; gap: var(--s3); }
+  .head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--s3);
+    margin: 0;
+  }
+  .title {
+    font-family: var(--font-label);
+    font-weight: 700;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--action);
+  }
+  .sum { color: var(--muted); font-size: 0.875rem; font-weight: 400; }
   .find {
     width: 100%;
     min-height: var(--h-control);
@@ -106,18 +123,11 @@
     list-style: none;
     margin: 0;
     padding: 0;
-    border: 1px solid var(--line);
-    border-radius: var(--r-card);
-    background: var(--bg);
-    /* About five rows, then it scrolls inside the card */
-    max-height: 21rem;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-  }
-  li {
     border-top: 1px solid var(--line);
   }
-  li:first-child { border-top: 0; }
+  li {
+    border-bottom: 1px solid var(--line);
+  }
   .row { display: flex; align-items: stretch; }
   li.on { background: color-mix(in srgb, var(--action) 14%, var(--bg)); }
   .use {

@@ -526,7 +526,7 @@
     <Settings {form} bind:defaults bind:chips bind:shownBrands bind:shownMaterials bind:hiddenVariants bind:filaments bind:autoFilaments {brandData} onbranddata={(db) => (rawBrandData = db)} onstatus={(t, isError) => say(t, isError ? 'error' : 'ok')} />
   {:else if mode === 'filaments'}
     <div class="tabpage">
-      <MyFilaments list={filaments} current={fRun ? Filaments.keyOf(fRun.entry) : ''} onuse={(e) => (pending = e)} onremove={removeFilament} onchange={changeFilament} tab />
+      <MyFilaments list={filaments} current={fRun ? Filaments.keyOf(fRun.entry) : ''} onuse={(e) => (pending = e)} onremove={removeFilament} onchange={changeFilament} />
     </div>
   {:else if mode === 'update' && (!loaded || loaded.empty)}
     <section class="empty">
