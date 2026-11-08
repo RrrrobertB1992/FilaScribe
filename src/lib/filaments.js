@@ -3,7 +3,10 @@
 //
 // Data: [ { profile, brand, type, subtype, minTemp, maxTemp, bedMinTemp,
 //           bedMaxTemp, colors: ["2B2B2D", ...], colorType?: "0" | "1",
-//           colorName: "Blue" } ]  newest first.
+//           colorName: "Blue", name?: "Everyday black", note?: "...",
+//           pinned?: true } ]  newest first.
+// name, note and pinned are yours alone: they never go on a tag and are not
+// part of what makes two spools the same.
 // The same spool (every field alike) is only kept once. Spool details
 // (weight, diameter, opacity) aren't part of it: they change per spool.
 import { PROFILES, normalizeHex, usedColors } from './formats/openspool.js';
@@ -11,6 +14,8 @@ import { PROFILES, normalizeHex, usedColors } from './formats/openspool.js';
 export const STORAGE_KEY = 'filascribe-filaments';
 export const AUTO_KEY = 'filascribe-filaments-auto';
 export const MAX = 200;
+export const NAME_MAX = 40;
+export const NOTE_MAX = 200;
 
 const TEXT = ['brand', 'type', 'subtype', 'minTemp', 'maxTemp', 'bedMinTemp', 'bedMaxTemp'];
 const HEX = /^[0-9A-F]{6}$/;
@@ -29,6 +34,11 @@ function cleanEntry(e) {
   out.colors = colors;
   if (colors.length > 1) out.colorType = e.colorType === '0' ? '0' : '1';
   out.colorName = typeof e.colorName === 'string' ? e.colorName.slice(0, 60) : '';
+  const name = typeof e.name === 'string' ? e.name.trim().slice(0, NAME_MAX) : '';
+  const note = typeof e.note === 'string' ? e.note.trim().slice(0, NOTE_MAX) : '';
+  if (name) out.name = name;
+  if (note) out.note = note;
+  if (e.pinned === true) out.pinned = true;
   return out;
 }
 
@@ -104,6 +114,19 @@ export function add(list, entry) {
 
 export const remove = (list, entry) => list.filter((e) => keyOf(e) !== keyOf(entry));
 
+/** The list with `entry` changed by `patch` (name, note, pinned), in the same place. Empty name/note and pinned: false are left out. */
+export function update(list, entry, patch) {
+  const key = keyOf(entry);
+  return list.map((e) => {
+    if (keyOf(e) !== key) return e;
+    const next = cleanEntry({ ...e, ...patch });
+    return next || e;
+  });
+}
+
+/** What the list shows: pinned first, otherwise the saved order (newest first). */
+export const ordered = (list) => [...list.filter((e) => e.pinned), ...list.filter((e) => !e.pinned)];
+
 /** The form fields an entry sets. */
 export function toForm(entry) {
   const u1 = entry.profile === 'u1';
@@ -167,12 +190,12 @@ export function meta(e) {
   return [nozzle && `${nozzle} °C`, bed && `bed ${bed} °C`].filter(Boolean).join(' · ');
 }
 
-/** The entries matching every word typed (brand, material, variant, color name, hex, temperatures). */
+/** The entries matching every word typed (name, note, brand, material, variant, color name, hex, temperatures). */
 export function search(list, text) {
   const words = String(text || '').toLowerCase().split(/\s+/).filter(Boolean);
   if (!words.length) return list;
   return list.filter((e) => {
-    const hay = [title(e), e.colorName, ...e.colors.map(basicColorName), ...e.colors, meta(e)].join(' ').toLowerCase();
+    const hay = [e.name, e.note, title(e), e.colorName, ...e.colors.map(basicColorName), ...e.colors, meta(e)].join(' ').toLowerCase();
     return words.every((w) => hay.includes(w.replace(/^#/, '')));
   });
 }

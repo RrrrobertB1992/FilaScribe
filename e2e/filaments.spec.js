@@ -1,4 +1,4 @@
-import { test, expect, chip, writeTag, status, settingsCard, fold, goCreate } from './nfc.js';
+import { test, expect, chip, lastWrite, writeTag, status, settingsCard, fold, goCreate } from './nfc.js';
 
 const rows = (page) => fold(page, 'filaments').getByRole('list', { name: 'Saved filaments' }).getByRole('listitem');
 const saveButton = (page) => page.getByRole('button', { name: '+ Save this spool as a filament' });
@@ -119,10 +119,11 @@ test.describe('My filaments', () => {
     await expect(rows(page).nth(2)).not.toContainText('Custom color');
   });
 
-  test('the × asks first: cancel keeps it, OK removes it', async ({ page }) => {
+  test('Remove (inside ⋯) asks first: cancel keeps it, OK removes it', async ({ page }) => {
     await saveSpool(page, 'Overture', 'PLA');
     await openCard(page);
-    const remove = rows(page).first().getByRole('button', { name: /^Remove/ });
+    await rows(page).first().getByRole('button', { name: /^Edit/ }).click();
+    const remove = rows(page).first().getByRole('button', { name: 'Remove', exact: true });
 
     let asked = answer(page, false);
     await remove.click();
@@ -133,6 +134,30 @@ test.describe('My filaments', () => {
     await remove.click();
     await asked;
     await expect(fold(page, 'filaments').locator('.sum')).toHaveText('None yet');
+  });
+
+  test('pin, name and note: the star moves a row up, the name replaces the title, the note shows under it, none reach the tag', async ({ page }) => {
+    await saveSpool(page, 'Overture', 'PLA');
+    await saveSpool(page, 'Polymaker', 'PETG');
+    await openCard(page);
+    // newest first: Polymaker, then Overture
+    await rows(page).nth(1).getByRole('button', { name: /^Pin/ }).click();
+    await expect(rows(page).first()).toContainText('Overture');
+    await expect(fold(page, 'filaments').locator('.sum')).toContainText('1 pinned');
+
+    await rows(page).first().getByRole('button', { name: /^Edit/ }).click();
+    await rows(page).first().getByLabel('Name').fill('Everyday spool');
+    await rows(page).first().getByLabel('Note').fill('Dry box 2');
+    await rows(page).first().getByRole('button', { name: 'Done' }).click();
+    await expect(rows(page).first().locator('.name')).toHaveText('Everyday spool');
+    await expect(rows(page).first().locator('.note')).toHaveText('Dry box 2');
+
+    // Using it fills the form and writes only tag fields
+    await rows(page).first().getByRole('button', { name: /^Use/ }).click();
+    await writeTag(page);
+    const text = JSON.stringify(await lastWrite(page));
+    expect(text).not.toContain('Everyday spool');
+    expect(text).not.toContain('Dry box 2');
   });
 
   test('after a write it offers to save: Save keeps it, Not now does not', async ({ page }) => {

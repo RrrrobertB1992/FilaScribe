@@ -1,19 +1,27 @@
 <script>
   // The "My filaments" card on Create: your saved spools. Tap one to fill the
-  // form; search narrows the list; the list scrolls inside the card.
+  // form; search narrows the list; the list scrolls inside the card. Each row
+  // has a star (pin to the top) and ⋯ (name, note and remove). Name, note and
+  // pin stay on this device: they are never written to a tag.
   import Fold from './Fold.svelte';
   import * as Filaments from '../lib/filaments.js';
 
-  let { list = [], current = '', onuse = () => {}, onremove = () => {} } = $props();
+  let { list = [], current = '', onuse = () => {}, onremove = () => {}, onchange = () => {} } = $props();
 
   // The list shows about five rows before it scrolls, so searching only
   // helps once there are clearly more than that
   const SEARCH_FROM = 8;
   let query = $state('');
   const searchable = $derived(list.length >= SEARCH_FROM);
-  const shown = $derived(searchable ? Filaments.search(list, query) : list);
+  const shown = $derived(Filaments.ordered(searchable ? Filaments.search(list, query) : list));
 
-  const summary = $derived(list.length ? `${list.length} saved` : 'None yet');
+  const pinnedCount = $derived(list.filter((e) => e.pinned).length);
+  const summary = $derived(list.length ? `${list.length} saved${pinnedCount ? ` · ${pinnedCount} pinned` : ''}` : 'None yet');
+
+  // The row whose editor is open (one at a time)
+  let editing = $state('');
+  const toggleEdit = (e) => (editing = editing === Filaments.keyOf(e) ? '' : Filaments.keyOf(e));
+  const label = (e) => e.name || `${Filaments.title(e)}, ${Filaments.colorLabel(e)}`;
 
   // The swatch: one color, or the colors side by side (a gradient blends)
   function swatch(e) {
@@ -26,6 +34,7 @@
 
   function remove(e) {
     if (!confirm(`Remove ${Filaments.title(e)} · ${Filaments.colorLabel(e)} from My filaments?`)) return;
+    editing = '';
     onremove(e);
   }
 </script>
@@ -48,14 +57,35 @@
       <ul class="rows" aria-label="Saved filaments">
         {#each shown as e (Filaments.keyOf(e))}
           <li class:on={Filaments.keyOf(e) === current}>
-            <button type="button" class="use" onclick={() => onuse(e)} aria-label={`Use ${Filaments.title(e)}, ${Filaments.colorLabel(e)}${Filaments.isCustom(e) ? ' (custom color)' : ''}`}>
-              <span class="dot" style:background={swatch(e)} aria-hidden="true"></span>
-              <span class="text">
-                <span class="name">{Filaments.title(e)} · {Filaments.colorLabel(e)}</span>
-                <span class="meta">{#if Filaments.isCustom(e)}<span class="custom">Custom color</span>{/if}{Filaments.meta(e)}</span>
-              </span>
-            </button>
-            <button type="button" class="x" aria-label={`Remove ${Filaments.title(e)}, ${Filaments.colorLabel(e)}`} onclick={() => remove(e)}>×</button>
+            <div class="row">
+              <button type="button" class="use" onclick={() => onuse(e)} aria-label={`Use ${label(e)}${Filaments.isCustom(e) ? ' (custom color)' : ''}`}>
+                <span class="dot" style:background={swatch(e)} aria-hidden="true"></span>
+                <span class="text">
+                  <span class="name">{e.name || `${Filaments.title(e)} · ${Filaments.colorLabel(e)}`}</span>
+                  <span class="meta">{#if e.name}{Filaments.title(e)} · {Filaments.colorLabel(e)}{#if Filaments.meta(e)} · {/if}{/if}{#if Filaments.isCustom(e) && !e.name}<span class="custom">Custom color</span>{/if}{Filaments.meta(e)}</span>
+                  {#if e.note}<span class="note">{e.note}</span>{/if}
+                </span>
+              </button>
+              <button type="button" class="ic star" class:pinned={e.pinned} aria-pressed={!!e.pinned} aria-label={`Pin ${label(e)}`} onclick={() => onchange(e, { pinned: !e.pinned })}>{e.pinned ? '★' : '☆'}</button>
+              <button type="button" class="ic" aria-expanded={editing === Filaments.keyOf(e)} aria-label={`Edit ${label(e)}`} onclick={() => toggleEdit(e)}>⋯</button>
+            </div>
+            {#if editing === Filaments.keyOf(e)}
+              <div class="edit">
+                <label>
+                  <span class="lab">Name</span>
+                  <input type="text" value={e.name || ''} maxlength={Filaments.NAME_MAX} placeholder={`${Filaments.title(e)} · ${Filaments.colorLabel(e)}`} oninput={(ev) => onchange(e, { name: ev.currentTarget.value })} autocomplete="off" />
+                </label>
+                <label>
+                  <span class="lab">Note</span>
+                  <textarea rows="2" value={e.note || ''} maxlength={Filaments.NOTE_MAX} oninput={(ev) => onchange(e, { note: ev.currentTarget.value })}></textarea>
+                </label>
+                <p class="count"><span>Stays on this device. Never written to a tag.</span><span>{(e.note || '').length}/{Filaments.NOTE_MAX}</span></p>
+                <div class="actions">
+                  <button type="button" class="done" onclick={() => (editing = '')}>Done</button>
+                  <button type="button" class="del" onclick={() => remove(e)}>Remove</button>
+                </div>
+              </div>
+            {/if}
           </li>
         {/each}
       </ul>
@@ -92,11 +122,10 @@
     overscroll-behavior: contain;
   }
   li {
-    display: flex;
-    align-items: stretch;
     border-top: 1px solid var(--line);
   }
   li:first-child { border-top: 0; }
+  .row { display: flex; align-items: stretch; }
   li.on { background: color-mix(in srgb, var(--action) 14%, var(--bg)); }
   .use {
     flex: 1;
@@ -139,15 +168,59 @@
     font-weight: 700;
     color: var(--ink);
   }
-  .x {
+  .note {
+    color: var(--muted);
+    font-size: 0.8125rem;
+    font-style: italic;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ic {
     flex: none;
-    width: 48px;
+    width: 44px;
     border: 0;
     background: none;
     color: var(--muted);
-    font-size: 1.375rem;
+    font-size: 1.25rem;
     cursor: pointer;
   }
-  .x:hover { color: var(--danger); }
+  .ic.pinned, .ic[aria-pressed='true'] { color: var(--action); }
+  .ic[aria-expanded='true'] { color: var(--ink); }
+  .edit {
+    display: grid;
+    gap: var(--s2);
+    padding: var(--s2) var(--s3) var(--s3);
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+  }
+  .edit label { display: grid; gap: var(--s1); }
+  .lab { font-family: var(--font-label); font-weight: 600; font-size: 0.8125rem; }
+  .edit input, .edit textarea {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: var(--h-control);
+    padding: var(--s2) var(--s3);
+    border: 1px solid var(--line);
+    border-radius: var(--r-control);
+    background: var(--bg);
+    color: var(--ink);
+    font: inherit;
+    resize: none;
+  }
+  .count { display: flex; justify-content: space-between; gap: var(--s2); margin: 0; color: var(--muted); font-size: 0.75rem; }
+  .actions { display: flex; justify-content: space-between; gap: var(--s2); }
+  .actions button {
+    min-height: var(--h-control);
+    padding: 0 var(--s4);
+    border: 1px solid var(--line);
+    border-radius: var(--r-control);
+    background: none;
+    color: var(--ink);
+    font-family: var(--font-label);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .actions .del { color: var(--danger); }
   .hint { margin: 0; }
 </style>

@@ -54,7 +54,8 @@ Save a whole spool (brand, material, variant, colors and temperatures; not weigh
 
 - **Saving:** tap **+ Save this spool as a filament** at the end of the form, or answer **Save** when the app offers after a written tag (the offer goes away if you change the form). In Settings → My filaments, **Save every write automatically** saves each written spool instead, skipping one you already have.
 - **Using:** the **My filaments** card on Create lists them, newest first, in a box that scrolls after about five. Search appears once there are 8 or more saved (fewer fit on screen without it). A color you picked yourself, not one named in the brand's database, is marked **Custom color** under its name, since its name is only a rough word for the hex. Search matches the brand, material, variant, color name, a rough color word (so "white" finds a white spool even if its color has no name) or a hex. Tap one to fill the form; the one matching the form is outlined.
-- **Removing:** **×** on a row asks first. Settings → My filaments has Export, Import and **Clear all** (asks first); the list itself is only on Create.
+- **Pin, name and note:** each row has a **☆** (tap to pin: pinned rows sit at the top with an orange **★**, the rest stay newest first) and a **⋯** that opens a small editor under the row. **Name** (up to 40 characters) replaces the row's title, with the brand, material and color moving to the line under it. **Note** (up to 200) shows as one line under the row. Search also matches the name and note. They stay on this device and are never written to a tag; saving the same spool again keeps them. The card's summary counts pinned ones ("4 saved · 1 pinned").
+- **Removing:** **Remove** in the ⋯ editor asks first. Settings → My filaments has Export, Import and **Clear all** (asks first); the list itself is only on Create.
 - Kept on the device (`filascribe-filaments`, `filascribe-filaments-auto`), up to 200.
 
 ## Settings
