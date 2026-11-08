@@ -169,6 +169,28 @@ export function temps(page, which) {
   return { min: group.getByLabel('Min'), max: group.getByLabel('Max') };
 }
 
+/** Back to the Create tab. */
+export const goCreate = (page) => page.getByRole('tab', { name: 'Create' }).click();
+
+/** One of the chip rows on Create: choiceRow(page, 'Brand' | 'Material' | 'Variant'). */
+export const choiceRow = (page, name) => page.getByRole('group', { name, exact: true });
+
+// The box under each row for a value that has no chip
+const OTHER = {
+  brand: { row: 'Brand', open: 'Other…', box: 'Other brand' },
+  material: { row: 'Material', open: 'Other…', box: 'Other material' },
+  variant: { row: 'Variant', open: 'Custom', box: 'Custom variant' },
+};
+
+/** Open a row's Other… (Custom, for Variant) box, optionally type in it, and give back the box. */
+export async function typeOther(page, which, text) {
+  const o = OTHER[which];
+  await choiceRow(page, o.row).getByRole('button', { name: o.open }).click();
+  const box = page.getByLabel(o.box);
+  if (text !== undefined) await box.fill(text);
+  return box;
+}
+
 /** A color source button: Brand, Saved or Custom (the name includes its count). */
 export const colorTab = (page, name) =>
   page.getByRole('group', { name: 'Color source' }).getByRole('button', { name: new RegExp(`^${name}\\b`) });

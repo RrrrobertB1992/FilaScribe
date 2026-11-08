@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { test, expect, status, settingsCard } from './nfc.js';
+import { test, expect, status, settingsCard, typeOther, goCreate } from './nfc.js';
 
 // Settings > Color database. The files the app downloads are served from here.
 const snapshot = JSON.parse(readFileSync('src/data/brand-colors.json', 'utf8'));
@@ -85,9 +85,8 @@ test.describe('Color database', () => {
     await c.getByRole('button', { name: 'Check for updates' }).click();
     await c.getByRole('button', { name: 'Update now' }).click();
     await expect(status(page)).toHaveText('Brand colors updated to 2026-12-01.');
-    await page.getByRole('tab', { name: 'Create' }).click();
-    await page.getByRole('group', { name: 'Brand' }).getByRole('button', { name: 'Other…' }).click();
-    await page.getByLabel('Other brand').fill('Zeta');
+    await goCreate(page);
+    await typeOther(page, 'brand', 'Zeta');
     await expect(page.getByRole('group', { name: 'Suggestions' }).getByRole('button', { name: 'Zeta Filaments' })).toBeVisible();
   });
 

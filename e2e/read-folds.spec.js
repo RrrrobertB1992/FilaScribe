@@ -1,4 +1,4 @@
-import { test, expect, readFrom, fold } from './nfc.js';
+import { test, expect, readFrom, fold, goCreate } from './nfc.js';
 
 // Read & update: only Quick edits is open after the first read; the other cards
 // stay as the user leaves them, and Create keeps its own state
@@ -41,7 +41,7 @@ test.describe('Read & update cards', () => {
     await expect(fold(page, 'colors')).toHaveJSProperty('open', true);
     await readFrom(page, TAG);
     await fold(page, 'read-filament').locator('summary').click();
-    await page.getByRole('tab', { name: 'Create' }).click();
+    await goCreate(page);
     await expect(fold(page, 'filament')).toHaveJSProperty('open', true);
     await expect(fold(page, 'colors')).toHaveJSProperty('open', true);
     await fold(page, 'filament').locator('summary').click();

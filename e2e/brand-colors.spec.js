@@ -1,4 +1,4 @@
-import { test, expect, colorTab, openCustom, placeTag, lastWrite, chip, writeTag, temps, showAllMaterials, openCards, brandPanel, brandTile, nowName, nowFrom } from './nfc.js';
+import { test, expect, colorTab, openCustom, lastWrite, chip, writeTag, temps, showAllMaterials, openCards, brandPanel, brandTile, nowName, nowFrom, typeOther, readFrom } from './nfc.js';
 
 // Uses the bundled Open Filament Database snapshot (src/data/brand-colors.json)
 
@@ -126,10 +126,7 @@ test.describe('Brand colors', () => {
   });
 
   test('a subtype the brand doesn’t list stays, as Custom', async ({ page }) => {
-    await page.getByRole('tab', { name: 'Read & update' }).click();
-    await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'PLA', brand: 'Bambu Lab', subtype: 'SnapSpeed', color_hex: '000000' });
-    await page.getByRole('button', { name: 'Read tag' }).click();
-    await expect(page.getByRole('dialog')).toBeHidden();
+    await readFrom(page, { protocol: 'openspool', version: '1.0', type: 'PLA', brand: 'Bambu Lab', subtype: 'SnapSpeed', color_hex: '000000' });
     await expect(page.getByLabel('Custom variant')).toHaveValue('SnapSpeed');
     await page.getByRole('button', { name: 'Update tag' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
@@ -157,8 +154,7 @@ test.describe('Brand colors', () => {
     // Polymaker makes no marble PLA, so Marble isn't a chip; typed as Custom it finds nothing
     await chip(page, 'Polymaker').click();
     await expect(page.getByRole('group', { name: 'Variant' }).getByRole('button', { name: 'Marble', exact: true })).toHaveCount(0);
-    await page.getByRole('group', { name: 'Variant' }).getByRole('button', { name: 'Custom' }).click();
-    await page.getByLabel('Custom variant').fill('Marble');
+    await typeOther(page, 'variant', 'Marble');
     await expect(brandPanel(page)).toContainText('Polymaker PLA has no Marble colors.');
     await brandPanel(page).getByRole('button', { name: 'Show all Polymaker PLA lines' }).click();
     await expect(brandPanel(page)).toContainText('Showing every line');
@@ -325,10 +321,7 @@ test.describe('Brand colors', () => {
   });
 
   test('reading a tag picks the matching brand color', async ({ page }) => {
-    await page.getByRole('tab', { name: 'Read & update' }).click();
-    await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'PLA', brand: 'Bambu Lab', subtype: 'Basic', color_hex: 'FFFFFF' });
-    await page.getByRole('button', { name: 'Read tag' }).click();
-    await expect(page.getByRole('dialog')).toBeHidden();
+    await readFrom(page, { protocol: 'openspool', version: '1.0', type: 'PLA', brand: 'Bambu Lab', subtype: 'Basic', color_hex: 'FFFFFF' });
     await openCards(page);
     await expect(colorTab(page, 'Brand')).toHaveAttribute('aria-pressed', 'true');
     await expect(brandTile(page, 'Jade White')).toHaveAttribute('aria-pressed', 'true');
@@ -336,10 +329,7 @@ test.describe('Brand colors', () => {
   });
 
   test('reading a tag with no matching color opens Custom', async ({ page }) => {
-    await page.getByRole('tab', { name: 'Read & update' }).click();
-    await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'PLA', brand: 'Bambu Lab', color_hex: '123457' });
-    await page.getByRole('button', { name: 'Read tag' }).click();
-    await expect(page.getByRole('dialog')).toBeHidden();
+    await readFrom(page, { protocol: 'openspool', version: '1.0', type: 'PLA', brand: 'Bambu Lab', color_hex: '123457' });
     await openCards(page);
     await expect(colorTab(page, 'Custom')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('#hex-input')).toHaveValue('123457');
@@ -398,10 +388,7 @@ test.describe('Brand and material', () => {
   });
 
   test('a tag with a material its brand doesn’t list still shows it', async ({ page }) => {
-    await page.getByRole('tab', { name: 'Read & update' }).click();
-    await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'ABS', brand: 'JAYO', color_hex: 'FFFFFF' });
-    await page.getByRole('button', { name: 'Read tag' }).click();
-    await expect(page.getByRole('dialog')).toBeHidden();
+    await readFrom(page, { protocol: 'openspool', version: '1.0', type: 'ABS', brand: 'JAYO', color_hex: 'FFFFFF' });
     await openCards(page);
     await expect(page.getByRole('group', { name: 'Material' }).getByRole('button', { name: 'ABS', exact: true })).toHaveAttribute('aria-pressed', 'true');
   });

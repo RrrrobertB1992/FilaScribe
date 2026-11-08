@@ -1,4 +1,4 @@
-import { test, expect, colorTab, chip, temps, openCustom, nowName, nowFrom } from './nfc.js';
+import { test, expect, colorTab, chip, temps, openCustom, nowName, nowFrom, goCreate } from './nfc.js';
 
 // The app opens on a brand color when the remembered brand has some:
 // White, else Black, else the first color in the list.
@@ -59,7 +59,7 @@ test.describe('Starting color', () => {
 test.describe('Colors after a visit to Settings', () => {
   const toSettingsAndBack = async (page) => {
     await page.getByRole('tab', { name: 'Settings' }).click();
-    await page.getByRole('tab', { name: 'Create' }).click();
+    await goCreate(page);
   };
 
   test('a brand color stays a brand color', async ({ page }) => {

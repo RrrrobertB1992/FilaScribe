@@ -1,4 +1,4 @@
-import { test, expect, status, settingsCard } from './nfc.js';
+import { test, expect, status, settingsCard, goCreate } from './nfc.js';
 
 const spool = (colors, colorName) => ({
   profile: 'u1', brand: 'Polymaker', type: 'PLA', subtype: 'Matte', minTemp: '190', maxTemp: '220',
@@ -126,7 +126,7 @@ test.describe('Backup', () => {
     expect(await stored(page, 'filascribe-filaments-auto')).toBe('1');
     expect(await stored(page, 'filascribe-materials')).toContain('PETG');
     await page.reload();
-    await page.getByRole('tab', { name: 'Create' }).click();
+    await goCreate(page);
     await expect(page.getByRole('button', { name: 'Write tag' })).toBeVisible();
   });
 

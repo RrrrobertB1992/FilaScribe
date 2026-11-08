@@ -1,4 +1,4 @@
-import { test, expect, colorStyle, lastWrite, writeCount, chip, writeTag, status, temps, showAllMaterials } from './nfc.js';
+import { test, expect, colorStyle, lastWrite, writeCount, chip, writeTag, status, temps, showAllMaterials, typeOther, choiceRow } from './nfc.js';
 
 test.describe('Create', () => {
   test('writes the default tag', async ({ page }) => {
@@ -33,13 +33,10 @@ test.describe('Create', () => {
 
   test('custom material, brand and variant', async ({ page }) => {
     await chip(page, 'ABS').click(); // temps 230-260
-    await page.getByRole('group', { name: 'Material' }).getByRole('button', { name: 'Other…' }).click();
-    await page.getByLabel('Other material').fill('PLA+');
+    await typeOther(page, 'material', 'PLA+');
     await expect(temps(page, 'Nozzle').min).toHaveValue('230'); // custom keeps the temps
-    await page.getByRole('group', { name: 'Brand' }).getByRole('button', { name: 'Other…' }).click();
-    await page.getByLabel('Other brand').fill('Zephyr Filaments');
-    await page.getByRole('group', { name: 'Variant' }).getByRole('button', { name: 'Custom' }).click();
-    await page.getByLabel('Custom variant').fill('Rapid');
+    await typeOther(page, 'brand', 'Zephyr Filaments');
+    await typeOther(page, 'variant', 'Rapid');
     await expect(page.getByLabel('Tag preview')).toContainText('Zephyr Filaments PLA+ Rapid');
     await writeTag(page);
     expect(await lastWrite(page)).toMatchObject({ type: 'PLA+', brand: 'Zephyr Filaments', subtype: 'Rapid' });
@@ -189,13 +186,10 @@ test.describe('Create', () => {
 
   test('data too big for the tag is refused before writing', async ({ page }) => {
     const wide = '€'.repeat(40); // 3 bytes each: long names in some scripts get big fast
-    await page.getByRole('group', { name: 'Material' }).getByRole('button', { name: 'Other…' }).click();
-    await page.getByLabel('Other material').fill(wide);
+    await typeOther(page, 'material', wide);
     await page.getByLabel('Other material').blur(); // the name is done: the preview grows
-    await page.getByRole('group', { name: 'Brand' }).getByRole('button', { name: 'Other…' }).click();
-    await page.getByLabel('Other brand').fill(wide);
-    await page.getByRole('group', { name: 'Variant' }).getByRole('button', { name: 'Custom' }).click();
-    await page.getByLabel('Custom variant').fill(wide);
+    await typeOther(page, 'brand', wide);
+    await typeOther(page, 'variant', wide);
     for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'Add a color' }).click();
     await expect(page.getByLabel('Tag preview')).toContainText('too big');
     await page.getByRole('button', { name: 'Write tag' }).click();
@@ -240,52 +234,45 @@ test('without Web NFC the app says why and disables writing', async ({ browser }
 });
 
 test.describe('Your own chips', () => {
-  const group = (page, name) => page.getByRole('group', { name, exact: true });
-
   test('Save keeps a Custom brand, material and variant as chips', async ({ page }) => {
-    await group(page, 'Brand').getByRole('button', { name: 'Other…' }).click();
-    await page.getByLabel('Other brand').fill('Zephyr');
+    await typeOther(page, 'brand', 'Zephyr');
     await page.getByRole('button', { name: 'Save brand as a chip' }).click();
-    await expect(group(page, 'Brand').getByRole('button', { name: 'Zephyr', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(choiceRow(page, 'Brand').getByRole('button', { name: 'Zephyr', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByLabel('Other brand')).toHaveCount(0);
 
-    await group(page, 'Material').getByRole('button', { name: 'Other…' }).click();
+    await typeOther(page, 'material');
     await expect(page.getByRole('button', { name: 'Save material as a chip' })).toBeDisabled(); // nothing typed
     await page.getByLabel('Other material').fill('PLA+');
     await page.getByRole('button', { name: 'Save material as a chip' }).click();
-    await expect(group(page, 'Material').getByRole('button', { name: 'PLA+', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(choiceRow(page, 'Material').getByRole('button', { name: 'PLA+', exact: true })).toHaveAttribute('aria-pressed', 'true');
 
-    await group(page, 'Variant').getByRole('button', { name: 'Custom' }).click();
-    await page.getByLabel('Custom variant').fill('Rapid');
+    await typeOther(page, 'variant', 'Rapid');
     await page.getByRole('button', { name: 'Save variant as a chip' }).click();
-    await expect(group(page, 'Variant').getByRole('button', { name: 'Rapid', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(choiceRow(page, 'Variant').getByRole('button', { name: 'Rapid', exact: true })).toHaveAttribute('aria-pressed', 'true');
     expect(await writeCount(page)).toBe(0); // saving doesn't write a tag
 
     // they stay after a reload
     await page.reload();
     await chip(page, 'Zephyr').click();
     await chip(page, 'PLA+').click();
-    await expect(group(page, 'Variant').getByRole('button', { name: 'Rapid', exact: true })).toBeVisible();
+    await expect(choiceRow(page, 'Variant').getByRole('button', { name: 'Rapid', exact: true })).toBeVisible();
     // a variant belongs to its brand + material
     await chip(page, 'PETG').click();
-    await expect(group(page, 'Variant').getByRole('button', { name: 'Rapid', exact: true })).toHaveCount(0);
+    await expect(choiceRow(page, 'Variant').getByRole('button', { name: 'Rapid', exact: true })).toHaveCount(0);
   });
 
   test('writing a tag saves its Custom values as chips', async ({ page }) => {
-    await group(page, 'Brand').getByRole('button', { name: 'Other…' }).click();
-    await page.getByLabel('Other brand').fill('Zephyr');
-    await group(page, 'Variant').getByRole('button', { name: 'Custom' }).click();
-    await page.getByLabel('Custom variant').fill('Velvet');
+    await typeOther(page, 'brand', 'Zephyr');
+    await typeOther(page, 'variant', 'Velvet');
     await writeTag(page);
     expect(await lastWrite(page)).toMatchObject({ brand: 'Zephyr', subtype: 'Velvet' });
     await expect(chip(page, 'Zephyr')).toHaveAttribute('aria-pressed', 'true');
-    await expect(group(page, 'Variant').getByRole('button', { name: 'Velvet', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(choiceRow(page, 'Variant').getByRole('button', { name: 'Velvet', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByLabel('Other brand')).toHaveCount(0);
   });
 
   test('a saved material turns on with a dashed outline, and is managed in Settings', async ({ page }) => {
-    await group(page, 'Material').getByRole('button', { name: 'Other…' }).click();
-    await page.getByLabel('Other material').fill('PLA+');
+    await typeOther(page, 'material', 'PLA+');
     await page.getByRole('button', { name: 'Save material as a chip' }).click();
     await expect(chip(page, 'PLA+')).toHaveClass(/saved/);
     await expect(chip(page, 'PLA')).not.toHaveClass(/saved/);
@@ -295,7 +282,7 @@ test.describe('Your own chips', () => {
   });
 
   test('Other… is the brand box; saving turns the brand on, with a dashed outline if nobody lists it', async ({ page }) => {
-    const other = group(page, 'Brand').getByRole('button', { name: 'Other…' });
+    const other = choiceRow(page, 'Brand').getByRole('button', { name: 'Other…' });
     await expect(other).toBeVisible();
     await other.click();
     await page.getByLabel('Other brand').fill('Zephyr');
@@ -314,7 +301,7 @@ test.describe('Your own chips', () => {
 });
 
 test('typing a Custom material letter by letter past a chip name keeps the box open', async ({ page }) => {
-  await page.getByRole('group', { name: 'Material', exact: true }).getByRole('button', { name: 'Other…' }).click();
+  await typeOther(page, 'material');
   await page.getByLabel('Other material').pressSequentially('PLA+'); // "PLA" on the way used to close the box
   await expect(page.getByLabel('Other material')).toHaveValue('PLA+');
   await writeTag(page);
