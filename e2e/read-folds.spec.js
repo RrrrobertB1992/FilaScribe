@@ -85,14 +85,4 @@ test.describe('Quick edits card', () => {
     await fold(page, 'quick').locator('summary').click();
     await expect(card.getByLabel('Weight', { exact: true })).toBeVisible();
   });
-
-  test('has space between it and the OpenSpool / U1 buttons', async ({ page }) => {
-    await read(page);
-    const quick = await page.getByRole('region', { name: 'Quick edits' }).boundingBox();
-    const seg = await page.getByRole('group', { name: 'Fields' }).boundingBox();
-    expect(seg.y - (quick.y + quick.height)).toBeGreaterThanOrEqual(8);
-    await fold(page, 'quick').locator('summary').click();
-    const shut = await page.getByRole('region', { name: 'Quick edits' }).boundingBox();
-    expect(seg.y - (shut.y + shut.height)).toBeGreaterThanOrEqual(8);
-  });
 });

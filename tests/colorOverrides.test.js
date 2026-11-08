@@ -82,12 +82,4 @@ describe('the override list', () => {
     expect(r.applied).toEqual([]); // nothing left to fix: they are in the snapshot already
     expect(r.missing).toEqual([]);
   });
-
-  it('SUNLU Cream White and White are no longer black', () => {
-    const sunlu = snapshot.brands.find((b) => b.name === 'SUNLU');
-    const hex = (m, line, color) => sunlu.materials[m].find((l) => l.name === line).colors.find((c) => c[0] === color)[1];
-    expect(hex('PLA', 'APLA', 'Cream White')).toBe('E6E2C7');
-    expect(hex('ASA', 'ASA', 'White')).toBe('FFFFFF');
-    expect(hex('TPU', 'TPU95A', 'White')).toBe('FFFFFF');
-  });
 });

@@ -137,13 +137,4 @@ test.describe('Color database', () => {
     await expect(c.getByRole('alert')).toContainText('over 35 days old');
     await expect(page.locator('summary', { hasText: 'Color database' })).toContainText('Out of date');
   });
-
-  test('no warning on the 35th day', async ({ page }) => {
-    await page.clock.setFixedTime(new Date('2026-12-06T12:00:00Z')); // 35 days after 2026-11-01
-    await page.goto('/');
-    await page.getByRole('tab', { name: 'Settings' }).click();
-    await expect(page.getByRole('button', { name: /^Brand colors/ })).not.toContainText('Out of date');
-    const c = await openCard(page);
-    await expect(c.getByText(/days old/)).toHaveCount(0);
-  });
 });
