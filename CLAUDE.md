@@ -68,7 +68,8 @@ Where things are:
 4. **Do not write code until the maintainer approves the mock-up.**
 5. Branch from latest `origin/main`: one branch per change, short kebab-case
    name (`color-overrides`, `my-filaments`).
-6. Write the code, the tests and the README update together (see below).
+6. Write the code and the README update together, and add tests only where
+   the Tests section says they are needed.
 7. Run the right tests (see below), commit, push the branch, open a PR.
 8. **Never push to `main` and never merge a PR.** The maintainer merges.
 9. After the test APK is built, the PR gets a comment linking it. The
@@ -101,7 +102,21 @@ maintainer asked for exactly that change.
 - GitHub Actions runs the full suite on every PR and every push to `main`
   anyway, so a PR can only go green if everything passes.
 
-**Writing tests for a feature:**
+**Writing tests: only the ones that are absolutely necessary.** Every test is
+something to maintain, so add the fewest that matter:
+
+- **Add tests** for logic (a module under `src/lib`), for anything that changes
+  what is written to a tag, and for a behavior that would be easy to break
+  without anyone noticing (a data-loss risk, a confirmation pop-up, a bug that
+  was already fixed once).
+- **Do not add tests** for small fixes, visual changes (colors, spacing, fonts,
+  outlines, corners, wording), or tweaks to an existing PR, unless the change
+  touches logic or tag data. Do not check that one color or size equals
+  another, or measure pixels. Update an existing test only if the change
+  breaks it.
+- When unsure, leave the test out and say so in the PR.
+
+When a test is needed:
 
 - Logic goes in a module under `src/lib` with a `tests/<module>.test.js`.
   Storage modules take a `storage` argument (default `globalThis.localStorage`)
@@ -150,8 +165,8 @@ maintainer asked for exactly that change.
 ## README
 
 Every feature PR updates `README.md` in the same PR: the section describing
-the feature, plus the **Tests** list when tests were added. Describe what the
-user sees, in the same plain style as the rest of the file.
+the feature, plus the **Tests** list when tests were added or removed. Describe
+what the user sees, in the same plain style as the rest of the file.
 
 ## Commits and pull requests
 
