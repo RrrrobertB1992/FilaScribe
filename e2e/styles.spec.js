@@ -76,7 +76,7 @@ test.describe('One look for every control', () => {
     expect(look.radius).toBe(chipLook);
   });
 
-  test('links are the action blue with an underline', async ({ page }) => {
+  test('links are the action color with an underline', async ({ page }) => {
     await openSettingsGroup(page, 'App');
     await openAllCards(page);
     const link = page.locator('.about a').first();
