@@ -54,11 +54,12 @@ test.describe('Starting color', () => {
   });
 });
 
-// Settings replaces the form, and the color lists forget what they had picked.
-// Coming back must show the same choice, not turn a brand color into Custom.
-test.describe('Colors after a visit to Settings', () => {
+// Settings, Filaments and Read & update replace the form, and the color lists
+// forget what they had picked. Coming back must show the same choice, not turn
+// a brand color into Custom.
+for (const tab of ['Settings', 'Filaments', 'Read & update']) test.describe(`Colors after a visit to ${tab}`, () => {
   const toSettingsAndBack = async (page) => {
-    await page.getByRole('tab', { name: 'Settings' }).click();
+    await page.getByRole('tab', { name: tab }).click();
     await goCreate(page);
   };
 

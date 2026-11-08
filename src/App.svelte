@@ -354,16 +354,18 @@
 
   async function switchMode(next) {
     if (next === mode) return;
-    const fromSettings = mode === 'settings';
+    // The form (and its color lists) is gone from the page on Settings, Filaments and
+    // Read & update before a tag is read, so it comes back not knowing its picked color
+    const formWasShown = mode === 'create' || (mode === 'update' && loaded && !loaded.empty);
     mode = next;
     offer = null;
     series = null;
     pending = null;
     fRun = null;
     say(null);
-    // Settings replaces the form, and the color lists forget which color they had picked.
+    // The color lists forget which color they had picked while they were gone.
     // Mark again what the colors match, as after reading a tag, so a brand color stays a brand color.
-    if (fromSettings) {
+    if (!formWasShown) {
       await tick();
       colorSection?.afterLoad();
     }
