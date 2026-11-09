@@ -4,7 +4,7 @@
 //
 // The database is the one built into the app, or a newer one downloaded in
 // Settings > Color database (see colorDatabase.js). `info` says which, and
-// its date and totals.
+// its date and totals. The OrcaSlicer names are always the built-in ones.
 import { withOrcaNames } from './brandColors.js';
 import { describe, pickSource } from './colorDatabase.js';
 import orca from '../data/orca-vendors.json';

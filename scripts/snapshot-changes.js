@@ -1,5 +1,5 @@
 // Lists what changed between two Brand colors snapshots (and, optionally, two
-// OrcaSlicer vendor lists) as Markdown for the monthly pull request: a
+// OrcaSlicer vendor lists) as Markdown, for a pull request that refreshes them: a
 // summary line, then one collapsible section per brand.
 //
 // Usage: node scripts/snapshot-changes.js <old-colors> <new-colors> [<old-orca> <new-orca>]

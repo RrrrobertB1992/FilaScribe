@@ -10,6 +10,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "update-colors": "node scripts/build-brand-colors.js",
     "cap:sync": "npm run build && cap sync android",
     "test:e2e": "playwright test",
     "test:all": "npm test && npm run test:readers && playwright test",

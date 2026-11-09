@@ -1,20 +1,20 @@
 // The Brand colors database in use: what it is (date, brands, colors), checking
 // for a newer one, and keeping a downloaded copy on this device.
 //
-// The app ships with a snapshot (src/data/brand-colors.json and
-// orca-vendors.json). The monthly "Update brand colors" workflow rebuilds it
-// from the Open Filament Database and opens a pull request; once it is merged
-// the finished files on the main branch (DATA_URL) are the newest database.
-// "Check for updates" downloads them,
-// checks they are well formed, and shows what changed; "Update now" keeps them
-// on this device (IndexedDB), where they are used instead of the built-in
-// copy, as long as they are newer. Your saved colors and color overrides are
-// never touched.
-import { diffColors, diffNames } from './snapshotDiff.js';
+// The app ships with a snapshot (src/data/brand-colors.json), refreshed with
+// `npm run update-colors` before a release. "Check for updates" downloads the
+// Open Filament Database's all-in-one file straight from its API (API_URL,
+// rebuilt daily), builds the same kind of snapshot from it on this device
+// (ofdSnapshot.js), checks it is well formed, and shows what changed; "Update
+// now" keeps it on this device (IndexedDB), where it is used instead of the
+// built-in copy, as long as it is newer. Your saved colors and color overrides
+// are never touched. The brand names (orca-vendors.json) are built in only.
+import { diffColors } from './snapshotDiff.js';
 import { withOrcaNames } from './brandColors.js';
 import * as Manual from './manualColors.js';
+import { API_URL, buildSnapshot } from './ofdSnapshot.js';
 
-export const DATA_URL = 'https://raw.githubusercontent.com/RrrrobertB1992/FilaScribe/main/src/data/';
+export { API_URL };
 export const MAX_AGE_DAYS = 35;
 // A download with fewer colors than this share of the built-in copy is refused
 const MIN_SHARE = 0.5;
@@ -83,13 +83,6 @@ export function problemWith(colors, { builtInColors = 0 } = {}) {
   return '';
 }
 
-export function orcaProblem(orca) {
-  if (!orca || typeof orca !== 'object' || !Array.isArray(orca.vendors) || !orca.vendors.length) return 'no brand names';
-  if (!orca.vendors.every(isText)) return 'brand names are malformed';
-  if (!orca.source || !isDate(orca.source.date)) return 'no date';
-  return '';
-}
-
 /** What an update does to your color overrides: { changed, gone } counts. */
 export function overridesImpact(current, next, edits) {
   if (!edits?.length) return { changed: 0, gone: 0 };
@@ -108,7 +101,7 @@ export function overridesImpact(current, next, edits) {
 /** The error for the card: what went wrong and what to do. */
 export class UpdateError extends Error {}
 
-async function getJson(url, fetchImpl) {
+async function get(url, fetchImpl) {
   let res;
   try {
     res = await fetchImpl(url, { cache: 'no-cache' });
@@ -116,31 +109,87 @@ async function getJson(url, fetchImpl) {
     throw new UpdateError('Couldn’t reach the update. Check your connection and try again.');
   }
   if (!res.ok) throw new UpdateError(`Couldn’t download the update (${res.status}). Try again later.`);
+  return res;
+}
+
+// Parse the body, reporting how many bytes have arrived where the browser can stream it
+async function readJson(res, onBytes) {
   try {
-    return await res.json();
+    if (!onBytes || !res.body?.pipeThrough || typeof TransformStream === 'undefined') return await res.json();
+    let loaded = 0;
+    const counted = res.body.pipeThrough(
+      new TransformStream({
+        transform(chunk, controller) {
+          loaded += chunk.byteLength;
+          onBytes(loaded);
+          controller.enqueue(chunk);
+        },
+      }),
+    );
+    return await new Response(counted).json();
   } catch {
     throw new UpdateError('The download wasn’t a database file, so nothing was changed.');
   }
 }
 
 /**
+ * What the API's small manifest says about the big download: its date, its
+ * size on the way (compressed) and its full size. Anything missing is null.
+ */
+export function readManifest(manifest) {
+  const v = manifest?.dataset_version;
+  const date = typeof v === 'string' && /^\d{4}\.\d{2}\.\d{2}$/.test(v) ? v.replaceAll('.', '-') : null;
+  const size = (path) => {
+    const n = Array.isArray(manifest?.artifacts) ? manifest.artifacts.find((a) => a?.path === path)?.size : null;
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+  return { date, wire: size('json/all.json.gz'), total: size('json/all.json') };
+}
+
+/**
  * Download the newest database and compare it with the one in use.
  * Returns { status: 'current' } or { status: 'update', next, info, changes,
- * names, overrides }. Nothing is saved until applyUpdate().
+ * overrides }. Nothing is saved until applyUpdate().
+ *
+ * The small manifest is read first: when it shows nothing newer, the big file
+ * isn't downloaded at all. `onProgress` gets { stage: 'download', loaded,
+ * total, wire } (sizes may be null) and then { stage: 'build' }.
  */
-export async function checkForUpdate(current, { edits = [], fetchImpl = globalThis.fetch?.bind(globalThis), base = DATA_URL } = {}) {
+export async function checkForUpdate(current, { edits = [], fetchImpl = globalThis.fetch?.bind(globalThis), base = API_URL, onProgress = () => {} } = {}) {
   if (!fetchImpl) throw new UpdateError('This browser can’t download the update.');
-  const [colors, orca] = await Promise.all([getJson(`${base}brand-colors.json`, fetchImpl), getJson(`${base}orca-vendors.json`, fetchImpl)]);
-  const bad = problemWith(colors, { builtInColors: countColors(current.colors) }) || orcaProblem(orca);
+  const inUse = current.colors.source?.date || '';
+
+  // The manifest only saves a download, so the check carries on without it
+  let about = { date: null, wire: null, total: null };
+  try {
+    about = readManifest(await (await get(`${base}manifest.json`, fetchImpl)).json());
+  } catch {
+    // No manifest: download the database and compare
+  }
+  if (about.date && about.date <= inUse) return { status: 'current' };
+
+  onProgress({ stage: 'download', loaded: 0, total: about.total, wire: about.wire });
+  const res = await get(`${base}json/all.json`, fetchImpl);
+  const all = await readJson(res, (loaded) => onProgress({ stage: 'download', loaded, total: about.total, wire: about.wire }));
+
+  onProgress({ stage: 'build' });
+  // Loaded only now: the corrections aren't needed until an update is checked
+  const { default: corrections } = await import('../../scripts/color-overrides.json');
+  let colors;
+  try {
+    colors = buildSnapshot(all, corrections).snapshot;
+  } catch {
+    throw new UpdateError('The download wasn’t a database file, so nothing was changed.');
+  }
+  const bad = problemWith(colors, { builtInColors: countColors(current.colors) });
   if (bad) throw new UpdateError(`The downloaded database didn’t look right (${bad}), so nothing was changed.`);
 
-  const next = { colors, orca, origin: 'downloaded' };
+  const next = { colors, orca: current.orca, origin: 'downloaded' };
   const changes = diffColors(current.colors.brands, colors.brands);
-  const names = diffNames(current.orca.vendors, orca.vendors);
-  const different = changes.brands.size > 0 || changes.newBrands.length > 0 || changes.goneBrands.length > 0 || names.added.length > 0 || names.removed.length > 0;
+  const different = changes.brands.size > 0 || changes.newBrands.length > 0 || changes.goneBrands.length > 0;
   // Never swap in a database that is older than the one in use (a newer app build can carry a newer built-in copy)
-  if (!different || colors.source.date < (current.colors.source?.date || '')) return { status: 'current' };
-  return { status: 'update', next, info: describe(next), changes, names, overrides: overridesImpact(current, next, edits) };
+  if (!different || colors.source.date < inUse) return { status: 'current' };
+  return { status: 'update', next, info: describe(next), changes, overrides: overridesImpact(current, next, edits) };
 }
 
 /** Totals for "3 new brands, 118 new colors, 12 colors changed, 4 removed". */
@@ -200,8 +249,9 @@ export const deviceStorage = {
 export async function pickSource(builtIn, storage = deviceStorage) {
   try {
     const saved = await storage.read();
-    if (saved && !problemWith(saved.colors, { builtInColors: countColors(builtIn.colors) }) && !orcaProblem(saved.orca) && saved.colors.source.date > (builtIn.colors.source?.date || '')) {
-      return { colors: saved.colors, orca: saved.orca, origin: 'downloaded' };
+    if (saved && !problemWith(saved.colors, { builtInColors: countColors(builtIn.colors) }) && saved.colors.source.date > (builtIn.colors.source?.date || '')) {
+      // The brand names always come from the app (a copy saved by an older version also held names; they are ignored)
+      return { colors: saved.colors, orca: builtIn.orca, origin: 'downloaded' };
     }
   } catch {
     // No storage, or nothing saved
@@ -212,7 +262,7 @@ export async function pickSource(builtIn, storage = deviceStorage) {
 /** Keep a checked update on this device. */
 export async function applyUpdate(next, storage = deviceStorage) {
   try {
-    await storage.write({ colors: next.colors, orca: next.orca, savedAt: new Date().toISOString() });
+    await storage.write({ colors: next.colors, savedAt: new Date().toISOString() });
   } catch {
     throw new UpdateError('Couldn’t save the update on this device, so nothing was changed.');
   }

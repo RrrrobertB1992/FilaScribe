@@ -1,6 +1,6 @@
-// What changed between two Brand colors snapshots (brand lists), used by the
-// monthly pull request (scripts/snapshot-changes.js) and by Settings > Color
-// database when an update is available.
+// What changed between two Brand colors snapshots (brand lists), used by
+// Settings > Color database when an update is available and by
+// scripts/snapshot-changes.js.
 
 /** Every color in a snapshot's brand list as Map("brand|material|line|name" -> { brand, where, name, hex, traits }) */
 function flatten(brands) {

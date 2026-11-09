@@ -331,8 +331,15 @@
   let dbError = $state('');
   let dbShowChanges = $state(false);
   let dbChecked = $state(ColorDb.loadChecked());
+  let dbProgress = $state(null); // while checking: { stage, loaded, total, wire }
   const dbInfo = $derived(brandData?.info || null);
   const dbOld = $derived(!!dbInfo && ColorDb.isOld(dbInfo.date));
+  // How far the download is, when the database says how big it is
+  const dbPercent = $derived.by(() => {
+    if (!dbProgress) return null;
+    if (dbProgress.stage === 'build') return 100;
+    return dbProgress.total ? Math.min(100, Math.round((dbProgress.loaded / dbProgress.total) * 100)) : null;
+  });
   const dbSummary = $derived(dbCheck?.status === 'update' ? ColorDb.summarize(dbCheck.changes) : null);
   const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
   const dbWhen = (iso) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : 'Never');
@@ -381,13 +388,14 @@
     dbShowChanges = false;
     dbCheck = null;
     try {
-      dbCheck = await ColorDb.checkForUpdate(await loadSource(), { edits: getEdits() });
+      dbCheck = await ColorDb.checkForUpdate(await loadSource(), { edits: getEdits(), onProgress: (p) => (dbProgress = p) });
       dbChecked = new Date().toISOString();
       ColorDb.storeChecked(dbChecked);
     } catch (e) {
       dbError = e instanceof ColorDb.UpdateError ? e.message : 'Couldn’t check for updates. Try again.';
     } finally {
       dbBusy = false;
+      dbProgress = null;
     }
   }
 
@@ -846,8 +854,9 @@
       </div>
       <dl class="rows">
         <div><dt>Database date</dt><dd>{dbInfo.date || 'Unknown'}</dd></div>
+        <div><dt>From</dt><dd>Open Filament Database</dd></div>
         <div><dt>Using</dt><dd>{dbInfo.origin === 'downloaded' ? 'Downloaded copy' : 'Built into the app'}</dd></div>
-        <div><dt>Brand names</dt><dd>OrcaSlicer, {dbInfo.orcaDate || 'unknown'}</dd></div>
+        <div><dt>Brand names</dt><dd>OrcaSlicer, built in<br />{dbInfo.orcaDate || 'unknown'}</dd></div>
         <div><dt>Last checked</dt><dd>{dbWhen(dbChecked)}</dd></div>
       </dl>
       {#if dbOld}
@@ -855,6 +864,13 @@
       {/if}
     {/if}
     {#if dbError}<p class="error-text" transition:fold role="alert">{dbError}</p>{/if}
+    {#if dbProgress}
+      <div class="progress" role="status" transition:fold>
+        <span>{dbProgress.stage === 'build' ? 'Building the color list…' : 'Downloading the database…'}</span>
+        {#if dbPercent !== null}<div class="bar"><span style:width="{dbPercent}%"></span></div>{/if}
+        <span class="note">{dbProgress.wire ? `About ${(dbProgress.wire / 1e6).toFixed(1)} MB. ` : ''}Nothing changes until you tap Update now.</span>
+      </div>
+    {/if}
     {#if dbCheck?.status === 'current'}
       <p class="hint" role="status">You have the newest database.</p>
     {:else if dbCheck?.status === 'update'}
@@ -871,9 +887,6 @@
         <div class="changes">
           {#if dbCheck.changes.newBrands.length}<p class="note">New brands: {dbCheck.changes.newBrands.join(', ')}</p>{/if}
           {#if dbCheck.changes.goneBrands.length}<p class="note">Removed brands: {dbCheck.changes.goneBrands.join(', ')}</p>{/if}
-          {#if dbCheck.names.added.length || dbCheck.names.removed.length}
-            <p class="note">Brand names: {[dbCheck.names.added.length && `${dbCheck.names.added.length} added`, dbCheck.names.removed.length && `${dbCheck.names.removed.length} removed`].filter(Boolean).join(', ')}</p>
-          {/if}
           {#each changeList.brands as b (b.name)}
             <details class="change">
               <summary>{b.name} <span class="note">{plural(b.count, 'change')}</span></summary>
@@ -1201,6 +1214,10 @@
   .tag { margin-left: var(--s2); padding: 2px 8px; border-radius: var(--r-pill); border: 1px solid var(--danger); color: var(--danger); font-size: 0.75rem; }
   .notice { display: grid; gap: 2px; padding: var(--s3); border: 1px solid var(--action); border-radius: var(--r-control); }
   .changes { display: grid; gap: var(--s2); }
+  .progress { display: grid; gap: var(--s1); }
+  .progress .bar { height: 6px; border-radius: 3px; background: var(--chip); overflow: hidden; }
+  .progress .bar span { display: block; height: 100%; background: var(--highlight); }
+  .rows dd { text-align: right; }
   .changes p { margin: 0; }
   .change { border: 1px solid var(--line); border-radius: var(--r-control); padding: 0 var(--s3); }
   .change summary { min-height: var(--h-control); gap: var(--s2); }
