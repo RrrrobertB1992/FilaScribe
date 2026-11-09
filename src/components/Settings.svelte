@@ -3,6 +3,7 @@
   // appearance, and about.
   import Palette from './Palette.svelte';
   import { fold, getSpeed, setSpeed } from '../lib/motion.js';
+  import { getOpenMode, setOpenMode, closesOthers, cardOpened } from '../lib/openModeStore.svelte.js';
   import * as OpenSpool from '../lib/formats/openspool.js';
   import * as Defaults from '../lib/defaults.js';
   import * as CustomChips from '../lib/customChips.js';
@@ -200,7 +201,8 @@
   function toggled(id, e) {
     const isOpen = e.currentTarget.open;
     if (isOpen === open.includes(id)) return;
-    open = isOpen ? [...open, id] : open.filter((x) => x !== id);
+    open = isOpen ? (closesOthers() ? [id] : [...open, id]) : open.filter((x) => x !== id);
+    if (isOpen) cardOpened(id, e.currentTarget);
     try {
       localStorage.setItem(OPEN_KEY, JSON.stringify(open));
     } catch {
@@ -501,6 +503,8 @@
     Theme.apply(d.theme);
     speed = d.motionSpeed;
     setSpeed(d.motionSpeed);
+    openMode = d.openMode;
+    setOpenMode(d.openMode);
   }
 
   function restore(replace) {
@@ -526,6 +530,11 @@
     Theme.apply(t);
     Theme.store(t);
   }
+  let openMode = $state(getOpenMode());
+  const OPEN_ITEMS = [
+    { value: 'leave', label: 'Leave the others' },
+    { value: 'close', label: 'Close the others' },
+  ];
   let speed = $state(getSpeed());
   const SPEED_ITEMS = [
     { value: 'fast', label: 'Fast' },
@@ -935,6 +944,8 @@
     <Palette label="Theme" items={THEME_ITEMS} bind:value={theme} allowCustom={false} onpick={pickTheme} />
     <Palette label="Animation speed" items={SPEED_ITEMS} bind:value={speed} allowCustom={false} onpick={setSpeed} />
     <p class="hint">How fast cards and editors fold open and shut. Nothing moves if your phone is set to reduce motion.</p>
+    <Palette label="Opening a card" items={OPEN_ITEMS} bind:value={openMode} allowCustom={false} onpick={setOpenMode} />
+    <p class="hint">Close the others closes the other cards when you open one, and scrolls it to the top of the screen.</p>
     </div>
   </details>
 
