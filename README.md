@@ -24,7 +24,7 @@ Value formats follow the spec examples: colors are 6 hex digits without `#`, and
 The Create screen is a set of cards: a compact tag preview at the top, an
 OpenSpool / + Snapmaker U1 fields switch, then Filament, Colors, Temperatures,
 and (U1 only) Spool details, with the raw Tag data last. Every card folds
-shut and shows a one-line summary when it does. Which cards are open is
+shut, and keeps a one-line summary under its title whether it is open or shut. Which cards are open is
 remembered on the device (`filascribe-create-open`); a card with a problem
 opens itself.
 

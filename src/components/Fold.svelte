@@ -1,7 +1,7 @@
 <script>
   // A card on the Create screen that folds shut, like the cards in Settings.
-  // The heading is a small accent title; while the card is shut, `summary`
-  // shows what's inside on a second line (and is hidden once it's open).
+  // The heading is a small accent title; `summary` shows what's inside on a
+  // second line, open or shut (like the Colors card, which fills the heading itself).
   // `head` replaces the whole heading (Colors uses its swatch and name).
   // Open or shut is remembered per `id` (lib/folds.js). `forceOpen` opens it
   // when something inside needs attention (an error, a value set by a tag
@@ -85,6 +85,5 @@
     color: var(--action);
   }
   .sum { font-family: var(--font-label); font-weight: 700; font-size: 1.0625rem; overflow-wrap: anywhere; }
-  details[open] .sum { display: none; }
   .body { display: grid; gap: var(--s4); padding-bottom: var(--s4); }
 </style>
