@@ -1,10 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { test, expect, status, settingsCard, typeOther, goCreate } from './nfc.js';
 
-// Settings > Color database. The files the app downloads are served from here.
+import { toAll, manifestFor } from '../tests/ofdFixture.js';
+
+// Settings > Color database. The Open Filament Database's API is served from
+// here: its manifest and the all-in-one download, made from a snapshot.
 const snapshot = JSON.parse(readFileSync('src/data/brand-colors.json', 'utf8'));
-const orca = JSON.parse(readFileSync('src/data/orca-vendors.json', 'utf8'));
-const FILES = '**/raw.githubusercontent.com/RrrrobertB1992/FilaScribe/main/src/data/*.json';
+const FILES = '**/api.openfilamentdatabase.org/**';
 
 function newer() {
   const next = JSON.parse(JSON.stringify(snapshot));
@@ -14,10 +16,11 @@ function newer() {
   return next;
 }
 
-// Serve the database files (or fail them)
-async function serve(page, { colors = snapshot, vendors = orca } = {}) {
+// Serve the database's files
+async function serve(page, { colors = snapshot } = {}) {
+  const all = toAll(colors);
   await page.route(FILES, (route) => {
-    const body = route.request().url().endsWith('brand-colors.json') ? colors : vendors;
+    const body = route.request().url().endsWith('manifest.json') ? manifestFor(all) : all;
     return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(body) });
   });
 }
@@ -36,6 +39,7 @@ test.describe('Color database', () => {
     await expect(c.getByText('Database date')).toBeVisible();
     await expect(c).toContainText(snapshot.source.date);
     await expect(c).toContainText('Built into the app');
+    await expect(c).toContainText('Open Filament Database');
     await expect(c).toContainText('Never');
     await expect(c.getByRole('button', { name: 'Go back to the built-in copy' })).toHaveCount(0);
     await expect(c.getByText(/days old/)).toHaveCount(0);
@@ -109,7 +113,7 @@ test.describe('Color database', () => {
     // No request is made at all, so the page logs no network error
     await page.evaluate(() => {
       const real = window.fetch;
-      window.fetch = (url, init) => (String(url).includes('raw.githubusercontent.com') ? Promise.reject(new TypeError('Failed to fetch')) : real(url, init));
+      window.fetch = (url, init) => (String(url).includes('api.openfilamentdatabase.org') ? Promise.reject(new TypeError('Failed to fetch')) : real(url, init));
     });
     const c = await openCard(page);
     await c.getByRole('button', { name: 'Check for updates' }).click();

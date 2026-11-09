@@ -5,14 +5,17 @@ import * as DB from '../src/lib/colorDatabase.js';
 import { withOrcaNames } from '../src/lib/brandColors.js';
 import { loadBrandColors } from '../src/lib/brandColorsData.js';
 import { memoryStorage as localStorageFake } from './storage.js';
+import { toAll, manifestFor } from './ofdFixture.js';
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
 const builtIn = { colors: snapshot, orca, origin: 'built-in' };
 
-// A fetch that serves the two files from memory
-const server = (colors, vendors, status = 200) => async (url) => {
-  const body = url.endsWith('brand-colors.json') ? colors : vendors;
-  return { ok: status === 200, status, json: async () => (typeof body === 'function' ? body() : clone(body)) };
+// A fetch that serves the database's API from memory: the manifest and the
+// all-in-one download, both made from a snapshot. `manifest: false` leaves the manifest out.
+const server = (colors, status = 200, { manifest = true } = {}) => async (url) => {
+  const all = toAll(colors);
+  if (url.endsWith('manifest.json')) return manifest ? { ok: true, status: 200, json: async () => manifestFor(all) } : { ok: false, status: 404 };
+  return { ok: status === 200, status, json: async () => all };
 };
 
 const memoryStorage = (initial = null, { failWrite = false, failClear = false, failRead = false } = {}) => {
@@ -83,7 +86,6 @@ describe('how old the database is', () => {
 describe('checking a downloaded database', () => {
   it('accepts the real snapshot', () => {
     expect(DB.problemWith(snapshot, { builtInColors: DB.countColors(snapshot) })).toBe('');
-    expect(DB.orcaProblem(orca)).toBe('');
   });
   it('refuses files that are not a database', () => {
     expect(DB.problemWith(null)).toBeTruthy();
@@ -104,22 +106,17 @@ describe('checking a downloaded database', () => {
     cut.brands = cut.brands.slice(0, 3);
     expect(DB.problemWith(cut, { builtInColors: DB.countColors(snapshot) })).toBe('far fewer colors than expected');
   });
-  it('refuses brand names that are not a list of names', () => {
-    expect(DB.orcaProblem({ vendors: [], source: orca.source })).toBeTruthy();
-    expect(DB.orcaProblem({ vendors: [1, 2], source: orca.source })).toBeTruthy();
-    expect(DB.orcaProblem({ vendors: ['A'], source: {} })).toBeTruthy();
-  });
 });
 
 describe('checking for an update', () => {
   it('says current when nothing changed', async () => {
-    const r = await DB.checkForUpdate(builtIn, { fetchImpl: server(snapshot, orca) });
+    const r = await DB.checkForUpdate(builtIn, { fetchImpl: server(snapshot) });
     expect(r.status).toBe('current');
   });
 
   it('finds a newer database and what changed', async () => {
     const next = newer();
-    const r = await DB.checkForUpdate(builtIn, { fetchImpl: server(next, orca) });
+    const r = await DB.checkForUpdate(builtIn, { fetchImpl: server(next) });
     expect(r.status).toBe('update');
     expect(r.info.date).toBe('2026-12-01');
     expect(r.info.colors).toBe(DB.countColors(snapshot) + 2);
@@ -128,46 +125,62 @@ describe('checking for an update', () => {
     expect(r.overrides).toEqual({ changed: 0, gone: 0 });
   });
 
-  it('notices changed Orca brand names', async () => {
-    const vendors = clone(orca);
-    vendors.vendors.push('Brand New Vendor');
-    const r = await DB.checkForUpdate(builtIn, { fetchImpl: server(snapshot, vendors) });
+  it('skips the big download when the manifest shows nothing newer', async () => {
+    const seen = [];
+    const fetchImpl = async (url) => {
+      seen.push(url);
+      return server(snapshot)(url);
+    };
+    expect((await DB.checkForUpdate(builtIn, { fetchImpl })).status).toBe('current');
+    expect(seen.some((u) => u.endsWith('all.json'))).toBe(false);
+  });
+
+  it('still checks when the manifest can’t be read, and reports progress', async () => {
+    const steps = [];
+    const r = await DB.checkForUpdate(builtIn, { fetchImpl: server(newer(), 200, { manifest: false }), onProgress: (p) => steps.push(p.stage) });
     expect(r.status).toBe('update');
-    expect(r.names.added).toEqual(['Brand New Vendor']);
+    expect(steps).toEqual(['download', 'build']);
+  });
+
+  it('keeps the brand names built into the app', async () => {
+    const r = await DB.checkForUpdate(builtIn, { fetchImpl: server(newer()) });
+    expect(r.next.orca).toBe(orca);
+    const store = memoryStorage({ colors: newer(), orca: { vendors: ['Old Download'], source: { date: '2020-01-01' } } });
+    expect((await DB.pickSource({ colors: snapshot, orca }, store)).orca).toBe(orca);
   });
 
   it('never swaps in a database older than the one in use', async () => {
     const older = newer();
     older.source.date = '2020-01-01';
-    const r = await DB.checkForUpdate(builtIn, { fetchImpl: server(older, orca) });
+    const r = await DB.checkForUpdate(builtIn, { fetchImpl: server(older) });
     expect(r.status).toBe('current');
   });
 
-  it('asks for the files without using a stale copy', async () => {
+  it('asks the database for its files without using a stale copy', async () => {
     const seen = [];
     await DB.checkForUpdate(builtIn, {
-      base: 'https://example.test/data/',
+      base: 'https://example.test/',
       fetchImpl: async (url, init) => {
         seen.push([url, init.cache]);
-        return server(snapshot, orca)(url);
+        return server(newer())(url);
       },
     });
-    expect(seen).toEqual(
-      expect.arrayContaining([
-        ['https://example.test/data/brand-colors.json', 'no-cache'],
-        ['https://example.test/data/orca-vendors.json', 'no-cache'],
-      ]),
-    );
+    expect(seen).toEqual([
+      ['https://example.test/manifest.json', 'no-cache'],
+      ['https://example.test/json/all.json', 'no-cache'],
+    ]);
   });
 
   it('explains an offline phone, a missing file and a bad file', async () => {
     const offline = DB.checkForUpdate(builtIn, { fetchImpl: async () => { throw new TypeError('Failed to fetch'); } });
     await expect(offline).rejects.toThrow(/Couldn’t reach the update/);
-    await expect(DB.checkForUpdate(builtIn, { fetchImpl: server(snapshot, orca, 404) })).rejects.toThrow(/\(404\)/);
+    await expect(DB.checkForUpdate(builtIn, { fetchImpl: server(newer(), 404) })).rejects.toThrow(/\(404\)/);
     const notJson = DB.checkForUpdate(builtIn, { fetchImpl: async () => ({ ok: true, status: 200, json: async () => { throw new SyntaxError('x'); } }) });
+    const wrongFile = DB.checkForUpdate(builtIn, { fetchImpl: async () => ({ ok: true, status: 200, json: async () => ({ hello: 'world' }) }) });
+    await expect(wrongFile).rejects.toThrow(/wasn’t a database file/);
     await expect(notJson).rejects.toThrow(/wasn’t a database file/);
-    await expect(DB.checkForUpdate(builtIn, { fetchImpl: server({ brands: [] }, orca) })).rejects.toThrow(/didn’t look right/);
-    await expect(DB.checkForUpdate(builtIn, { fetchImpl: server(snapshot, orca, 500) })).rejects.toBeInstanceOf(DB.UpdateError);
+    await expect(DB.checkForUpdate(builtIn, { fetchImpl: server({ source: { date: '2026-12-01' }, brands: [] }) })).rejects.toThrow(/didn’t look right/);
+    await expect(DB.checkForUpdate(builtIn, { fetchImpl: server(newer(), 500) })).rejects.toBeInstanceOf(DB.UpdateError);
   });
 });
 
@@ -204,7 +217,7 @@ describe('your color overrides and an update', () => {
     const next = clone(snapshot);
     next.source = { ...next.source, commit: 'e'.repeat(40), date: '2026-12-01' };
     firstLine(next).colors.splice(0, 1);
-    const r = await DB.checkForUpdate(builtIn, { edits: [edit], fetchImpl: server(next, orca) });
+    const r = await DB.checkForUpdate(builtIn, { edits: [edit], fetchImpl: server(next) });
     expect(r.overrides).toEqual({ changed: 0, gone: 1 });
   });
 });

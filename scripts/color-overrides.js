@@ -9,7 +9,9 @@
 // An override only applies while the database still has the wrong value, so
 // once it is fixed upstream the override steps aside (and is reported).
 //
-// Used by scripts/build-brand-colors.js on every rebuild, and by
+// Used wherever the snapshot is built (src/lib/ofdSnapshot.js): by
+// `npm run update-colors` for the built-in copy and by the app itself for
+// Check for updates, so the list is bundled into the app. Also by
 // `node scripts/build-brand-colors.js --apply-overrides <snapshot>` to patch
 // a snapshot that is already built.
 
