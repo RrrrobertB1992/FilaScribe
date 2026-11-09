@@ -1,4 +1,5 @@
 <script>
+  import { fold } from '../lib/motion.js';
   // What was read from the tag, beyond the form.
   let { tag, raw = null, unknownKeys = [], notes = [] } = $props();
 
@@ -28,7 +29,7 @@
 
 <section class="details" aria-label="Tag details">
   {#if unknownKeys.length}
-    <div class="notice">
+    <div class="notice" transition:fold>
       <p><strong>Not in the spec:</strong> {unknownKeys.join(', ')}.</p>
       <p>These fields are shown below but won’t be written back when you update the tag.</p>
     </div>
@@ -36,20 +37,20 @@
   {#each notes as n}<p class="hint">{n}</p>{/each}
 
   {#if facts.length}
-    <dl>
+    <dl transition:fold>
       {#each facts as [k, v]}<dt>{k}</dt><dd>{v}</dd>{/each}
     </dl>
   {/if}
 
   {#if raw}
-    <details>
+    <details transition:fold>
       <summary>Data on the tag</summary>
       <pre>{JSON.stringify(raw, null, 2)}</pre>
     </details>
   {/if}
 
   {#if pages.length}
-    <details>
+    <details transition:fold>
       <summary>Raw pages ({pages.length})</summary>
       <table>
         <thead><tr><th scope="col">Page</th><th scope="col">Bytes</th><th scope="col">Text</th></tr></thead>

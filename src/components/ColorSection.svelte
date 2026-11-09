@@ -7,6 +7,7 @@
   // All three panels stay mounted (only hidden), so picks, searches and the
   // after-read / after-write matching keep working whichever one is open.
   import { tick } from 'svelte';
+  import { fold, morph } from '../lib/motion.js';
   import BrandColors from './BrandColors.svelte';
   import SavedColors from './SavedColors.svelte';
   import ColorEditor from './ColorEditor.svelte';
@@ -78,10 +79,13 @@
     if (tabs.find((t) => t.id === tab)?.disabled) tab = tabs.find((t) => !t.disabled).id;
   });
 
+  let panelsEl = $state(null);
   function choose(id) {
     if (id === tab) return;
-    tab = id;
-    userChose = true;
+    morph(panelsEl, () => {
+      tab = id;
+      userChose = true;
+    });
   }
 
   const style = $derived(colors.length > 1 && colorType === '0' ? 'Gradient' : 'Segments');
@@ -184,6 +188,7 @@
     {/each}
   </div>
 
+  <div class="panels" bind:this={panelsEl}>
   <div class="panel" hidden={tab !== 'brand'}>
     <BrandColors
       bind:this={brandList}
@@ -234,10 +239,11 @@
     </div>
     <p class="hint">Saved colors are kept for {[brand, type].filter(Boolean).join(' ') || 'this brand and material'}. Colors are also saved when you write a tag.</p>
   </div>
+  </div>
 
   {#if tab !== 'custom'}{@render closest()}{/if}
 
-  {#each errors as e}<p class="error-text">{e.message}</p>{/each}
+  {#each errors as e}<p class="error-text" transition:fold>{e.message}</p>{/each}
 </Fold>
 
 <!-- The closest brand colors sit under the picker (or under the list on the other tabs), never above it:
@@ -319,6 +325,7 @@
   .tab[aria-pressed='true'] .count { background: var(--muted); color: var(--bg); }
 
   .panel { display: grid; gap: var(--s3); }
+  .panels { display: grid; }
   .panel[hidden] { display: none; }
   .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
   .panel > .hint { margin: 0; }

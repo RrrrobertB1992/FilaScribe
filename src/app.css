@@ -98,6 +98,21 @@ button { cursor: pointer; }
 
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 
+/* Closable cards fold open and shut (browsers without ::details-content just snap, as before) */
+@supports selector(::details-content) {
+  :root { interpolate-size: allow-keywords; }
+  details::details-content {
+    block-size: 0;
+    overflow: clip;
+    transition: block-size var(--fold-ms, 400ms) ease, content-visibility var(--fold-ms, 400ms) allow-discrete;
+  }
+  details[open]::details-content { block-size: auto; }
+  /* closing is quicker than opening (see lib/motion.js) */
+  details:not([open])::details-content {
+    transition: block-size calc(var(--fold-ms, 400ms) * 0.7) ease, content-visibility calc(var(--fold-ms, 400ms) * 0.7) allow-discrete;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }

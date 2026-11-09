@@ -2,6 +2,7 @@
   // The Settings tab: defaults for new tags, your chips and saved colors,
   // appearance, and about.
   import Palette from './Palette.svelte';
+  import { fold, getSpeed, setSpeed } from '../lib/motion.js';
   import * as OpenSpool from '../lib/formats/openspool.js';
   import * as Defaults from '../lib/defaults.js';
   import * as CustomChips from '../lib/customChips.js';
@@ -498,6 +499,8 @@
     setCloseness(d.closestCloseness);
     theme = d.theme;
     Theme.apply(d.theme);
+    speed = d.motionSpeed;
+    setSpeed(d.motionSpeed);
   }
 
   function restore(replace) {
@@ -523,6 +526,12 @@
     Theme.apply(t);
     Theme.store(t);
   }
+  let speed = $state(getSpeed());
+  const SPEED_ITEMS = [
+    { value: 'fast', label: 'Fast' },
+    { value: 'normal', label: 'Normal' },
+    { value: 'slow', label: 'Slow' },
+  ];
 
   // --- Closest brand colors ---
 
@@ -832,10 +841,10 @@
         <div><dt>Last checked</dt><dd>{dbWhen(dbChecked)}</dd></div>
       </dl>
       {#if dbOld}
-        <p class="error-text" role="alert">The brand colors are over {ColorDb.MAX_AGE_DAYS} days old. Check for updates.</p>
+        <p class="error-text" transition:fold role="alert">The brand colors are over {ColorDb.MAX_AGE_DAYS} days old. Check for updates.</p>
       {/if}
     {/if}
-    {#if dbError}<p class="error-text" role="alert">{dbError}</p>{/if}
+    {#if dbError}<p class="error-text" transition:fold role="alert">{dbError}</p>{/if}
     {#if dbCheck?.status === 'current'}
       <p class="hint" role="status">You have the newest database.</p>
     {:else if dbCheck?.status === 'update'}
@@ -924,6 +933,8 @@
     <summary><h2 id="set-look">Appearance</h2></summary>
     <div class="body">
     <Palette label="Theme" items={THEME_ITEMS} bind:value={theme} allowCustom={false} onpick={pickTheme} />
+    <Palette label="Animation speed" items={SPEED_ITEMS} bind:value={speed} allowCustom={false} onpick={setSpeed} />
+    <p class="hint">How fast cards and editors fold open and shut. Nothing moves if your phone is set to reduce motion.</p>
     </div>
   </details>
 

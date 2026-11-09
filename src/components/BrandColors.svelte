@@ -6,7 +6,8 @@
   // back what was there. Every tile has an Edit button: it opens an editor right
   // under that tile's row, with Override (change the color's hex everywhere you
   // use it) and Clone (save a copy of it as a saved color).
-  import { onMount, tick, untrack } from 'svelte';
+  import { onMount, untrack } from 'svelte';
+  import { fold, morph } from '../lib/motion.js';
   import * as BC from '../lib/brandColors.js';
   import * as CM from '../lib/colorMatch.js';
   import { loadBrandColors } from '../lib/brandColorsData.js';
@@ -285,17 +286,14 @@
     if (hex && editor) editor.hexes[editor.active] = hex;
   }
   let root = $state(null);
-  // Closing the editor shrinks the page under you; bring the tile you were editing back into view
-  // (a no-op when it already is) so the screen doesn't land somewhere else
-  async function closeEditor() {
+  const closeEditor = () => {
     editor = null;
-    await tick();
-    root?.querySelector('.cell.on')?.scrollIntoView({ block: 'nearest' });
-  }
-  // Scroll the editor into view when it opens under a tile
-  const reveal = (node) => {
-    node.scrollIntoView({ block: 'nearest' });
   };
+  // The editor folds away; once it has, bring the tile you were editing back into view
+  // (a no-op when it already is) so the screen doesn't land somewhere else
+  const settle = () => root?.querySelector('.cell.on')?.scrollIntoView({ block: 'nearest' });
+  // Scroll the editor into view once it has opened under a tile
+  const reveal = (e) => e.target.scrollIntoView({ block: 'nearest' });
 
   function materialOf(line) {
     const b = BC.findBrand(db, brand);
@@ -406,7 +404,7 @@
 
     {#if result.filter !== 'all' || showAll}
       <div class="filters">
-        <button type="button" class="btn small" onclick={() => { showAll = !showAll; lineFilter = ''; shown = PAGE; }}>
+        <button type="button" class="btn small" onclick={() => morph(root, () => { showAll = !showAll; lineFilter = ''; shown = PAGE; })}>
           {showAll ? `Show only ${groupName}` : `Show all ${label} lines`}
         </button>
       </div>
@@ -414,9 +412,9 @@
 
     {#if showAll && result.lines.length > 1}
       <div class="lines" role="group" aria-label="Filament lines">
-        <button type="button" class="line" aria-pressed={!lineFilter} onclick={() => { lineFilter = ''; shown = PAGE; }}>All</button>
+        <button type="button" class="line" aria-pressed={!lineFilter} onclick={() => morph(root, () => { lineFilter = ''; shown = PAGE; })}>All</button>
         {#each result.lines as line (line.name)}
-          <button type="button" class="line" aria-pressed={lineFilter === line.name} onclick={() => { lineFilter = line.name; shown = PAGE; }}>
+          <button type="button" class="line" aria-pressed={lineFilter === line.name} onclick={() => morph(root, () => { lineFilter = line.name; shown = PAGE; })}>
             {line.name}
           </button>
         {/each}
@@ -424,7 +422,7 @@
     {/if}
 
     {#if result.lines.length}
-      <input type="search" class="search" bind:value={search} placeholder="Search colors" aria-label="Search brand colors" oninput={() => (shown = PAGE)} />
+      <input type="search" class="search" bind:value={search} placeholder="Search colors" aria-label="Search brand colors" oninput={() => morph(root, () => { shown = PAGE; })} />
       <div class="grid">
         {#each tiles.slice(0, shown) as tile (tile.id)}
           {@const isPicked = picked?.id === tile.id}
@@ -451,7 +449,7 @@
             <button type="button" class="edit-btn" class:open={isOpen} aria-expanded={isOpen} aria-label={`Edit ${tile.info.name}${!lineFilter && result.lines.length > 1 ? `, ${tile.line.name}` : ''}`} onclick={() => toggleEditor(tile)}>Edit</button>
           </div>
           {#if isOpen && editor}
-            <div class="editor" role="group" aria-label="Edit brand color" use:reveal>
+            <div class="editor" role="group" aria-label="Edit brand color" transition:fold onintroend={reveal} onoutroend={settle}>
               <p class="what">
                 <strong>{tile.info.name}</strong>, {tile.line.name}
                 <span class="db">Database: {(tile.info.original || tile.info.colors).map((h) => `#${h}`).join(' + ')}</span>
@@ -494,7 +492,7 @@
       {#if !tiles.length}<p class="hint">No colors match “{search}”.</p>{/if}
       {#if tiles.length > shown}
         {@const left = tiles.length - shown}
-        <button type="button" class="btn small" onclick={() => (shown += PAGE)}>Show {Math.min(PAGE, left)} more ({left} left)</button>
+        <button type="button" class="btn small" onclick={() => morph(root, () => { shown += PAGE; })}>Show {Math.min(PAGE, left)} more ({left} left)</button>
       {/if}
     {/if}
 

@@ -1,5 +1,6 @@
 <script>
   import { untrack } from 'svelte';
+  import { fold } from '../lib/motion.js';
   import HsvPicker from './HsvPicker.svelte';
   import Palette from './Palette.svelte';
   import { normalizeHex } from '../lib/formats/openspool.js';
@@ -106,7 +107,7 @@
         <button type="button" class="btn small danger" onclick={() => remove(active)}>Remove</button>
       {/if}
     </div>
-    {#if textError}<p class="error-text">{textError}</p>{/if}
+    {#if textError}<p class="error-text" transition:fold>{textError}</p>{/if}
     <HsvPicker bind:hex={pickerHex} label={`Color ${active + 1}`} />
   </div>
 
