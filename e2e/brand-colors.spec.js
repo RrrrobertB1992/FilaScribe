@@ -143,7 +143,6 @@ test.describe('Brand colors', () => {
     await open(page, 'SUNLU', 'Wood');
     await expect(brandPanel(page)).toContainText('Showing Wood: 6 colors from 2 lines'); // PLA Wood + Real Wood Fiber PLA
     await expect(brandPanel(page).locator('.tile')).toHaveCount(6);
-    await expect(brandPanel(page).locator('.line-name', { hasText: '+1' })).toHaveCount(1);
     // Show all lists every original line, nothing merged
     await brandPanel(page).getByRole('button', { name: 'Show all SUNLU PLA lines' }).click();
     await expect(brandPanel(page)).toContainText('Showing every line');

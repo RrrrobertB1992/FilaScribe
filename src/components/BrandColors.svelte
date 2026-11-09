@@ -3,7 +3,7 @@
   // colors for the picked material, narrowed by the variant (see
   // lib/brandColors.js). Works like Saved colors but read-only: pick a color
   // to fill the colors (and the line's temperatures); tap it again to put
-  // back what was there. Every tile has an Edit button: it opens an editor right
+  // back what was there. Every tile has a wrench button: it opens an editor right
   // under that tile's row, with Override (change the color's hex everywhere you
   // use it) and Clone (save a copy of it as a saved color).
   import { onMount, untrack } from 'svelte';
@@ -12,6 +12,7 @@
   import * as CM from '../lib/colorMatch.js';
   import { loadBrandColors } from '../lib/brandColorsData.js';
   import HsvPicker from './HsvPicker.svelte';
+  import EmptyState from './EmptyState.svelte';
   import { normalizeHex } from '../lib/formats/openspool.js';
   import * as Manual from '../lib/manualColors.js';
   import { getEdits, setEdit, removeEdit, withManual } from '../lib/manualColorsStore.svelte.js';
@@ -41,7 +42,7 @@
     backTo = $bindable(''), // after picking a suggestion: the custom color it replaced, as text
   } = $props();
 
-  const PAGE = 30;
+  const PAGE = 18; // 6 rows of 3 on a phone
   // The database with your overrides on top (Settings lists them)
   let rawDb = $state(null);
   const db = $derived(rawDb && withManual(rawDb));
@@ -397,7 +398,7 @@
 {#if db && result.total > 0}
   <div class="brand" bind:this={root}>
     {#if result.filter === 'nomatch'}
-      <p class="hint">{label} has no {groupName} colors.</p>
+      <EmptyState compact>{label} has no {groupName} colors.</EmptyState>
     {:else}
       <p class="hint">Showing {filterNote()}.</p>
     {/if}
@@ -442,11 +443,13 @@
               <span class="hex">{tile.info.colors.join('\n')}</span>
               {#if tile.info.original}<span class="edited-tag">Edited</span>{/if}
               {#if tile.info.colors.length > 1}<span class="multi">{tile.info.colors.length} colors{tile.info.gradient ? ', gradient' : ''}</span>{/if}
-              {#if !lineFilter && result.lines.length > 1}
+              {#if showAll && !lineFilter && result.lines.length > 1}
                 <span class="line-name">{tile.line.name}{tile.alsoIn.length ? ` +${tile.alsoIn.length}` : ''}</span>
               {/if}
             </button>
-            <button type="button" class="edit-btn" class:open={isOpen} aria-expanded={isOpen} aria-label={`Edit ${tile.info.name}${!lineFilter && result.lines.length > 1 ? `, ${tile.line.name}` : ''}`} onclick={() => toggleEditor(tile)}>Edit</button>
+            <button type="button" class="edit-btn" class:open={isOpen} aria-expanded={isOpen} aria-label={`Edit ${tile.info.name}${!lineFilter && result.lines.length > 1 ? `, ${tile.line.name}` : ''}`} onclick={() => toggleEditor(tile)}>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10h3v-3l-3.5-3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1-3 3l-6-6a6 6 0 0 1-8-8l3.5 3.5" /></svg>
+            </button>
           </div>
           {#if isOpen && editor}
             <div class="editor" role="group" aria-label="Edit brand color" transition:fold onintroend={reveal} onoutroend={settle}>
@@ -489,7 +492,12 @@
           {/if}
         {/each}
       </div>
-      {#if !tiles.length}<p class="hint">No colors match “{search}”.</p>{/if}
+      {#if !tiles.length}
+        <EmptyState compact>
+          No colors match “{search}”.
+          {#snippet action()}<button type="button" class="btn small" onclick={() => morph(root, () => { search = ''; shown = PAGE; })}>Clear search</button>{/snippet}
+        </EmptyState>
+      {/if}
       {#if tiles.length > shown}
         {@const left = tiles.length - shown}
         <button type="button" class="btn small" onclick={() => morph(root, () => { shown += PAGE; })}>Show {Math.min(PAGE, left)} more ({left} left)</button>
@@ -527,11 +535,10 @@
   .search { min-height: var(--h-chip); }
   /* dense: the tiles after the edited one fill its row, and the editor opens right under that row */
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); grid-auto-flow: dense; gap: var(--s2); }
-  /* The cell is the box (so the picked outline wraps the Edit button too) */
+  /* The cell is the box (so the picked outline wraps the wrench button too) */
   .cell {
+    position: relative;
     display: grid;
-    grid-template-rows: 1fr auto;
-    gap: var(--s1);
     padding: var(--s2);
     border-radius: var(--r-control);
     border: 2px solid transparent;
@@ -555,16 +562,22 @@
     text-align: center;
     cursor: pointer;
   }
-  /* Neutral on purpose: orange means "picked", and this must not be mistaken for it */
+  /* A wrench in the corner of the swatch. Neutral on purpose: orange means
+     "picked", and this must not be mistaken for it. The dark backing keeps it
+     easy to see on every color. */
   .edit-btn {
-    min-height: var(--h-small);
+    position: absolute;
+    top: calc(var(--s2) + 7px);
+    right: calc(var(--s2) + 7px);
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
     border: 1px solid var(--line);
     border-radius: var(--r-control);
-    background: none;
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
     color: var(--ink);
-    font-family: var(--font-label);
-    font-weight: 600;
-    font-size: 0.875rem;
     cursor: pointer;
   }
   .edit-btn.open { background: var(--ink); border-color: var(--ink); color: var(--bg); }
@@ -616,15 +629,15 @@
   .all input { width: 20px; height: 20px; margin-top: 2px; flex: none; accent-color: var(--action); }
   .bar {
     display: flex;
-    height: 22px;
-    border-radius: 4px;
+    height: 44px;
+    border-radius: 6px;
     overflow: hidden;
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
   }
   .bar span { flex: 1; }
   .name { font-size: 0.8125rem; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
   .hex { font-family: var(--font-label); font-size: 0.8125rem; white-space: pre-line; line-height: 1.2; letter-spacing: 0.04em; color: var(--muted); }
-  .line-name { font-size: 0.6875rem; color: var(--muted); line-height: 1.2; }
   .multi { font-size: 0.6875rem; font-weight: 700; color: var(--action); line-height: 1.2; }
+  .line-name { font-size: 0.6875rem; color: var(--muted); line-height: 1.2; }
   .credit { margin: 0; padding-top: var(--s1); border-top: 1px solid var(--line); font-size: 0.75rem; color: var(--muted); }
 </style>

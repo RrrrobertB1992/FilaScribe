@@ -360,7 +360,7 @@ test.describe('Settings: your brands, materials and variants', () => {
     const chips = (await settingsCard(page, 'Your chips'));
     await expect(chips.getByRole('group', { name: 'Your variants for Generic PLA' })).toContainText('Rapid');
     await chips.getByRole('button', { name: 'Remove Rapid' }).click();
-    await expect(chips).toContainText('None yet');
+    await expect(chips).toContainText('no chips of your own yet');
     await goCreate(page);
     await expect(chip(page, 'Rapid')).toHaveCount(0);
   });

@@ -1,6 +1,6 @@
 <script>
   // Saved colors for the current brand + material (the "Saved" panel of the
-  // color section): pick one to fill the colors. Each tile has an Edit button
+  // color section): pick one to fill the colors. Each tile has a wrench button
   // that opens an editor right under that tile’s row: name, a picker for each of its colors
   // (kept apart from the form until Save), and Remove. Colors are saved
   // automatically after a successful write. Saved colors belong to a brand +
@@ -9,6 +9,7 @@
   import { exportJson, readJsonFile } from '../lib/backup.js';
   import { fold, morph } from '../lib/motion.js';
   import HsvPicker from './HsvPicker.svelte';
+  import EmptyState from './EmptyState.svelte';
   import { normalizeHex } from '../lib/formats/openspool.js';
   import { onMount, untrack } from 'svelte';
   import * as SC from '../lib/savedColors.js';
@@ -306,13 +307,11 @@
 
 {#if key}
   <div class="saved" bind:this={root}>
-    <p class="hint">
-      {#if entries.length}
-        {entries.length} saved {entries.length === 1 ? 'color' : 'colors'} for {label}.
-      {:else}
-        Nothing saved for {label} yet. Colors are saved here when you write a tag, or with Save in Custom.
-      {/if}
-    </p>
+    {#if entries.length}
+      <p class="hint">{entries.length} saved {entries.length === 1 ? 'color' : 'colors'} for {label}.</p>
+    {:else}
+      <EmptyState compact>None saved for {label} yet. Colors are saved here when you write a tag, or with Save in Custom.</EmptyState>
+    {/if}
 
     {#if entries.length}
       <div class="grid">
@@ -333,7 +332,9 @@
               <span class="name">{entry.name || ' '}</span>
               <span class="hex">{entry.colors.join('\n')}</span>
             </button>
-            <button type="button" class="edit-btn" class:open={isOpen} aria-expanded={isOpen} aria-label={`Edit ${entry.name || entry.colors.join(' + ')}`} onclick={() => toggleEditor(entry)}>Edit</button>
+            <button type="button" class="edit-btn" class:open={isOpen} aria-expanded={isOpen} aria-label={`Edit ${entry.name || entry.colors.join(' + ')}`} onclick={() => toggleEditor(entry)}>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10h3v-3l-3.5-3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1-3 3l-6-6a6 6 0 0 1-8-8l3.5 3.5" /></svg>
+            </button>
           </div>
           {#if isOpen && editor}
           <div class="editor" role="group" aria-label="Edit saved color" transition:fold onintroend={reveal} onoutroend={settle}>
@@ -372,11 +373,11 @@
               <input type="text" class="hexbox" value={hexText} oninput={typedHex} maxlength="7" autocapitalize="characters" autocomplete="off" spellcheck="false" aria-label={`Hex for color ${editor.active + 1}`} />
             </label>
             <div class="actions">
-              <button type="button" class="btn small danger" onclick={removeFromEditor}>Remove</button>
-              <span class="spacer"></span>
               <button type="button" class="btn small" onclick={() => (editor = null)}>Cancel</button>
+              <span class="spacer"></span>
               <button type="button" class="btn small primary" onclick={saveEditor}>Save</button>
             </div>
+            <div class="actions"><button type="button" class="btn small danger" onclick={removeFromEditor}>Remove</button></div>
           </div>
           {/if}
         {/each}
@@ -404,11 +405,10 @@
   .saved { display: grid; gap: var(--s2); }
   /* dense: the tiles after the edited one fill its row, and the editor opens right under that row */
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); grid-auto-flow: dense; gap: var(--s2); }
-  /* The cell is the box (so the picked outline wraps the Edit button too) */
+  /* The cell is the box (so the picked outline wraps the wrench button too) */
   .cell {
+    position: relative;
     display: grid;
-    grid-template-rows: 1fr auto;
-    gap: var(--s1);
     padding: var(--s2);
     border-radius: var(--r-control);
     border: 2px solid transparent;
@@ -428,16 +428,21 @@
     text-align: center;
     cursor: pointer;
   }
-  /* Neutral on purpose: orange means "picked", and this must not be mistaken for it */
+  /* A wrench in the corner of the swatch, like on Brand colors. Neutral on
+     purpose: orange means "picked", and this must not be mistaken for it. */
   .edit-btn {
-    min-height: var(--h-small);
+    position: absolute;
+    top: calc(var(--s2) + 7px);
+    right: calc(var(--s2) + 7px);
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
     border: 1px solid var(--line);
     border-radius: var(--r-control);
-    background: none;
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
     color: var(--ink);
-    font-family: var(--font-label);
-    font-weight: 600;
-    font-size: 0.875rem;
     cursor: pointer;
   }
   .edit-btn.open { background: var(--ink); border-color: var(--ink); color: var(--bg); }
@@ -500,8 +505,8 @@
   .actions .spacer { flex: 1; }
   .bar {
     display: flex;
-    height: 22px;
-    border-radius: 4px;
+    height: 44px;
+    border-radius: 6px;
     overflow: hidden;
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
   }

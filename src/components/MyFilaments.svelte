@@ -6,8 +6,9 @@
   // pin stay on this device: they are never written to a tag.
   import { fold } from '../lib/motion.js';
   import * as Filaments from '../lib/filaments.js';
+  import EmptyState from './EmptyState.svelte';
 
-  let { list = [], current = '', onuse = () => {}, onremove = () => {}, onchange = () => {} } = $props();
+  let { list = [], current = '', onuse = () => {}, onremove = () => {}, onchange = () => {}, ongocreate = () => {} } = $props();
 
   // Searching only helps once there are clearly more rows than fit on a screen
   const SEARCH_FROM = 8;
@@ -16,7 +17,7 @@
   const shown = $derived(Filaments.ordered(searchable ? Filaments.search(list, query) : list));
 
   const pinnedCount = $derived(list.filter((e) => e.pinned).length);
-  const summary = $derived(list.length ? `${list.length} saved${pinnedCount ? ` · ${pinnedCount} pinned` : ''}` : 'None yet');
+  const summary = $derived(list.length ? `${list.length} saved${pinnedCount ? ` · ${pinnedCount} pinned` : ''}` : '');
 
   // The row whose editor is open (one at a time)
   let editing = $state('');
@@ -84,11 +85,17 @@
         {/each}
       </ul>
     {:else}
-      <p class="hint">No filament matches “{query}”.</p>
+      <EmptyState compact>
+        No filament matches “{query}”.
+        {#snippet action()}<button type="button" class="btn small" onclick={() => (query = '')}>Clear search</button>{/snippet}
+      </EmptyState>
     {/if}
     <p class="hint">Tap one to write a tag with it. Brand, material, variant, colors and temperatures are used; weight and diameter come from your defaults for new tags.</p>
   {:else}
-    <p class="hint">On Create, fill in the form, then tap “Save this spool as a filament” at the bottom. Writing a tag can offer to save it too.</p>
+    <EmptyState title="No saved filaments yet">
+      Save a spool from Create with “Save this spool as a filament”, or accept the offer after you write a tag. It will be listed here, ready to write again.
+      {#snippet action()}<button type="button" class="btn" onclick={ongocreate}>Go to Create</button>{/snippet}
+    </EmptyState>
   {/if}
 </section>
 
