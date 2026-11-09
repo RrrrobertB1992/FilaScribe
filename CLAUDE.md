@@ -25,8 +25,10 @@ Where things are:
 | Native NFC | `android/app/src/main/java/io/github/rrrrobertb1992/filascribe/FilaScribeNfcPlugin.java` |
 | Choices on the form | `src/lib/catalog.js`, `brandList.js`, `materialList.js`, `variantList.js` |
 | Brand colors | `src/lib/brandColors.js`, data in `src/data/*.json` (generated, see below) |
-| Things kept on the device | `savedColors.js`, `filaments.js`, `customChips.js`, `manualColors.js`, `defaults.js`, `folds.js`, `theme.js` (all localStorage, keys start `filascribe-`) |
-| UI pieces | `src/components/*.svelte` |
+| Things kept on the device | `savedColors.js`, `filaments.js`, `customChips.js`, `manualColors.js`, `defaults.js`, `folds.js`, `theme.js`, `motionSpeed.js`, `openMode.js`, `suggestionCount.js`, `suggestionCloseness.js` (all localStorage, keys start `filascribe-`); `backup.js` saves and restores all of them |
+| UI pieces | `src/components/*.svelte`; shared look in `src/app.css` (tokens) |
+| Empty states and messages | `EmptyState.svelte`; `say(text, kind)` in `src/App.svelte` with `Message.svelte` and the rules in `src/lib/messages.js` |
+| Folding and motion | `Fold.svelte`, `src/lib/motion.js` |
 
 ## Starting a session
 
@@ -61,7 +63,8 @@ Where things are:
    app: phone width (about 390 px), the colors and fonts from `src/app.css`
    (orange `--action`, violet `--highlight`, near-black ink, Outfit for
    labels, Figtree for text), cards with small accent titles, and
-   show the light theme (dark too if the colors matter). Show the changed state,
+   show the dark theme (the app is mostly used in dark) and the light theme too
+   when colors or contrast matter. Show the changed state,
    and the before state if it helps. Change the mock-up until they are happy.
 3. **Ask questions** when anything is unclear. Do it at the description or
    mock-up step, not after coding.
@@ -70,7 +73,10 @@ Where things are:
    name (`color-overrides`, `my-filaments`).
 6. Write the code and the README update together, and add tests only where
    the Tests section says they are needed.
-7. Run the right tests (see below), commit, push the branch, open a PR.
+7. Run the right tests (see below), commit, push the branch, open a PR. If the
+   change is an idea from the Ideas list (issue #34), take it off the list when
+   the PR is opened: the list holds only what is still to do, so do not tick or
+   strike it.
 8. **Never push to `main` and never merge a PR.** The maintainer merges.
 9. After the test APK is built, the PR gets a comment linking it. The
    maintainer tries it on a phone and reports back; change the PR if needed.
@@ -126,9 +132,15 @@ When a test is needed:
   `confirm()` dialogs, and fails a test on any console error. Helpers:
   `placeTag`, `readTag`, `readFrom`, `lastWrite`, `writeTag`, `goCreate`,
   `chip`, `choiceRow`, `typeOther`, `fold`, `openCustom`, `colorTab`,
-  `brandPanel`, `brandTile`, `temps`, `showAllMaterials`. Use these instead of writing the same steps again.
+  `brandPanel`, `brandTile`, `temps`, `showAllMaterials`, `status`,
+  `openSettingsGroup`, `settingsCard`. Use these instead of writing the same steps again.
   Unit tests get a fake storage from `tests/storage.js` (`memoryStorage`,
   `brokenStorage`).
+- A message that isn't an error fades after 5 seconds, and messages stack, so
+  `status(page)` is the newest one. Check a message right after the action that
+  makes it, before slow steps such as opening cards: CI is slower than a laptop
+  and a test that waits longer than 5 seconds will not find it. To test the
+  fading itself, use `page.clock`.
 - Anything that changes what is written to a tag must keep
   `tests/fuzz.test.js` and the `tests/compat` reader checks passing.
 - The Java plugin cannot be tested here. CI compiles it in the test APK build,
@@ -161,9 +173,16 @@ When a test is needed:
 - Anything saved on the device: a `filascribe-…` key, a `load` that cleans
   whatever it finds, a `store` that survives storage being unavailable, a size
   limit, and export/import in Settings when it is data the user would be sad to
-  lose.
+  lose. Settings and data the user keeps also go into the backup
+  (`src/lib/backup.js`), with old backups still loading.
 - Every card in Settings starts closed. Every Create card folds and its
   open/closed state is remembered.
+- One look for the same thing everywhere: an empty list or a search with no
+  match uses `EmptyState.svelte`; anything about what just happened goes
+  through `say(text, kind)` (a `Message.svelte` strip, never loose colored
+  text). No plain-text buttons (outlined, or the orange fill for the main one), sizes and radii come from the tokens in
+  `src/app.css`, and anything that moves the page up or down folds (see
+  `src/lib/motion.js`; it must be instant with reduced motion).
 
 ## README
 
@@ -193,7 +212,8 @@ what the user sees, in the same plain style as the rest of the file.
 - `.claude/settings.json` sets Claude Code's attribution so commits and PRs carry
   no session link (`attribution.sessionUrl` is `false`). If a commit or PR still
   gets a session link, remove it by hand (`gh api -X PATCH` on the PR body) and
-  tell the maintainer.
+  tell the maintainer. The tooling has added one to the PR body every time the
+  PR was created, so read the body back after creating it and patch the link out.
 - Keep this file free of personal details about the maintainer, their
   devices and their printers. The same goes for the README, commits and PRs.
 
