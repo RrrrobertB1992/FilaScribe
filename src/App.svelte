@@ -1,6 +1,6 @@
 <script>
   import { onMount, tick } from 'svelte';
-  import { fold } from './lib/motion.js';
+  import { fold, foldMs } from './lib/motion.js';
   import Palette from './components/Palette.svelte';
   import ColorSection from './components/ColorSection.svelte';
   import SpoolPreview from './components/SpoolPreview.svelte';
@@ -11,6 +11,8 @@
   import MyFilaments from './components/MyFilaments.svelte';
   import ConfirmWrite from './components/ConfirmWrite.svelte';
   import Message from './components/Message.svelte';
+  import * as Messages from './lib/messages.js';
+  import { fade } from 'svelte/transition';
   import * as Defaults from './lib/defaults.js';
   import * as OpenSpool from './lib/formats/openspool.js';
   import { MATERIALS, VARIANTS } from './lib/catalog.js';
@@ -38,7 +40,9 @@
   let loaded = $state(null); // { tag, raw, unknownKeys, notes, before } after a read (before: the quick-edit fields as read)
   let nfcState = $state({ available: true, enabled: true });
   let sheet = $state(null); // { mode: 'read' | 'write', wrongUid }
-  let status = $state(null); // { kind: 'ok' | 'error' | 'info', text }
+  let messages = $state([]); // [{ id, kind: 'ok' | 'error' | 'info', text }], oldest first
+  const timers = new Map(); // the fade timers, by message id
+  let nextMessage = 0;
   let showErrors = $state(false);
   let colorSection = $state();
   // Read & update shows the same cards as Create, but remembers which are open
@@ -340,8 +344,24 @@
     Filaments.store(filaments);
   }
 
+  // say(text, kind) adds a message; say(null) clears them all (a new action starts).
+  // Anything but an error fades by itself; every message has a × to clear it sooner.
   function say(text, kind = 'info') {
-    status = text ? { text, kind } : null;
+    if (!text) {
+      for (const t of timers.values()) clearTimeout(t);
+      timers.clear();
+      messages = [];
+      return;
+    }
+    const id = ++nextMessage;
+    messages = Messages.push(messages, { id, text, kind });
+    if (Messages.autoDismisses(kind)) timers.set(id, setTimeout(() => dismissMessage(id), Messages.AUTO_MS));
+  }
+
+  function dismissMessage(id) {
+    clearTimeout(timers.get(id));
+    timers.delete(id);
+    messages = Messages.drop(messages, id);
   }
 
   async function startOver() {
@@ -706,7 +726,7 @@
   </footer>
 </div>
 
-{#if (mode !== 'settings' && (mode !== 'filaments' || fRun)) || status}
+{#if (mode !== 'settings' && (mode !== 'filaments' || fRun)) || messages.length}
 <div class="dock">
   <div class="dock-inner">
     {#if offerNow}
@@ -716,9 +736,13 @@
         <button type="button" class="btn small" onclick={() => (offer = null)}>Not now</button>
       </div>
     {/if}
-    {#if status}
-      <Message kind={status.kind} cls="status" ondismiss={() => say(null)}>{status.text}</Message>
-    {/if}
+    {#each messages as msg (msg.id)}
+      <div transition:fold>
+        <div transition:fade={{ duration: foldMs() }}>
+          <Message kind={msg.kind} cls="status" ondismiss={() => dismissMessage(msg.id)}>{msg.text}</Message>
+        </div>
+      </div>
+    {/each}
     {#if seriesNow}
       <p class="series">{WriteSeries.label(seriesNow.count)}</p>
     {/if}

@@ -161,7 +161,8 @@ export async function writeTag(page) {
   await expect(page.getByRole('dialog')).toBeHidden();
 }
 
-export const status = (page) => page.locator('.status');
+// The newest message: they stack in the order they happened, and good ones fade after a few seconds
+export const status = (page) => page.locator('.status').last();
 
 /** A temperature pair: temps(page, 'Nozzle').min */
 export function temps(page, which) {
