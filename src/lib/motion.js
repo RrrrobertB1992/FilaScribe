@@ -25,10 +25,13 @@ export function setSpeed(value) {
 }
 
 const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-const duration = () => (reduced() ? 0 : Speed.msFor(level));
+// Opening takes the full time; closing takes 70% of it (also in app.css), because a fold that
+// is going away feels slower than one that is arriving, and drags if it takes as long.
+const CLOSE = 0.7;
+const duration = (closing = false) => (reduced() ? 0 : Math.round(Speed.msFor(level) * (closing ? CLOSE : 1)));
 
-export function fold(node) {
-  return slide(node, { duration: duration() });
+export function fold(node, params, options) {
+  return slide(node, { duration: duration(options?.direction === 'out') });
 }
 
 /** Run `change` (which updates state), then ease `el` from its old height to its new one. */
@@ -44,6 +47,6 @@ export async function morph(el, change) {
       { height: `${before}px`, overflow: 'hidden' },
       { height: `${after}px`, overflow: 'hidden' },
     ],
-    { duration: duration(), easing: 'ease' },
+    { duration: duration(after < before), easing: 'ease' },
   );
 }
