@@ -17,6 +17,7 @@ import * as Defaults from './defaults.js';
 import * as SuggestionCount from './suggestionCount.js';
 import * as Closeness from './suggestionCloseness.js';
 import * as Theme from './theme.js';
+import * as MotionSpeed from './motionSpeed.js';
 
 function download(json, filename) {
   const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
@@ -82,6 +83,7 @@ export function snapshot(storage = globalThis.localStorage) {
     closestColors: SuggestionCount.load(storage),
     closestCloseness: Closeness.load(storage),
     theme: Theme.load(storage),
+    motionSpeed: MotionSpeed.load(storage),
   };
 }
 
@@ -99,6 +101,7 @@ export function apply(data, storage = globalThis.localStorage) {
   SuggestionCount.store(data.closestColors, storage);
   Closeness.store(data.closestCloseness, storage);
   Theme.store(data.theme, storage);
+  MotionSpeed.store(data.motionSpeed, storage);
 }
 
 /** The file's contents for a snapshot. */
@@ -128,6 +131,7 @@ export function parse(file) {
   if (d.closestColors !== undefined) mem.setItem(SuggestionCount.STORAGE_KEY, String(d.closestColors));
   if (typeof d.closestCloseness === 'string') mem.setItem(Closeness.STORAGE_KEY, d.closestCloseness);
   if (typeof d.theme === 'string') mem.setItem(Theme.STORAGE_KEY, d.theme);
+  if (typeof d.motionSpeed === 'string') mem.setItem(MotionSpeed.STORAGE_KEY, d.motionSpeed);
   if (d.autoFilaments === true) mem.setItem(Filaments.AUTO_KEY, '1');
   return snapshot(mem);
 }

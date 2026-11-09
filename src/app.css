@@ -104,7 +104,7 @@ button { cursor: pointer; }
   details::details-content {
     block-size: 0;
     overflow: clip;
-    transition: block-size 0.2s ease, content-visibility 0.2s allow-discrete;
+    transition: block-size var(--fold-ms, 400ms) ease, content-visibility var(--fold-ms, 400ms) allow-discrete;
   }
   details[open]::details-content { block-size: auto; }
 }

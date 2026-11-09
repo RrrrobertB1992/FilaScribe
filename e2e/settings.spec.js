@@ -149,6 +149,21 @@ test.describe('Settings', () => {
     await chip(page, 'Follow the system').click();
     await expect(page.locator('html')).not.toHaveAttribute('data-theme', /./);
   });
+  test('appearance: animation speed is Normal until chosen, and kept after a reload', async ({ page }) => {
+    const ms = () => page.evaluate(() => document.documentElement.style.getPropertyValue('--fold-ms'));
+    await settingsCard(page, 'Appearance');
+    await expect(chip(page, 'Normal')).toHaveAttribute('aria-pressed', 'true');
+    expect(await ms()).toBe('400ms');
+    await chip(page, 'Slow').click();
+    expect(await ms()).toBe('600ms');
+    await page.reload();
+    expect(await ms()).toBe('600ms');
+    await settingsCard(page, 'Appearance');
+    await expect(chip(page, 'Slow')).toHaveAttribute('aria-pressed', 'true');
+    await chip(page, 'Fast').click();
+    expect(await ms()).toBe('200ms');
+  });
+
   test('about: version, specs and data sources', async ({ page }) => {
     const about = (await settingsCard(page, 'About'));
     await expect(about).toContainText('FilaScribe');

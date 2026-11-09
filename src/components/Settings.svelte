@@ -2,7 +2,7 @@
   // The Settings tab: defaults for new tags, your chips and saved colors,
   // appearance, and about.
   import Palette from './Palette.svelte';
-  import { fold } from '../lib/motion.js';
+  import { fold, getSpeed, setSpeed } from '../lib/motion.js';
   import * as OpenSpool from '../lib/formats/openspool.js';
   import * as Defaults from '../lib/defaults.js';
   import * as CustomChips from '../lib/customChips.js';
@@ -499,6 +499,8 @@
     setCloseness(d.closestCloseness);
     theme = d.theme;
     Theme.apply(d.theme);
+    speed = d.motionSpeed;
+    setSpeed(d.motionSpeed);
   }
 
   function restore(replace) {
@@ -524,6 +526,12 @@
     Theme.apply(t);
     Theme.store(t);
   }
+  let speed = $state(getSpeed());
+  const SPEED_ITEMS = [
+    { value: 'fast', label: 'Fast' },
+    { value: 'normal', label: 'Normal' },
+    { value: 'slow', label: 'Slow' },
+  ];
 
   // --- Closest brand colors ---
 
@@ -925,6 +933,8 @@
     <summary><h2 id="set-look">Appearance</h2></summary>
     <div class="body">
     <Palette label="Theme" items={THEME_ITEMS} bind:value={theme} allowCustom={false} onpick={pickTheme} />
+    <Palette label="Animation speed" items={SPEED_ITEMS} bind:value={speed} allowCustom={false} onpick={setSpeed} />
+    <p class="hint">How fast cards and editors fold open and shut. Nothing moves if your phone is set to reduce motion.</p>
     </div>
   </details>
 
