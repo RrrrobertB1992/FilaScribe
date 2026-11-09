@@ -6,7 +6,9 @@
   // Open or shut is remembered per `id` (lib/folds.js). `forceOpen` opens it
   // when something inside needs attention (an error, a value set by a tag
   // read), without changing what is remembered.
+  import { untrack } from 'svelte';
   import * as Folds from '../lib/folds.js';
+  import { closesOthers, getOpened, cardOpened } from '../lib/openModeStore.svelte.js';
 
   let { id, title = '', summary = '', defaultOpen = false, forceOpen = false, cls = '', head = null, children } = $props();
 
@@ -20,8 +22,31 @@
     shownId = id;
     isOpen = forceOpen || Folds.isOpen(id, defaultOpen);
   });
+  let el = $state(null);
+  let firstRun = true;
   $effect(() => {
-    if (forceOpen) isOpen = true;
+    if (forceOpen) {
+      const wasOpen = isOpen;
+      isOpen = true;
+      // Opening itself counts as opening it (not when the page loads that way)
+      if (!wasOpen && !firstRun) cardOpened(id, el);
+    }
+    firstRun = false;
+  });
+
+  // With "Close the others" on, opening another card closes this one, unless
+  // it has a problem to show. Only a card opened after this one appeared counts.
+  let seen = getOpened().n;
+  $effect(() => {
+    const now = getOpened();
+    untrack(() => {
+      if (now.n === seen) return;
+      seen = now.n;
+      if (now.id !== id && isOpen && !forceOpen && closesOthers()) {
+        isOpen = false;
+        Folds.set(id, false);
+      }
+    });
   });
 
   function toggled(e) {
@@ -29,10 +54,11 @@
     if (v === isOpen) return;
     isOpen = v;
     Folds.set(id, v);
+    if (v) cardOpened(id, el);
   }
 </script>
 
-<details class={`fold ${cls}`} open={isOpen} ontoggle={toggled} data-fold={id}>
+<details class={`fold ${cls}`} open={isOpen} ontoggle={toggled} data-fold={id} bind:this={el}>
   <summary>
     {#if head}
       {@render head()}

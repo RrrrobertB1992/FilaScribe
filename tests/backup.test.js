@@ -24,6 +24,7 @@ function filled() {
   s.setItem('filascribe-closest-closeness', 'loose');
   s.setItem('filascribe-theme', 'dark');
   s.setItem('filascribe-motion-speed', 'slow');
+  s.setItem('filascribe-open-mode', 'close');
   return s;
 }
 
@@ -50,6 +51,7 @@ describe('backup: save and restore', () => {
     expect(d.closestCloseness).toBe('loose');
     expect(d.theme).toBe('dark');
     expect(d.motionSpeed).toBe('slow');
+    expect(d.openMode).toBe('close');
   });
 
   it('leaves out the downloaded color database and which cards are open', () => {
@@ -105,6 +107,7 @@ describe('backup: files that are not backups', () => {
         closestCloseness: 'very',
         theme: 'purple',
         motionSpeed: 'warp',
+        openMode: 'both',
       },
     });
     expect(d.filaments).toHaveLength(1);
@@ -119,6 +122,7 @@ describe('backup: files that are not backups', () => {
     expect(d.closestCloseness).toBe('normal');
     expect(d.theme).toBe('system');
     expect(d.motionSpeed).toBe('normal');
+    expect(d.openMode).toBe('leave');
   });
 
   it('a backup with nothing in it is empty, not an error', () => {
@@ -159,6 +163,7 @@ describe('backup: add what is new', () => {
       customChips: { brands: ['Nova'], materials: [], variants: { 'Zephyr|PLA+': ['Fast'] } },
       theme: 'light',
       motionSpeed: 'fast',
+      openMode: 'close',
       closestColors: 1,
       closestCloseness: 'strict',
       hiddenVariants: [],
@@ -171,6 +176,7 @@ describe('backup: add what is new', () => {
     expect(out.customChips.variants['Zephyr|PLA+']).toEqual(['Rapid', 'Fast']);
     expect(out.theme).toBe('light');
     expect(out.motionSpeed).toBe('fast');
+    expect(out.openMode).toBe('close');
     expect(out.closestColors).toBe(1);
     expect(out.closestCloseness).toBe('strict');
     expect(out.hiddenVariants).toEqual([]);
