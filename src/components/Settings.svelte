@@ -2,6 +2,7 @@
   // The Settings tab: defaults for new tags, your chips and saved colors,
   // appearance, and about.
   import Palette from './Palette.svelte';
+  import EmptyState from './EmptyState.svelte';
   import { fold, getSpeed, setSpeed } from '../lib/motion.js';
   import { getOpenMode, setOpenMode, closesOthers, cardOpened } from '../lib/openModeStore.svelte.js';
   import * as OpenSpool from '../lib/formats/openspool.js';
@@ -682,7 +683,7 @@
     {#if !brandData}
       <p class="hint">Loading the variant list…</p>
     {:else if !kinds.length}
-      <p class="hint">{hasOwnBrand ? 'Your brands have no variants in the materials you show.' : 'None of your brands has variants of its own yet. Add a brand under Brands, and the variants it makes are listed here.'}</p>
+      <EmptyState compact>{hasOwnBrand ? 'Your brands have no variants in the materials you show.' : 'None of your brands has variants of its own yet. Add a brand under Brands, and the variants it makes are listed here.'}</EmptyState>
     {:else}
       <input type="search" bind:value={findVariant} placeholder="Find a variant" aria-label="Find a variant" autocomplete="off" />
       <div class="actions">
@@ -742,7 +743,7 @@
         <button type="button" class="btn small danger" onclick={clearChips}>Remove all your chips</button>
       </div>
     {:else}
-      <p class="hint">None yet. Tap Save next to a Custom variant, or write a tag with one. Brands and materials are above.</p>
+      <EmptyState compact>You have no chips of your own yet. Tap Save next to a Custom variant, or write a tag with one. Brands and materials are above.</EmptyState>
     {/if}
     </div>
   </details>
@@ -751,7 +752,7 @@
     <summary><h2 id="set-filaments">My filaments</h2></summary>
     <div class="body">
     <p class="hint">
-      {filaments.length ? `${filaments.length} saved ${filaments.length === 1 ? 'filament' : 'filaments'}. ` : 'None yet. '}They are listed on Create, where you can search them, fill the form from one, or remove it.
+      {filaments.length ? `${filaments.length} saved ${filaments.length === 1 ? 'filament' : 'filaments'}. ` : 'No saved filaments yet. '}They are listed on the Filaments tab, where you can search them, write a tag from one, or remove it.
     </p>
     <label class="check">
       <input type="checkbox" checked={autoFilaments} onchange={setAuto} />
@@ -786,7 +787,7 @@
         {/each}
       </ul>
     {:else}
-      <p class="hint">None yet. Colors are saved when you write a tag, or with Save colors under Custom.</p>
+      <EmptyState compact>You have no saved colors yet. Colors are saved when you write a tag, or with Save colors under Custom.</EmptyState>
     {/if}
     <div class="actions">
       <button type="button" class="btn small" onclick={exportSaved} disabled={!savedCount}>Export saved colors</button>
@@ -917,7 +918,7 @@
         {/each}
       </ul>
     {:else}
-      <p class="hint">None yet. On Create, pick a brand color and tap Override this color to give it your own hex.</p>
+      <EmptyState compact>You have no color overrides yet. On Create, tap the wrench on a brand color and choose Override to give it your own hex.</EmptyState>
     {/if}
     <div class="actions">
       <button type="button" class="btn small" onclick={exportOverrides} disabled={!overrides.length}>Export color overrides</button>

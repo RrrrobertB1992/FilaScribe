@@ -24,8 +24,10 @@ test.describe('Read & update', () => {
 
   test('reads a U1 tag into the form', async ({ page }) => {
     await placeTag(page, U1_TAG);
-    await readOpen(page);
+    await readTag(page);
+    // Look right away: the message fades after a few seconds, and opening the cards can take longer than that on a slow machine
     await expect(status(page)).toHaveText('Tag read. Change what you need, then update the tag.');
+    await openCards(page);
     await expect(chip(page, 'OpenSpool + Snapmaker U1 fields')).toHaveAttribute('aria-pressed', 'true');
     await expect(chip(page, 'PETG')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByLabel('Other brand')).toHaveValue('Elegoo'); // OrcaSlicer's spelling

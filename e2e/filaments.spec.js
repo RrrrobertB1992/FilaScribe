@@ -9,7 +9,9 @@ const openCard = (page) => page.getByRole('tab', { name: 'Filaments' }).click();
 /** Check the list's summary on the Filaments tab, then come back to Create. */
 async function saved(page, text) {
   await openCard(page);
-  await expect(fold(page, 'filaments').locator('.sum')).toHaveText(text);
+  // An empty list shows its empty state instead of a count
+  if (text === 'None yet') await expect(fold(page, 'filaments')).toContainText('No saved filaments yet');
+  else await expect(fold(page, 'filaments').locator('.sum')).toHaveText(text);
   await goCreate(page);
 }
 
@@ -34,14 +36,12 @@ test.describe('My filaments', () => {
   test('starts empty, with the save button at the end of the form', async ({ page }) => {
     await saved(page, 'None yet');
     await expect(saveButton(page)).toBeVisible();
-    // After Tag data and above Start over: nothing to scroll back up for
-    const order = await page.evaluate(() => {
-      const form = document.querySelector('form.form');
-      const kids = [...form.children].map((c) => c.getAttribute('data-fold') || c.textContent.trim().slice(0, 12));
-      return kids;
-    });
-    expect(order.indexOf('tagdata')).toBeLessThan(order.findIndex((k) => k.startsWith('+ Save this')));
-    expect(order.findIndex((k) => k.startsWith('+ Save this'))).toBeLessThan(order.findIndex((k) => k.startsWith('Start over')));
+    // The form's last row (with Start over) comes after Tag data: nothing to scroll back up for
+    const order = await page.evaluate(() =>
+      [...document.querySelector('form.form').children].map((c) => c.getAttribute('data-fold') || (c.classList.contains('form-actions') ? 'actions' : '')),
+    );
+    expect(order.indexOf('tagdata')).toBeLessThan(order.indexOf('actions'));
+    await expect(page.locator('.form-actions').getByRole('button', { name: '+ Save this spool as a filament' })).toBeVisible();
   });
 
   test('saves the spool, keeps it after a reload, and a tap writes a tag with it', async ({ page }) => {
@@ -152,7 +152,7 @@ test.describe('My filaments', () => {
     asked = answer(page, true);
     await remove.click();
     await asked;
-    await expect(fold(page, 'filaments').locator('.sum')).toHaveText('None yet');
+    await expect(fold(page, 'filaments')).toContainText('No saved filaments yet');
   });
 
   test('pin, name and note: the star moves a row up, the name replaces the title, the note shows under it, none reach the tag', async ({ page }) => {
@@ -237,7 +237,7 @@ test.describe('My filaments', () => {
     asked = answer(page, true);
     await card.getByRole('button', { name: 'Clear all' }).click();
     await asked;
-    await expect(card).toContainText('None yet');
+    await expect(card).toContainText('No saved filaments yet');
   });
 
   test('Settings: export and import round-trip', async ({ page }) => {

@@ -1,6 +1,6 @@
 <script>
   import { onMount, tick } from 'svelte';
-  import { fold } from './lib/motion.js';
+  import { fold, foldMs } from './lib/motion.js';
   import Palette from './components/Palette.svelte';
   import ColorSection from './components/ColorSection.svelte';
   import SpoolPreview from './components/SpoolPreview.svelte';
@@ -10,6 +10,9 @@
   import Fold from './components/Fold.svelte';
   import MyFilaments from './components/MyFilaments.svelte';
   import ConfirmWrite from './components/ConfirmWrite.svelte';
+  import Message from './components/Message.svelte';
+  import * as Messages from './lib/messages.js';
+  import { fade } from 'svelte/transition';
   import * as Defaults from './lib/defaults.js';
   import * as OpenSpool from './lib/formats/openspool.js';
   import { MATERIALS, VARIANTS } from './lib/catalog.js';
@@ -37,7 +40,9 @@
   let loaded = $state(null); // { tag, raw, unknownKeys, notes, before } after a read (before: the quick-edit fields as read)
   let nfcState = $state({ available: true, enabled: true });
   let sheet = $state(null); // { mode: 'read' | 'write', wrongUid }
-  let status = $state(null); // { kind: 'ok' | 'error' | 'info', text }
+  let messages = $state([]); // [{ id, kind: 'ok' | 'error' | 'info', text }], oldest first
+  const timers = new Map(); // the fade timers, by message id
+  let nextMessage = 0;
   let showErrors = $state(false);
   let colorSection = $state();
   // Read & update shows the same cards as Create, but remembers which are open
@@ -339,8 +344,24 @@
     Filaments.store(filaments);
   }
 
+  // say(text, kind) adds a message; say(null) clears them all (a new action starts).
+  // Anything but an error fades by itself; every message has a × to clear it sooner.
   function say(text, kind = 'info') {
-    status = text ? { text, kind } : null;
+    if (!text) {
+      for (const t of timers.values()) clearTimeout(t);
+      timers.clear();
+      messages = [];
+      return;
+    }
+    const id = ++nextMessage;
+    messages = Messages.push(messages, { id, text, kind });
+    if (Messages.autoDismisses(kind)) timers.set(id, setTimeout(() => dismissMessage(id), Messages.AUTO_MS));
+  }
+
+  function dismissMessage(id) {
+    clearTimeout(timers.get(id));
+    timers.delete(id);
+    messages = Messages.drop(messages, id);
   }
 
   async function startOver() {
@@ -514,20 +535,22 @@
   </header>
 
   {#if mode !== 'settings' && (!nfcState.available || nfcState.enabled === false)}
-    <div class="banner" role="status">
-      <p>{nfcState.reason}</p>
-      {#if nfcState.available && nfcState.enabled === false}
-        <button type="button" class="btn small" onclick={async () => { await nfc.openSettings(); }}>Open NFC settings</button>
-        <button type="button" class="btn small" onclick={async () => { nfcState = await nfc.status(); }}>Check again</button>
-      {/if}
-    </div>
+    <Message kind="error" cls="banner-msg">
+      {nfcState.reason}
+      {#snippet actions()}
+        {#if nfcState.available && nfcState.enabled === false}
+          <button type="button" class="btn small" onclick={async () => { await nfc.openSettings(); }}>Open NFC settings</button>
+          <button type="button" class="btn small" onclick={async () => { nfcState = await nfc.status(); }}>Check again</button>
+        {/if}
+      {/snippet}
+    </Message>
   {/if}
 
   {#if mode === 'settings'}
     <Settings {form} bind:defaults bind:chips bind:shownBrands bind:shownMaterials bind:hiddenVariants bind:filaments bind:autoFilaments {brandData} onbranddata={(db) => (rawBrandData = db)} onstatus={(t, isError) => say(t, isError ? 'error' : 'ok')} />
   {:else if mode === 'filaments'}
     <div class="tabpage">
-      <MyFilaments list={filaments} current={fRun ? Filaments.keyOf(fRun.entry) : ''} onuse={(e) => (pending = e)} onremove={removeFilament} onchange={changeFilament} />
+      <MyFilaments list={filaments} current={fRun ? Filaments.keyOf(fRun.entry) : ''} onuse={(e) => (pending = e)} onremove={removeFilament} onchange={changeFilament} ongocreate={() => switchMode('create')} />
     </div>
   {:else if mode === 'update' && (!loaded || loaded.empty)}
     <section class="empty">
@@ -687,11 +710,12 @@
         <TagDetails tag={loaded.tag} raw={loaded.raw} unknownKeys={loaded.unknownKeys} notes={loaded.notes} />
       {/if}
 
-      <button type="button" class="btn save-spool" onclick={saveFilament}>+ Save this spool as a filament</button>
-
-      {#if mode === 'create'}
-        <button type="button" class="btn start-over" onclick={startOver}>Start over</button>
-      {/if}
+      <div class="form-actions">
+        {#if mode === 'create'}
+          <button type="button" class="btn start-over" onclick={startOver}>Start over</button>
+        {/if}
+        <button type="button" class="btn save-spool" onclick={saveFilament}>+ Save this spool as a filament</button>
+      </div>
     </form>
   {/if}
 
@@ -702,7 +726,7 @@
   </footer>
 </div>
 
-{#if (mode !== 'settings' && (mode !== 'filaments' || fRun)) || status}
+{#if (mode !== 'settings' && (mode !== 'filaments' || fRun)) || messages.length}
 <div class="dock">
   <div class="dock-inner">
     {#if offerNow}
@@ -712,9 +736,13 @@
         <button type="button" class="btn small" onclick={() => (offer = null)}>Not now</button>
       </div>
     {/if}
-    {#if status}
-      <p class="status {status.kind}" role={status.kind === 'error' ? 'alert' : 'status'}>{status.text}</p>
-    {/if}
+    {#each messages as msg (msg.id)}
+      <div transition:fold>
+        <div transition:fade={{ duration: foldMs() }}>
+          <Message kind={msg.kind} cls="status" ondismiss={() => dismissMessage(msg.id)}>{msg.text}</Message>
+        </div>
+      </div>
+    {/each}
     {#if seriesNow}
       <p class="series">{WriteSeries.label(seriesNow.count)}</p>
     {/if}
@@ -783,17 +811,7 @@
   }
   .modes button[aria-selected='true'] { background: var(--surface); color: var(--ink); }
 
-  .banner {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--s2);
-    margin-top: var(--s4);
-    padding: var(--s3) var(--s4);
-    border-left: 4px solid var(--danger);
-    background: var(--surface);
-  }
-  .banner p { margin: 0; flex: 1 1 100%; }
+  :global(.banner-msg) { margin-top: var(--s4); }
 
   .empty { display: grid; gap: var(--s3); padding: var(--s6) 0; }
   .empty h2 { font-size: 2rem; }
@@ -828,8 +846,10 @@
     overflow-x: auto;
     font-size: 0.8125rem;
   }
-  .start-over { justify-self: start; }
-  .save-spool { justify-self: stretch; border-style: dashed; color: var(--action); font-weight: 600; }
+  /* Set apart from the cards (12 px gap + 12 px margin = 24 px) */
+  .form-actions { display: flex; gap: var(--s2); margin-top: var(--s3); }
+  .start-over { flex: none; }
+  .save-spool { flex: 1; min-width: 0; border-style: dashed; color: var(--action); font-weight: 600; font-size: 0.9375rem; }
   .offer {
     display: flex;
     align-items: center;
@@ -863,10 +883,6 @@
   .dock-actions { display: flex; gap: var(--s2); }
   .wide { flex: 1; min-height: 52px; font-size: 1.125rem; }
   .dock-actions .btn:not(.wide) { min-height: 52px; }
-  .status { margin: 0; font-size: 0.9375rem; }
-  .status.ok { color: var(--ok); }
-  .status.error { color: var(--danger); }
-  .status.info { color: var(--muted); }
   .series { margin: 0; font-size: 0.8125rem; color: var(--muted); }
 
   @media (max-width: 380px) {

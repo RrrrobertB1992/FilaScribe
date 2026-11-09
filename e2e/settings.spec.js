@@ -133,7 +133,7 @@ test.describe('Settings', () => {
     await saved.getByRole('button', { name: 'Clear Polymaker PLA' }).click();
     await expect(saved).not.toContainText('Polymaker PLA');
     await saved.getByRole('button', { name: 'Clear all' }).click();
-    await expect(saved).toContainText('None yet');
+    await expect(saved).toContainText('no saved colors yet');
   });
   test('appearance: light, dark or follow the system, kept after a reload', async ({ page }) => {
     await settingsCard(page, 'Appearance');
