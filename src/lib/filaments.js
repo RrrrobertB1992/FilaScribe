@@ -4,9 +4,10 @@
 // Data: [ { profile, brand, type, subtype, minTemp, maxTemp, bedMinTemp,
 //           bedMaxTemp, colors: ["2B2B2D", ...], colorType?: "0" | "1",
 //           colorName: "Blue", name?: "Everyday black", note?: "...",
-//           pinned?: true } ]  newest first.
-// name, note and pinned are yours alone: they never go on a tag and are not
-// part of what makes two spools the same.
+//           pinned?: true, used?: 1767225600000 } ]  newest first.
+// name, note, pinned and used (when a tag was last written with it, for the
+// Last used sort) are yours alone: they never go on a tag and are not part of
+// what makes two spools the same.
 // The same spool (every field alike) is only kept once. Spool details
 // (weight, diameter, opacity) aren't part of it: they change per spool.
 import { PROFILES, normalizeHex, usedColors } from './formats/openspool.js';
@@ -16,6 +17,15 @@ export const AUTO_KEY = 'filascribe-filaments-auto';
 export const MAX = 200;
 export const NAME_MAX = 40;
 export const NOTE_MAX = 200;
+// How the Filaments tab lists them; the choice is kept on the device
+export const SORT_KEY = 'filascribe-filaments-sort';
+export const SORTS = [
+  { id: 'newest', label: 'Newest' },
+  { id: 'brand', label: 'Brand' },
+  { id: 'material', label: 'Material' },
+  { id: 'used', label: 'Last used' },
+];
+export const DEFAULT_SORT = 'newest';
 
 const TEXT = ['brand', 'type', 'subtype', 'minTemp', 'maxTemp', 'bedMinTemp', 'bedMaxTemp'];
 const HEX = /^[0-9A-F]{6}$/;
@@ -39,6 +49,7 @@ function cleanEntry(e) {
   if (name) out.name = name;
   if (note) out.note = note;
   if (e.pinned === true) out.pinned = true;
+  if (Number.isFinite(e.used) && e.used > 0) out.used = Math.floor(e.used);
   return out;
 }
 
@@ -73,6 +84,26 @@ export function storeAuto(on, storage = globalThis.localStorage) {
   try {
     if (on) storage.setItem(AUTO_KEY, '1');
     else storage.removeItem(AUTO_KEY);
+  } catch {
+    // Storage unavailable: the choice lasts until the page closes
+  }
+}
+
+/** One of the SORTS ids; anything else is Newest. */
+export const cleanSort = (v) => (SORTS.some((s) => s.id === v) ? v : DEFAULT_SORT);
+
+export function loadSort(storage = globalThis.localStorage) {
+  try {
+    return cleanSort(storage.getItem(SORT_KEY));
+  } catch {
+    return DEFAULT_SORT;
+  }
+}
+
+export function storeSort(sort, storage = globalThis.localStorage) {
+  try {
+    if (cleanSort(sort) === DEFAULT_SORT) storage.removeItem(SORT_KEY);
+    else storage.setItem(SORT_KEY, cleanSort(sort));
   } catch {
     // Storage unavailable: the choice lasts until the page closes
   }
@@ -114,7 +145,7 @@ export function add(list, entry) {
 
 export const remove = (list, entry) => list.filter((e) => keyOf(e) !== keyOf(entry));
 
-/** The list with `entry` changed by `patch` (name, note, pinned), in the same place. Empty name/note and pinned: false are left out. */
+/** The list with `entry` changed by `patch` (name, note, pinned, used), in the same place. Empty name/note and pinned: false are left out. */
 export function update(list, entry, patch) {
   const key = keyOf(entry);
   return list.map((e) => {
@@ -124,8 +155,37 @@ export function update(list, entry, patch) {
   });
 }
 
-/** What the list shows: pinned first, otherwise the saved order (newest first). */
-export const ordered = (list) => [...list.filter((e) => e.pinned), ...list.filter((e) => !e.pinned)];
+const az = (a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' });
+const byText = (...fields) => (a, b) => {
+  for (const f of fields) {
+    const d = az(f(a), f(b));
+    if (d) return d;
+  }
+  return 0;
+};
+const brandOf = (e) => e.brand;
+const typeOf = (e) => e.type;
+const subtypeOf = (e) => e.subtype;
+// Ties keep the saved order (newest first): Array.sort is stable
+const COMPARE = {
+  brand: byText(brandOf, typeOf, subtypeOf, (e) => colorLabel(e)),
+  material: byText(typeOf, subtypeOf, brandOf, (e) => colorLabel(e)),
+  // Most recently written first; ones never written stay below, newest first
+  used: (a, b) => (b.used || 0) - (a.used || 0),
+};
+
+/** What the list shows: pinned first, each group in the chosen order ('newest' is the saved order). */
+export function ordered(list, sort = DEFAULT_SORT) {
+  const compare = COMPARE[cleanSort(sort)];
+  const group = (keep) => {
+    const part = list.filter(keep);
+    return compare ? part.sort(compare) : part;
+  };
+  return [...group((e) => e.pinned), ...group((e) => !e.pinned)];
+}
+
+/** The list with `entry` marked as written just now, when it is a saved one. */
+export const markUsed = (list, entry, now = Date.now()) => (entry && has(list, entry) ? update(list, entry, { used: now }) : list);
 
 /** The form fields an entry sets. */
 export function toForm(entry) {
