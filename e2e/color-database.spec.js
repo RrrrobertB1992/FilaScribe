@@ -42,7 +42,7 @@ test.describe('Color database', () => {
     await expect(c).toContainText('Open Filament Database');
     await expect(c).toContainText('Never');
     await expect(c.getByRole('button', { name: 'Go back to the built-in copy' })).toHaveCount(0);
-    await expect(c.getByText(/days old/)).toHaveCount(0);
+    await expect(c.getByRole('alert')).toHaveCount(0);
   });
 
   test('says when you already have the newest database, and remembers the check', async ({ page }) => {
@@ -130,14 +130,88 @@ test.describe('Color database', () => {
     await expect(c).toContainText('Built into the app');
   });
 
-  test('warns when the database is more than 35 days old', async ({ page }) => {
-    await page.clock.setFixedTime(new Date('2026-12-20T12:00:00Z')); // 49 days after the bundled date
+  test('warns when the database is 30 days old or more', async ({ page }) => {
+    await page.clock.setFixedTime(new Date('2026-12-20T12:00:00Z')); // 46 days after the bundled date
     await page.goto('/');
     // the warning also shows on the menu row, so it isn't hidden behind a tap
     await page.getByRole('tab', { name: 'Settings' }).click();
     await expect(page.getByRole('button', { name: /^Brand colors/ })).toContainText('Out of date');
     const c = await openCard(page);
-    await expect(c.getByRole('alert')).toContainText('over 35 days old');
+    await expect(c.getByRole('alert')).toContainText('30 days old or more');
     await expect(page.locator('summary', { hasText: 'Color database' })).toContainText('Out of date');
+  });
+});
+
+// The notices at the bottom, from the app starting with an old database
+test.describe('Color database notices at start', () => {
+  const OLD = new Date('2026-12-20T12:00:00Z'); // 46 days after the bundled date
+  const notice = (page, text) => page.locator('.message', { hasText: text });
+  const start = async (page, { api = true } = {}) => {
+    const hits = [];
+    page.on('request', (r) => { if (r.url().includes('api.openfilamentdatabase.org')) hits.push(r.url()); });
+    if (api) await serve(page, { colors: newer() });
+    await page.clock.setFixedTime(OLD);
+    await page.goto('/');
+    return hits;
+  };
+
+  test('offers the download without touching the network, then installs without reviewing', async ({ page }) => {
+    const hits = await start(page);
+    const n = notice(page, 'Brand colors may be out of date');
+    await expect(n).toContainText('Your color database is 46 days old.');
+    expect(hits).toEqual([]);
+    await n.getByRole('button', { name: 'Download update' }).click();
+    const ready = notice(page, 'Newer database ready');
+    await expect(ready).toContainText('2026-12-01');
+    await ready.getByRole('button', { name: 'Update now' }).click();
+    await expect(notice(page, 'Brand colors updated to 2026-12-01')).toBeVisible();
+    await expect(notice(page, 'Newer database ready')).toHaveCount(0);
+  });
+
+  test('See changes opens the card with the changes shown', async ({ page }) => {
+    await start(page);
+    await notice(page, 'may be out of date').getByRole('button', { name: 'Download update' }).click();
+    await notice(page, 'Newer database ready').getByRole('button', { name: 'See changes' }).click();
+    const c = page.locator('details.card', { has: page.getByRole('heading', { name: 'Color database', exact: true }) });
+    await expect(c).toHaveJSProperty('open', true);
+    await expect(c.getByText('New brands: Zeta Filaments')).toBeVisible();
+  });
+
+  test('a downloaded update that was not installed is announced at the next start, until installed', async ({ page }) => {
+    await start(page);
+    await notice(page, 'may be out of date').getByRole('button', { name: 'Download update' }).click();
+    await notice(page, 'Newer database ready').getByRole('button', { name: 'Dismiss message' }).click();
+    await page.reload();
+    const n = notice(page, 'Database update downloaded but not used');
+    await expect(n).toBeVisible();
+    await expect(notice(page, 'may be out of date')).toHaveCount(0); // not both
+    await n.getByRole('button', { name: 'Update now' }).click();
+    await expect(notice(page, 'Brand colors updated to 2026-12-01')).toBeVisible();
+    await page.reload();
+    await expect(notice(page, 'Database update downloaded')).toHaveCount(0);
+    await expect(notice(page, 'may be out of date')).toHaveCount(0);
+  });
+
+  test('× hides it for this start only', async ({ page }) => {
+    await start(page, { api: false });
+    await notice(page, 'may be out of date').getByRole('button', { name: 'Dismiss message' }).click();
+    await expect(notice(page, 'may be out of date')).toHaveCount(0);
+    await page.reload();
+    await expect(notice(page, 'may be out of date')).toBeVisible();
+  });
+
+  test('with Update automatically on, an old database is updated at start', async ({ page }) => {
+    await page.evaluate(() => localStorage.setItem('filascribe-color-auto-update', 'on'));
+    await start(page);
+    await expect(notice(page, 'Brand colors updated to 2026-12-01')).toBeVisible();
+    await expect(notice(page, 'may be out of date')).toHaveCount(0);
+  });
+
+  test('the switch is in the Color database card and starts off', async ({ page }) => {
+    const c = await openCard(page);
+    const box = c.getByRole('checkbox', { name: /Update automatically/ });
+    await expect(box).not.toBeChecked();
+    await box.check();
+    expect(await page.evaluate(() => localStorage.getItem('filascribe-color-auto-update'))).toBe('on');
   });
 });

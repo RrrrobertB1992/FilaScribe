@@ -19,6 +19,7 @@ import * as Closeness from './suggestionCloseness.js';
 import * as Theme from './theme.js';
 import * as MotionSpeed from './motionSpeed.js';
 import * as OpenMode from './openMode.js';
+import * as ColorAutoUpdate from './colorAutoUpdate.js';
 
 function download(json, filename) {
   const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
@@ -86,6 +87,7 @@ export function snapshot(storage = globalThis.localStorage) {
     theme: Theme.load(storage),
     motionSpeed: MotionSpeed.load(storage),
     openMode: OpenMode.load(storage),
+    colorAutoUpdate: ColorAutoUpdate.load(storage),
   };
 }
 
@@ -105,6 +107,7 @@ export function apply(data, storage = globalThis.localStorage) {
   Theme.store(data.theme, storage);
   MotionSpeed.store(data.motionSpeed, storage);
   OpenMode.store(data.openMode, storage);
+  ColorAutoUpdate.store(data.colorAutoUpdate === true, storage);
 }
 
 /** The file's contents for a snapshot. */
@@ -136,6 +139,7 @@ export function parse(file) {
   if (typeof d.theme === 'string') mem.setItem(Theme.STORAGE_KEY, d.theme);
   if (typeof d.motionSpeed === 'string') mem.setItem(MotionSpeed.STORAGE_KEY, d.motionSpeed);
   if (typeof d.openMode === 'string') mem.setItem(OpenMode.STORAGE_KEY, d.openMode);
+  if (d.colorAutoUpdate === true) mem.setItem(ColorAutoUpdate.STORAGE_KEY, 'on');
   if (d.autoFilaments === true) mem.setItem(Filaments.AUTO_KEY, '1');
   return snapshot(mem);
 }

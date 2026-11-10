@@ -4,21 +4,29 @@
 // The app ships with a snapshot (src/data/brand-colors.json), refreshed with
 // `npm run update-colors` before a release. "Check for updates" downloads the
 // Open Filament Database's all-in-one file straight from its API (API_URL,
-// rebuilt daily), builds the same kind of snapshot from it on this device
+// rebuilt when something changes), builds the same kind of snapshot from it on this device
 // (ofdSnapshot.js), checks it is well formed, and shows what changed; "Update
 // now" keeps it on this device (IndexedDB), where it is used instead of the
 // built-in copy, as long as it is newer. Your saved colors and color overrides
 // are never touched. The brand names (orca-vendors.json) are built in only.
+//
+// A downloaded update that isn't installed yet is kept too (the built colors,
+// not the 17 MB file) until it is installed or a newer one replaces it, and
+// the last build found to hold no color changes is remembered, so checking
+// again doesn't download it again. At app start, bootPlan() says what to do.
 import { diffColors } from './snapshotDiff.js';
 import { withOrcaNames } from './brandColors.js';
 import * as Manual from './manualColors.js';
 import { API_URL, buildSnapshot } from './ofdSnapshot.js';
 
 export { API_URL };
-export const MAX_AGE_DAYS = 35;
+export const MAX_AGE_DAYS = 30;
+// With "Update automatically" on, a database this old is updated at app start
+export const AUTO_AGE_DAYS = 7;
 // A download with fewer colors than this share of the built-in copy is refused
 const MIN_SHARE = 0.5;
 const CHECKED_KEY = 'filascribe-color-database-checked';
+const SEEN_KEY = 'filascribe-color-database-seen';
 
 const DAY = 86400000;
 const isDate = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(`${d}T00:00:00Z`));
@@ -53,10 +61,40 @@ export function ageDays(date, now = new Date()) {
   return Math.floor((now.getTime() - Date.parse(`${date}T00:00:00Z`)) / DAY);
 }
 
-export const isOld = (date, now = new Date()) => {
-  const age = ageDays(date, now);
-  return age !== null && age > MAX_AGE_DAYS;
+/**
+ * How old the database counts as: from the later of its own date and the last
+ * time it was confirmed to be the newest (`confirmedAt`, an ISO time). A
+ * database that is days old but is still the newest isn't out of date.
+ */
+export function ageSince(date, confirmedAt = '', now = new Date()) {
+  const own = ageDays(date, now);
+  if (own === null) return null;
+  const t = Date.parse(confirmedAt);
+  if (Number.isNaN(t)) return own;
+  return Math.max(0, Math.min(own, Math.floor((now.getTime() - t) / DAY)));
+}
+
+export const isOld = (date, now = new Date(), confirmedAt = '') => {
+  const age = ageSince(date, confirmedAt, now);
+  return age !== null && age >= MAX_AGE_DAYS;
 };
+
+/**
+ * What to do at app start. `pending` is whether a downloaded update is waiting.
+ *   'install-pending'  an update is waiting and Update automatically is on
+ *   'show-pending'     an update is waiting: say so (See changes / Update now)
+ *   'auto-update'      Update automatically is on and the database is 7+ days old
+ *   'offer-download'   it is off and the database is 30+ days old: offer the download
+ *   'none'
+ * Nothing here uses the network; the age (or the waiting update) decides.
+ */
+export function bootPlan({ age, auto, pending }) {
+  if (pending) return auto ? 'install-pending' : 'show-pending';
+  if (age === null || age === undefined) return 'none';
+  if (auto && age >= AUTO_AGE_DAYS) return 'auto-update';
+  if (!auto && age >= MAX_AGE_DAYS) return 'offer-download';
+  return 'none';
+}
 
 /**
  * Is this a brand colors snapshot the app can use? Returns '' when it is, or
@@ -143,7 +181,10 @@ export function readManifest(manifest) {
     const n = Array.isArray(manifest?.artifacts) ? manifest.artifacts.find((a) => a?.path === path)?.size : null;
     return Number.isFinite(n) && n > 0 ? n : null;
   };
-  return { date, wire: size('json/all.json.gz'), total: size('json/all.json') };
+  // When the files were built; the same build means the same data
+  const g = manifest?.generated_at;
+  const built = typeof g === 'string' && g.length > 0 && g.length < 64 ? g : null;
+  return { date, built, wire: size('json/all.json.gz'), total: size('json/all.json') };
 }
 
 /**
@@ -152,21 +193,30 @@ export function readManifest(manifest) {
  * overrides }. Nothing is saved until applyUpdate().
  *
  * The small manifest is read first: when it shows nothing newer, the big file
- * isn't downloaded at all. `onProgress` gets { stage: 'download', loaded,
+ * isn't downloaded at all. Nor is it when the manifest's build is the one
+ * `seen` already found to hold no color changes, or the one `pending` (an
+ * update downloaded earlier: { colors, built }) was made from. `onProgress` gets { stage: 'download', loaded,
  * total, wire } (sizes may be null) and then { stage: 'build' }.
  */
-export async function checkForUpdate(current, { edits = [], fetchImpl = globalThis.fetch?.bind(globalThis), base = API_URL, onProgress = () => {} } = {}) {
+export async function checkForUpdate(current, { edits = [], fetchImpl = globalThis.fetch?.bind(globalThis), base = API_URL, onProgress = () => {}, seen = '', pending = null } = {}) {
   if (!fetchImpl) throw new UpdateError('This browser can’t download the update.');
   const inUse = current.colors.source?.date || '';
 
   // The manifest only saves a download, so the check carries on without it
-  let about = { date: null, wire: null, total: null };
+  let about = { date: null, built: null, wire: null, total: null };
   try {
     about = readManifest(await (await get(`${base}manifest.json`, fetchImpl)).json());
   } catch {
     // No manifest: download the database and compare
   }
   if (about.date && about.date <= inUse) return { status: 'current' };
+  if (about.built && seen && about.built === seen) return { status: 'current', built: about.built };
+
+  // An update downloaded earlier is used when it is the newest there is (or when that can't be told)
+  if (pending && (!about.built || about.built === pending.built)) {
+    const update = makeUpdate(current, pending.colors, pending.built || about.built, edits);
+    if (update) return { ...update, fromCache: true };
+  }
 
   onProgress({ stage: 'download', loaded: 0, total: about.total, wire: about.wire });
   const res = await get(`${base}json/all.json`, fetchImpl);
@@ -184,12 +234,17 @@ export async function checkForUpdate(current, { edits = [], fetchImpl = globalTh
   const bad = problemWith(colors, { builtInColors: countColors(current.colors) });
   if (bad) throw new UpdateError(`The downloaded database didn’t look right (${bad}), so nothing was changed.`);
 
+  return makeUpdate(current, colors, about.built, edits) || { status: 'current', built: about.built || undefined };
+}
+
+// The update that `colors` would make, or null when it changes nothing or is older than what is in use
+// (a newer app build can carry a newer built-in copy)
+function makeUpdate(current, colors, built, edits) {
   const next = { colors, orca: current.orca, origin: 'downloaded' };
   const changes = diffColors(current.colors.brands, colors.brands);
   const different = changes.brands.size > 0 || changes.newBrands.length > 0 || changes.goneBrands.length > 0;
-  // Never swap in a database that is older than the one in use (a newer app build can carry a newer built-in copy)
-  if (!different || colors.source.date < inUse) return { status: 'current' };
-  return { status: 'update', next, info: describe(next), changes, overrides: overridesImpact(current, next, edits) };
+  if (!different || colors.source.date < (current.colors.source?.date || '')) return null;
+  return { status: 'update', next, info: describe(next), changes, overrides: overridesImpact(current, next, edits), built: built || undefined };
 }
 
 /** Totals for "3 new brands, 118 new colors, 12 colors changed, 4 removed". */
@@ -210,6 +265,7 @@ export function summarize(changes) {
 const DB_NAME = 'filascribe-color-database';
 const STORE = 'database';
 const RECORD = 'current';
+const PENDING = 'pending';
 
 function openDb() {
   return new Promise((resolve, reject) => {
@@ -235,12 +291,16 @@ async function run(mode, fn) {
   }
 }
 
+const place = (record) => ({
+  read: () => run('readonly', (s) => s.get(record)),
+  write: (value) => run('readwrite', (s) => s.put(value, record)),
+  clear: () => run('readwrite', (s) => s.delete(record)),
+});
+
 /** The default place to keep the downloaded copy. Tests pass their own. */
-export const deviceStorage = {
-  read: () => run('readonly', (s) => s.get(RECORD)),
-  write: (value) => run('readwrite', (s) => s.put(value, RECORD)),
-  clear: () => run('readwrite', (s) => s.delete(RECORD)),
-};
+export const deviceStorage = place(RECORD);
+/** The default place to keep an update that is downloaded but not installed. */
+export const pendingStorage = place(PENDING);
 
 /**
  * The copy to use: the downloaded one if it is valid and newer than the
@@ -259,13 +319,72 @@ export async function pickSource(builtIn, storage = deviceStorage) {
   return { ...builtIn, origin: 'built-in' };
 }
 
-/** Keep a checked update on this device. */
-export async function applyUpdate(next, storage = deviceStorage) {
+/** Keep a checked update on this device. It is no longer waiting once it is in use. */
+export async function applyUpdate(next, storage = deviceStorage, pendingStore = pendingStorage) {
   try {
     await storage.write({ colors: next.colors, savedAt: new Date().toISOString() });
   } catch {
     throw new UpdateError('Couldn’t save the update on this device, so nothing was changed.');
   }
+  await clearPending(pendingStore);
+}
+
+// --- An update downloaded but not installed yet ---
+
+/** Keep a downloaded update to use later. Not being able to is fine: it is downloaded again when needed. */
+export async function savePending(update, storage = pendingStorage) {
+  try {
+    await storage.write({ colors: update.next.colors, built: update.built || '', savedAt: new Date().toISOString() });
+  } catch {
+    // Not kept
+  }
+}
+
+export async function clearPending(storage = pendingStorage) {
+  try {
+    await storage.clear();
+  } catch {
+    // Nothing to clear, or no storage
+  }
+}
+
+/**
+ * The waiting update as { status: 'update', ... } (what checkForUpdate gives),
+ * or null. One that is broken, that changes nothing, or that the app already
+ * has something as new as (a newer built-in copy, or it was installed some
+ * other way) is forgotten.
+ */
+export async function loadPending(current, { edits = [], storage = pendingStorage } = {}) {
+  let saved;
+  try {
+    saved = await storage.read();
+  } catch {
+    return null;
+  }
+  if (!saved) return null;
+  const ok = saved.colors && !problemWith(saved.colors, { builtInColors: countColors(current.colors) }) && saved.colors.source.date > (current.colors.source?.date || '');
+  const update = ok ? makeUpdate(current, saved.colors, typeof saved.built === 'string' ? saved.built : '', edits) : null;
+  if (!update) await clearPending(storage);
+  return update;
+}
+
+/**
+ * checkForUpdate() that also remembers what it learns: an update is kept as
+ * the waiting one, and a build with no color changes (or the newest database
+ * already in use) isn't looked at again. Failures are thrown as before.
+ */
+export async function checkAndRemember(current, { pendingStore = pendingStorage, local = globalThis.localStorage, ...options } = {}) {
+  const seen = loadSeen(local);
+  const waiting = await loadPending(current, { edits: options.edits, storage: pendingStore });
+  const result = await checkForUpdate(current, { ...options, seen: seen.built, pending: waiting && { colors: waiting.next.colors, built: waiting.built } });
+  if (result.status === 'update') {
+    if (!result.fromCache) await savePending(result, pendingStore);
+  } else {
+    // The newest there is: the database counts as new from now
+    storeSeen({ built: result.built || seen.built, at: new Date().toISOString() }, local);
+    if (result.built) await clearPending(pendingStore); // an update from an older build that is no longer wanted
+  }
+  return result;
 }
 
 /** Forget the downloaded copy and go back to the one built into the app. */
@@ -291,6 +410,29 @@ export function loadChecked(storage = globalThis.localStorage) {
 export function storeChecked(at = new Date().toISOString(), storage = globalThis.localStorage) {
   try {
     storage.setItem(CHECKED_KEY, JSON.stringify({ at }));
+  } catch {
+    // Storage unavailable: it just isn't remembered
+  }
+}
+
+// --- The last build found to hold nothing new, and when the database was last the newest ---
+
+/** { built, at }: the last build with no color changes, and the last time the database was confirmed current. */
+export function loadSeen(storage = globalThis.localStorage) {
+  try {
+    const v = JSON.parse(storage.getItem(SEEN_KEY) || 'null');
+    return {
+      built: v && typeof v.built === 'string' && v.built.length < 64 ? v.built : '',
+      at: v && typeof v.at === 'string' && !Number.isNaN(Date.parse(v.at)) ? v.at : '',
+    };
+  } catch {
+    return { built: '', at: '' };
+  }
+}
+
+export function storeSeen({ built = '', at = new Date().toISOString() } = {}, storage = globalThis.localStorage) {
+  try {
+    storage.setItem(SEEN_KEY, JSON.stringify({ built, at }));
   } catch {
     // Storage unavailable: it just isn't remembered
   }
