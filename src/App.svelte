@@ -12,6 +12,7 @@
   import ConfirmWrite from './components/ConfirmWrite.svelte';
   import Message from './components/Message.svelte';
   import * as Messages from './lib/messages.js';
+  import * as ColorUpdates from './lib/colorUpdates.svelte.js';
   import { fade } from 'svelte/transition';
   import * as Defaults from './lib/defaults.js';
   import * as OpenSpool from './lib/formats/openspool.js';
@@ -20,6 +21,7 @@
   import { getNfc } from './lib/nfc/index.js';
   import { variantChoices, carryVariant, materialChoices, carryMaterial, canonicalBrand, suggestBrands, findBrand, findColor } from './lib/brandColors.js';
   import { loadBrandColors } from './lib/brandColorsData.js';
+  import * as ColorDb from './lib/colorDatabase.js';
   import { buildParts } from './lib/buildInfo.js';
   import * as CustomChips from './lib/customChips.js';
   import * as BrandList from './lib/brandList.js';
@@ -163,7 +165,44 @@
   onMount(async () => {
     rawBrandData = await loadBrandColors();
     colorSection?.autoPick(); // start on a brand color when the remembered brand has some
+    const r = await ColorUpdates.boot((db) => (rawBrandData = db));
+    if (r) say(r.message, r.kind);
   });
+
+  // The notice at the bottom about the color database (see colorUpdates.svelte.js)
+  const colorNotice = $derived(ColorUpdates.getNotice());
+  const colorProgress = $derived(ColorUpdates.getProgress());
+  const colorProgressPercent = $derived(colorProgress?.stage === 'download' && colorProgress.total ? Math.min(100, Math.round((colorProgress.loaded / colorProgress.total) * 100)) : null);
+  const waitingUpdate = $derived(ColorUpdates.getWaiting());
+  const colorSummary = $derived.by(() => {
+    if (!waitingUpdate) return '';
+    const t = ColorDb.summarize(waitingUpdate.changes);
+    const n = (count, one, many) => (count ? [`${count} ${count === 1 ? one : many}`] : []);
+    const parts = [...n(t.newBrands, 'new brand', 'new brands'), ...n(t.added, 'new color', 'new colors'), ...n(t.changed, 'changed', 'changed'), ...n(t.removed + t.goneBrands, 'removed', 'removed')];
+    return `${waitingUpdate.info.date}: ${parts.join(', ') || 'no color changes'}`;
+  });
+  let colorBusy = $state(false);
+  async function downloadColors() {
+    const r = await ColorUpdates.download();
+    if (r) say(r.message, r.kind);
+  }
+  async function installColors() {
+    if (colorBusy) return;
+    colorBusy = true;
+    try {
+      const date = await ColorUpdates.install((db) => (rawBrandData = db));
+      say(`Brand colors updated to ${date}.`, 'ok');
+    } catch (e) {
+      say(e instanceof ColorDb.UpdateError ? e.message : 'Couldn’t update. Nothing was changed.', 'error');
+    } finally {
+      colorBusy = false;
+    }
+  }
+  async function seeColorChanges() {
+    ColorUpdates.closeNotice();
+    await switchMode('settings');
+    ColorUpdates.requestChanges();
+  }
 
   const u1 = $derived(form.profile === 'u1');
   const errors = $derived(OpenSpool.validate(form));
@@ -726,7 +765,7 @@
   </footer>
 </div>
 
-{#if (mode !== 'settings' && (mode !== 'filaments' || fRun)) || messages.length}
+{#if (mode !== 'settings' && (mode !== 'filaments' || fRun)) || messages.length || colorNotice}
 <div class="dock">
   <div class="dock-inner">
     {#if offerNow}
@@ -734,6 +773,31 @@
         <p>Save this spool to My filaments?</p>
         <button type="button" class="btn small" onclick={saveFilament}>Save</button>
         <button type="button" class="btn small" onclick={() => (offer = null)}>Not now</button>
+      </div>
+    {/if}
+    {#if colorNotice}
+      <div transition:fold>
+        <Message kind="info" cls="status" ondismiss={ColorUpdates.closeNotice}>
+          {#if colorNotice.kind === 'offer'}
+            <strong>Brand colors may be out of date</strong><br />Your color database is {colorNotice.days} days old.
+          {:else if colorNotice.kind === 'downloading'}
+            <strong>{colorProgress?.stage === 'build' ? 'Building the color list…' : 'Downloading the database…'}</strong>
+            {#if colorProgressPercent !== null}<span class="bar"><span style:width="{colorProgressPercent}%"></span></span>{/if}
+            <span class="sub">{colorProgress?.wire ? `About ${(colorProgress.wire / 1e6).toFixed(1)} MB. ` : ''}Nothing changes until you choose.</span>
+          {:else if colorNotice.kind === 'ready'}
+            <strong>Newer database ready</strong><br />{colorSummary}
+          {:else}
+            <strong>Database update downloaded but not used</strong><br />{colorSummary}
+          {/if}
+          {#snippet actions()}
+            {#if colorNotice.kind === 'offer'}
+              <button type="button" class="btn small primary" onclick={downloadColors}>Download update</button>
+            {:else if colorNotice.kind !== 'downloading'}
+              <button type="button" class="btn small" onclick={seeColorChanges}>See changes</button>
+              <button type="button" class="btn small primary" onclick={installColors} disabled={colorBusy}>{colorBusy ? 'Updating…' : 'Update now'}</button>
+            {/if}
+          {/snippet}
+        </Message>
       </div>
     {/if}
     {#each messages as msg (msg.id)}
@@ -884,6 +948,9 @@
   .wide { flex: 1; min-height: 52px; font-size: 1.125rem; }
   .dock-actions .btn:not(.wide) { min-height: 52px; }
   .series { margin: 0; font-size: 0.8125rem; color: var(--muted); }
+  .bar { display: block; height: 6px; margin: var(--s2) 0; border-radius: 3px; background: var(--chip); overflow: hidden; }
+  .bar span { display: block; height: 100%; background: var(--highlight); }
+  .sub { display: block; color: var(--muted); font-size: 0.8125rem; }
 
   @media (max-width: 380px) {
     .trio { grid-template-columns: 1fr 1fr; }

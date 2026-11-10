@@ -73,9 +73,14 @@ describe('how old the database is', () => {
     expect(DB.ageDays('2026-12-14', now)).toBe(1);
     expect(DB.ageDays('2026-12-15', now)).toBe(0);
   });
-  it('is only old after 35 days', () => {
-    expect(DB.isOld('2026-11-10', now)).toBe(false); // 35 days
-    expect(DB.isOld('2026-11-09', now)).toBe(true); // 36 days
+  it('is old from 30 days', () => {
+    expect(DB.isOld('2026-11-16', now)).toBe(false); // 29 days
+    expect(DB.isOld('2026-11-15', now)).toBe(true); // 30 days
+  });
+  it('counts from the last time it was found to be the newest', () => {
+    expect(DB.isOld('2026-10-01', now, '2026-12-10T08:00:00Z')).toBe(false);
+    expect(DB.isOld('2026-10-01', now, '2026-11-10T08:00:00Z')).toBe(true);
+    expect(DB.ageSince('2026-12-14', '2026-10-01T00:00:00Z', now)).toBe(1); // never older than the database itself
   });
   it('does not call an unreadable date old', () => {
     expect(DB.ageDays('', now)).toBeNull();

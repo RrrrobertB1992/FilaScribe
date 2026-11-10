@@ -26,6 +26,8 @@
   import { findBrands, canonicalBrand, findBrand, variantKinds } from '../lib/brandColors.js';
   import * as ColorDb from '../lib/colorDatabase.js';
   import { loadSource, reloadBrandColors } from '../lib/brandColorsData.js';
+  import * as ColorUpdates from '../lib/colorUpdates.svelte.js';
+  import { untrack } from 'svelte';
 
   let {
     form, // the form on screen (Create or a read tag), for "Use the form"
@@ -333,7 +335,39 @@
   let dbChecked = $state(ColorDb.loadChecked());
   let dbProgress = $state(null); // while checking: { stage, loaded, total, wire }
   const dbInfo = $derived(brandData?.info || null);
-  const dbOld = $derived(!!dbInfo && ColorDb.isOld(dbInfo.date));
+  let dbSeenAt = $state(ColorDb.loadSeen().at); // the last time the database was found to be the newest
+  const dbOld = $derived(!!dbInfo && ColorDb.isOld(dbInfo.date, new Date(), dbSeenAt));
+  const dbAuto = $derived(ColorUpdates.getAuto());
+
+  // An update downloaded earlier (or from the notice at the bottom) shows here too
+  $effect(() => {
+    const w = ColorUpdates.getWaiting();
+    if (w && untrack(() => dbCheck?.status !== 'update')) dbCheck = w;
+  });
+
+  // "See changes" on a notice: open this card with the changes shown
+  $effect(() => {
+    ColorUpdates.getJump();
+    if (!ColorUpdates.takeJump()) return;
+    untrack(() => {
+      const w = ColorUpdates.getWaiting();
+      if (w) dbCheck = w;
+      dbShowChanges = !!w;
+      showGroup('colors');
+      if (!open.includes('colordb')) {
+        open = closesOthers() ? ['colordb'] : [...open, 'colordb'];
+        try {
+          localStorage.setItem(OPEN_KEY, JSON.stringify(open));
+        } catch {
+          // not remembered
+        }
+      }
+    });
+  });
+
+  function setAutoUpdate(e) {
+    ColorUpdates.setAuto(e.currentTarget.checked);
+  }
   // How far the download is, when the database says how big it is
   const dbPercent = $derived.by(() => {
     if (!dbProgress) return null;
@@ -388,9 +422,11 @@
     dbShowChanges = false;
     dbCheck = null;
     try {
-      dbCheck = await ColorDb.checkForUpdate(await loadSource(), { edits: getEdits(), onProgress: (p) => (dbProgress = p) });
+      dbCheck = await ColorDb.checkAndRemember(await loadSource(), { edits: getEdits(), onProgress: (p) => (dbProgress = p) });
+      ColorUpdates.setWaiting(dbCheck.status === 'update' ? dbCheck : null);
       dbChecked = new Date().toISOString();
       ColorDb.storeChecked(dbChecked);
+      dbSeenAt = ColorDb.loadSeen().at;
     } catch (e) {
       dbError = e instanceof ColorDb.UpdateError ? e.message : 'Couldn’t check for updates. Try again.';
     } finally {
@@ -403,10 +439,10 @@
     if (dbBusy || dbCheck?.status !== 'update') return;
     dbBusy = true;
     dbError = '';
+    ColorUpdates.setWaiting(dbCheck);
     const date = dbCheck.info.date;
     try {
-      await ColorDb.applyUpdate(dbCheck.next);
-      onbranddata(await reloadBrandColors());
+      await ColorUpdates.install(onbranddata);
       dbCheck = null;
       dbShowChanges = false;
       onstatus(`Brand colors updated to ${date}.`);
@@ -497,6 +533,7 @@
   function showRestored(d) {
     filaments = d.filaments;
     autoFilaments = d.autoFilaments;
+    ColorUpdates.setAuto(d.colorAutoUpdate === true);
     saved = d.savedColors;
     replaceEdits(d.colorOverrides);
     chips = d.customChips;
@@ -860,7 +897,7 @@
         <div><dt>Last checked</dt><dd>{dbWhen(dbChecked)}</dd></div>
       </dl>
       {#if dbOld}
-        <p class="error-text" transition:fold role="alert">The brand colors are over {ColorDb.MAX_AGE_DAYS} days old. Check for updates.</p>
+        <p class="error-text" transition:fold role="alert">The brand colors are {ColorDb.MAX_AGE_DAYS} days old or more. Check for updates.</p>
       {/if}
     {/if}
     {#if dbError}<p class="error-text" transition:fold role="alert">{dbError}</p>{/if}
@@ -900,6 +937,13 @@
         </div>
       {/if}
     {/if}
+    <label class="check">
+      <input type="checkbox" checked={dbAuto} onchange={setAutoUpdate} />
+      <span>
+        <strong>Update automatically</strong>
+        <span class="hint small">When the app starts and the database is {ColorDb.AUTO_AGE_DAYS} days old, it downloads and uses a newer one. Off: you are told at start when it is {ColorDb.MAX_AGE_DAYS} days old, and you choose.</span>
+      </span>
+    </label>
     <div class="actions">
       <button type="button" class="btn small" onclick={checkDatabase} disabled={dbBusy}>{dbBusy && !dbCheck ? 'Checking…' : 'Check for updates'}</button>
       {#if dbInfo?.origin === 'downloaded'}<button type="button" class="btn small" onclick={goBackToBuiltIn} disabled={dbBusy}>Go back to the built-in copy</button>{/if}
