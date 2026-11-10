@@ -250,4 +250,26 @@ test.describe('My filaments', () => {
     await card.getByLabel('My filaments file').setInputFiles({ name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from('{"x":1}') });
     await expect(status(page)).toContainText('isn’t a My filaments export');
   });
+
+  test('sort: by brand, kept after a reload, and Last used puts the filament you just wrote first', async ({ page }) => {
+    await saveSpool(page, 'Overture', 'PLA');
+    await saveSpool(page, 'Polymaker', 'PETG');
+    await saveSpool(page, 'Generic', 'PLA');
+    await openCard(page);
+    const sort = (name) => fold(page, 'filaments').getByRole('group', { name: 'Sort' }).getByRole('button', { name });
+    // newest first: Generic, Polymaker, Overture
+    await expect(rows(page).first()).toContainText('Generic');
+    await sort('Brand').click();
+    await expect(rows(page).nth(1)).toContainText('Overture');
+
+    await page.reload();
+    await openCard(page);
+    await expect(sort('Brand')).toHaveAttribute('aria-pressed', 'true');
+    await expect(rows(page).nth(1)).toContainText('Overture');
+
+    await sort('Last used').click();
+    await rows(page).nth(2).getByRole('button', { name: /^Use/ }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Write tag' }).click();
+    await expect(rows(page).first()).toContainText('Overture');
+  });
 });
