@@ -1,5 +1,5 @@
 <script>
-  // The round spool picture: a ring of the spool's colors with a hub in the middle.
+  // The round spool picture: the spool's colors in a disc with a small hub in the middle.
   // The Tag preview and the Colors card header both use it, so they always look alike.
   // `edited` adds a dashed ring around it (a brand color you overrode).
   let { fill, edited = false } = $props();
@@ -18,23 +18,21 @@
     aspect-ratio: 1;
     border-radius: 50%;
     background: var(--reel-edge);
-    padding: 4px;
+    padding: 3px;
   }
   .reel.edited { outline: 2px dashed var(--muted); outline-offset: 3px; }
+  /* The colors fill the whole disc, so as much of them shows as possible */
   .filament {
     width: 100%;
     height: 100%;
     border-radius: 50%;
-    /* the wound filament: a thick ring */
-    mask: radial-gradient(circle, transparent 37%, #000 38%, #000 100%);
-    -webkit-mask: radial-gradient(circle, transparent 37%, #000 38%, #000 100%);
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
   }
   .hub {
     position: absolute;
-    inset: 34%;
+    inset: 36%;
     border-radius: 50%;
-    border: 4px solid var(--reel-edge);
+    border: 2px solid var(--reel-edge);
     background: var(--surface);
   }
 </style>
