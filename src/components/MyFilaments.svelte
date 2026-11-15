@@ -6,6 +6,7 @@
   // pin stay on this device: they are never written to a tag.
   import { fold } from '../lib/motion.js';
   import * as Filaments from '../lib/filaments.js';
+  import { getCircleStyle } from '../lib/swatchStyleStore.svelte.js';
   import EmptyState from './EmptyState.svelte';
 
   let { list = [], current = '', onuse = () => {}, onremove = () => {}, onchange = () => {}, ongocreate = () => {} } = $props();
@@ -30,7 +31,7 @@
   const toggleEdit = (e) => (editing = editing === Filaments.keyOf(e) ? '' : Filaments.keyOf(e));
   const label = (e) => e.name || `${Filaments.title(e)}, ${Filaments.colorLabel(e)}`;
 
-  const swatch = Filaments.swatch;
+  const swatch = (e) => Filaments.swatch(e, getCircleStyle());
 
   function remove(e) {
     if (!confirm(`Remove ${Filaments.title(e)} · ${Filaments.colorLabel(e)} from My filaments?`)) return;

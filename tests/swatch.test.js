@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { around, diagonal } from '../src/lib/swatch.js';
+import { around, diagonal, vertical, circleFill, tileFill } from '../src/lib/swatch.js';
 
 describe('swatch backgrounds', () => {
   it('one color is just that color, and none is white', () => {
@@ -23,5 +23,22 @@ describe('swatch backgrounds', () => {
 
   it('accepts colors that already start with #', () => {
     expect(around(['#111111', '#222222'])).toBe(around(['111111', '222222']));
+  });
+
+  it('vertical bands sit side by side, first color on the left', () => {
+    expect(vertical(['111111', '222222'])).toBe('linear-gradient(90deg, #111111 0% 50%, #222222 50% 100%)');
+    expect(vertical(['111111', '222222'], true)).toBe('linear-gradient(90deg, #111111, #222222)');
+    expect(vertical(['111111'])).toBe('#111111');
+  });
+
+  it('a circle or tile follows the chosen style, and anything unknown falls back', () => {
+    const c = ['111111', '222222'];
+    expect(circleFill(c, false, 'vertical')).toBe(vertical(c));
+    expect(circleFill(c, false, 'angled')).toBe(diagonal(c));
+    expect(circleFill(c)).toBe(around(c));
+    expect(circleFill(c, false, 'nonsense')).toBe(around(c));
+    expect(tileFill(c, false, 'vertical')).toBe(vertical(c));
+    expect(tileFill(c)).toBe(diagonal(c));
+    expect(tileFill(c, false, 'around')).toBe(diagonal(c));
   });
 });

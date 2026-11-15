@@ -7,7 +7,7 @@
   // material only, not to a variant. (The variants are still recorded, but
   // nothing here uses them.)
   import { exportJson, readJsonFile } from '../lib/backup.js';
-  import { diagonal } from '../lib/swatch.js';
+  import TileSwatch from './TileSwatch.svelte';
   import { fold, morph } from '../lib/motion.js';
   import HsvPicker from './HsvPicker.svelte';
   import EmptyState from './EmptyState.svelte';
@@ -292,7 +292,6 @@
     }
   }
 
-  const bar = (entry) => diagonal(entry.colors, entry.colorType === '0');
 
   function tileTitle(entry) {
     let t = entry.colors.map((h) => '#' + h).join(' + ');
@@ -323,7 +322,7 @@
               title={tileTitle(entry)}
               onclick={() => (isSel ? deselect() : select(entry))}
             >
-              <span class="bar" style:background={bar(entry)} aria-hidden="true"></span>
+              <TileSwatch colors={entry.colors} gradient={entry.colorType === '0'} />
               <span class="name">{entry.name || ' '}</span>
               <span class="hex">{entry.colors.join('\n')}</span>
             </button>
@@ -498,13 +497,6 @@
   }
   .round:disabled { opacity: 0.4; cursor: default; }
   .actions .spacer { flex: 1; }
-  .bar {
-    display: flex;
-    height: 44px;
-    border-radius: 6px;
-    overflow: hidden;
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
-  }
   .name { font-size: 0.8125rem; font-weight: 700; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .hex { font-family: var(--font-label); font-size: 0.8125rem; white-space: pre-line; line-height: 1.2; letter-spacing: 0.04em; color: var(--muted); }
   .saved > .hint { margin: 0; }

@@ -11,7 +11,7 @@
 // The same spool (every field alike) is only kept once. Spool details
 // (weight, diameter, opacity) aren't part of it: they change per spool.
 import { PROFILES, normalizeHex, usedColors } from './formats/openspool.js';
-import { around } from './swatch.js';
+import { circleFill } from './swatch.js';
 
 export const STORAGE_KEY = 'filascribe-filaments';
 export const AUTO_KEY = 'filascribe-filaments-auto';
@@ -241,8 +241,8 @@ export function colorLabel(entry) {
 /** True when the color has no name from the brand's database: you picked it yourself, so its name is only a rough word for the hex. */
 export const isCustom = (e) => !e.colorName;
 
-/** The swatch's CSS background: one color, or the colors around the circle (a gradient blends). */
-export const swatch = (e) => around(e.colors, e.colorType === '0');
+/** The swatch's CSS background: one color, or the colors in the chosen circle style (a gradient blends). */
+export const swatch = (e, style = 'around') => circleFill(e.colors, e.colorType === '0', style);
 
 export const title = (e) => [e.brand, e.type, e.subtype].filter(Boolean).join(' ');
 

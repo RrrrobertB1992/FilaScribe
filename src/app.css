@@ -10,6 +10,7 @@
   --bg: #f6f5f3;
   --surface: #ffffff;
   --ink: #16181c;
+  --reel-edge: var(--ink); /* the spool picture's outer edge and hub ring */
   --muted: #666a73;
   --line: #e0ddd8;
   --action: #d9480f;
@@ -49,6 +50,7 @@
     --bg: #0e1014;
     --surface: #181b21;
     --ink: #f2f3f5;
+  --reel-edge: #626977; /* gray, so the spool picture isn't glaring in the dark */
     --muted: #99a1ae;
     --line: #2b303a;
     --action: #ff7a3d;
@@ -66,6 +68,7 @@
   --bg: #0e1014;
   --surface: #181b21;
   --ink: #f2f3f5;
+  --reel-edge: #626977; /* gray, so the spool picture isn't glaring in the dark */
   --muted: #99a1ae;
   --line: #2b303a;
   --action: #ff7a3d;

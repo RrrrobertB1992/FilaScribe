@@ -7,7 +7,9 @@
   // All three panels stay mounted (only hidden), so picks, searches and the
   // after-read / after-write matching keep working whichever one is open.
   import { tick } from 'svelte';
-  import { around } from '../lib/swatch.js';
+  import { circleFill } from '../lib/swatch.js';
+  import { getCircleStyle } from '../lib/swatchStyleStore.svelte.js';
+  import Reel from './Reel.svelte';
   import { fold, morph } from '../lib/motion.js';
   import BrandColors from './BrandColors.svelte';
   import SavedColors from './SavedColors.svelte';
@@ -90,7 +92,7 @@
   }
 
   const style = $derived(colors.length > 1 && colorType === '0' ? 'Gradient' : 'Segments');
-  const swatch = $derived(around(colors.slice(0, max), style === 'Gradient'));
+  const swatch = $derived(circleFill(colors.slice(0, max), style === 'Gradient', getCircleStyle()));
   const summary = $derived.by(() => {
     if (brandName) {
       return brandOriginal
@@ -164,7 +166,7 @@
 <Fold id={foldId} defaultOpen={foldOpen} forceOpen={errors.length > 0} cls="colorsec">
   {#snippet head()}
     <span class="current" role="group" aria-labelledby="colorsec-label">
-      <span class="swatch" class:edited={summary.edited} style:background={swatch} aria-hidden="true"></span>
+      <Reel fill={swatch} edited={summary.edited} />
       <span class="what">
         <span class="label" id="colorsec-label">{max > 1 ? 'Colors' : 'Color'}</span>
         <span class="now-name">{summary.name}</span>
@@ -251,24 +253,6 @@
 
 <style>
   .current { display: flex; align-items: center; gap: var(--s3); min-width: 0; }
-  .swatch {
-    flex: none;
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25), 0 0 0 4px var(--bg);
-    position: relative;
-  }
-  /* A brand color you overrode: dashed ring around the spool */
-  .swatch.edited { outline: 2px dashed var(--muted); outline-offset: 3px; }
-  .swatch::after {
-    content: '';
-    position: absolute;
-    inset: 24px;
-    border-radius: 50%;
-    background: var(--surface);
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
-  }
   .what { display: grid; gap: 1px; min-width: 0; }
   .what .label {
     margin: 0;
