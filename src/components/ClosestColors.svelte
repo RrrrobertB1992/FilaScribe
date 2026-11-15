@@ -1,5 +1,6 @@
 <script>
   import { fold } from '../lib/motion.js';
+  import { around } from '../lib/swatch.js';
   // The closest brand colors for colors that aren't a brand color: a few
   // tiles to tap, or, once one is picked, a way back to the color it replaced.
   // Used in the Colors card (Create) and in Quick edits (Read & update); the
@@ -10,13 +11,7 @@
   //   mine: the current colors as text, for the hint (optional)
   let { suggestions = null, backTo = '', label = '', mine = '', onuse = () => {}, onback = () => {} } = $props();
 
-  const swatchOf = (cols, gradient) => {
-    const list = cols.map((h) => `#${h}`);
-    if (list.length < 2) return list[0] || '#FFFFFF';
-    if (gradient) return `linear-gradient(135deg, ${list.join(', ')})`;
-    const step = 100 / list.length;
-    return `linear-gradient(135deg, ${list.map((c, i) => `${c} ${i * step}% ${(i + 1) * step}%`).join(', ')})`;
-  };
+  const swatchOf = around;
 </script>
 
 {#if backTo}

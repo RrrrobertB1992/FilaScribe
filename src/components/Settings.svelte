@@ -10,6 +10,7 @@
   import * as CustomChips from '../lib/customChips.js';
   import * as SC from '../lib/savedColors.js';
   import * as Filaments from '../lib/filaments.js';
+  import { around } from '../lib/swatch.js';
   import * as Manual from '../lib/manualColors.js';
   import { getEdits, removeEdit, clearEdits, importEdits, replaceEdits } from '../lib/manualColorsStore.svelte.js';
   import * as Theme from '../lib/theme.js';
@@ -275,13 +276,7 @@
     }
   }
 
-  const bar = (entry) => {
-    const list = entry.colors.map((h) => `#${h}`);
-    if (list.length === 1) return list[0];
-    if (entry.colorType === '0') return `linear-gradient(to right, ${list.join(', ')})`;
-    const step = 100 / list.length;
-    return `linear-gradient(to right, ${list.map((c, i) => `${c} ${i * step}% ${(i + 1) * step}%`).join(', ')})`;
-  };
+  const bar = (entry) => around(entry.colors, entry.colorType === '0');
 
   // --- Color overrides ---
 
@@ -289,13 +284,8 @@
   const overrides = $derived(Manual.report(brandData, getEdits()));
   const describeOverride = (o) => (o.line === Manual.ALL_LINES ? `${o.brand} · ${o.material} · all lines · ${o.color}` : `${o.brand} · ${o.material} · ${o.line} · ${o.color}`);
   const hexText = (h) => h.split(',').map((x) => `#${x}`).join(' + ');
-  // Several colors side by side in one dot, like the Saved colors rows
-  const dot = (h) => {
-    const list = h.split(',').map((x) => `#${x}`);
-    if (list.length === 1) return list[0];
-    const step = 100 / list.length;
-    return `linear-gradient(to right, ${list.map((c, i) => `${c} ${i * step}% ${(i + 1) * step}%`).join(', ')})`;
-  };
+  // Several colors in one dot, like the Saved colors rows
+  const dot = (h) => around(h.split(','));
 
   function resetOverride(o) {
     if (!confirm(`Put ${describeOverride(o)} back to the database color ${hexText(o.was)}?`)) return;
