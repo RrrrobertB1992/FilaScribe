@@ -14,12 +14,14 @@ async function readOpen(page) {
 
 test.describe('Read & update', () => {
   test.beforeEach(async ({ page }) => {
-    await page.getByRole('tab', { name: 'Read & update' }).click();
+    await page.getByRole('tab', { name: 'Tag' }).click();
   });
 
-  test('starts by asking for a tag', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: 'Read a tag to change it' })).toBeVisible();
+  test('starts as a new tag, with Read tag next to Write tag', async ({ page }) => {
     await expect(page.getByRole('button', { name: 'Read tag' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Write tag' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Update this tag' })).toHaveCount(0);
+    await expect(page.getByText('From a tag you read')).toHaveCount(0);
   });
 
   test('reads a U1 tag into the form', async ({ page }) => {
@@ -45,7 +47,7 @@ test.describe('Read & update', () => {
     await placeTag(page, U1_TAG);
     await readOpen(page);
     await chip(page, 'Translucent').click(); // one of Elegoo's PETG variants
-    await page.getByRole('button', { name: 'Update tag' }).click();
+    await page.getByRole('button', { name: 'Update this tag' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
     await expect(status(page)).toHaveText('Tag written.');
     const data = await lastWrite(page);
@@ -68,7 +70,7 @@ test.describe('Read & update', () => {
     await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'PETG', color_hex: 'FFFFFF', brand: 'Prusament' });
     await readOpen(page);
     await expect(chip(page, 'Prusa Polymers')).toHaveAttribute('aria-pressed', 'true');
-    await page.getByRole('button', { name: 'Update tag' }).click();
+    await page.getByRole('button', { name: 'Update this tag' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
     expect((await lastWrite(page)).brand).toBe('Prusa Polymers');
   });
@@ -77,7 +79,7 @@ test.describe('Read & update', () => {
     await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'PLA', color_hex: 'FFAABB', brand: 'Generic', min_temp: '220', max_temp: '240' });
     await readTag(page);
     await expect(chip(page, 'OpenSpool (standard)')).toHaveAttribute('aria-pressed', 'true');
-    await page.getByRole('button', { name: 'Update tag' }).click();
+    await page.getByRole('button', { name: 'Update this tag' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
     expect(JSON.stringify(await lastWrite(page))).toBe(
       '{"protocol":"openspool","version":"1.0","type":"PLA","color_hex":"FFAABB","brand":"Generic","min_temp":"220","max_temp":"240"}',
@@ -133,15 +135,17 @@ test.describe('Read & update', () => {
     await page.getByRole('button', { name: 'Read tag' }).click();
     await page.getByRole('button', { name: 'Cancel' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
-    await expect(page.getByRole('heading', { name: 'Read a tag to change it' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Write tag' })).toBeVisible();
+    await expect(page.getByText('From a tag you read')).toHaveCount(0);
   });
 
-  test('a tag read can be copied onto a new tag from Create', async ({ page }) => {
+  test('a tag read can be copied onto a new tag, which starts a series', async ({ page }) => {
     await placeTag(page, U1_TAG);
     await readTag(page);
-    await goCreate(page);
-    await page.getByRole('button', { name: 'Write tag' }).click();
+    await page.getByRole('button', { name: 'Write to a new tag instead' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
     expect(await lastWrite(page)).toMatchObject({ type: 'PETG', brand: 'Elegoo', subtype: 'Rapid' });
+    await expect(page.getByRole('button', { name: 'Update this tag' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Write another tag' })).toBeVisible();
   });
 });

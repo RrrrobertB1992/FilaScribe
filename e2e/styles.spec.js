@@ -2,7 +2,7 @@ import { test, expect, openSettingsGroup, chip, openCustom } from './nfc.js';
 
 // The look is shared: every button has an outline (none looks like plain text),
 // and every corner is the shared one.
-const GROUPS = ['Your choices on the form', 'Your saved data', 'Brand colors', 'App'];
+const GROUPS = ['Your lists', 'Colors', 'Your data', 'App'];
 
 const buttonLooks = (page) =>
   page.evaluate(() =>

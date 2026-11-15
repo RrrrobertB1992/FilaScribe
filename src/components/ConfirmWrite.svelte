@@ -1,8 +1,9 @@
 <script>
   // The sheet that opens when you tap a filament on the Filaments tab: shows
-  // what will be written, then Write tag (which opens the hold-the-tag sheet)
-  // or Cancel. It stops a stray tap from writing a tag.
-  let { name = '', details = '', defaults = '', swatch = '', onwrite = () => {}, oncancel = () => {} } = $props();
+  // what will be written, then Write tag (which opens the hold-the-tag sheet),
+  // Edit first (fills the Tag form with it) or Cancel. It stops a stray tap
+  // from writing a tag.
+  let { name = '', details = '', defaults = '', swatch = '', onwrite = () => {}, onedit = () => {}, oncancel = () => {} } = $props();
   let writeBtn = $state();
   $effect(() => { writeBtn?.focus(); });
 </script>
@@ -21,9 +22,10 @@
     </div>
     <p class="muted">{defaults}</p>
     <div class="actions">
-      <button type="button" class="btn" onclick={oncancel}>Cancel</button>
+      <button type="button" class="btn" onclick={onedit}>Edit first</button>
       <button bind:this={writeBtn} type="button" class="btn primary wide" onclick={onwrite}>Write tag</button>
     </div>
+    <button type="button" class="btn" onclick={oncancel}>Cancel</button>
   </div>
 </div>
 
@@ -60,5 +62,5 @@
   h2 { font-size: 1.25rem; overflow-wrap: anywhere; }
   .muted { color: var(--muted); font-size: 0.875rem; }
   .actions { display: flex; gap: var(--s2); }
-  .wide { flex: 2; }
+  .actions .btn { flex: 1; }
 </style>

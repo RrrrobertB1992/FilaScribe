@@ -114,15 +114,15 @@ export async function lastWrite(page) {
 
 export const writeCount = (page) => page.evaluate(() => window.__writes.length);
 
-/** Tap Read tag (or Read another) on Read & update and wait for the sheet to close. */
+/** Tap Read tag on the Tag screen and wait for the sheet to close. */
 export async function readTag(page) {
-  await page.getByRole('button', { name: /^Read (tag|another)$/ }).click();
+  await page.getByRole('button', { name: 'Read tag', exact: true }).click();
   await expect(page.getByRole('dialog')).toBeHidden();
 }
 
-/** From any screen: open Read & update, put a tag near the phone and read it. */
+/** From any screen: open the Tag screen, put a tag near the phone and read it. */
 export async function readFrom(page, tag) {
-  await page.getByRole('tab', { name: 'Read & update' }).click();
+  await page.getByRole('tab', { name: 'Tag' }).click();
   await placeTag(page, tag);
   await readTag(page);
 }
@@ -145,7 +145,7 @@ export async function showAllMaterials(page) {
   await page.reload();
 }
 
-// Read & update starts with only Quick edits open; open the rest to look inside them
+// A tag you read starts with only Quick edits open; open the rest to look inside them
 export async function openCards(page) {
   await page.locator('details[data-fold="quick"]').waitFor(); // the read has finished and the screen has switched
   const shut = page.locator('details[data-fold]:not([open])');
@@ -170,8 +170,8 @@ export function temps(page, which) {
   return { min: group.getByLabel('Min'), max: group.getByLabel('Max') };
 }
 
-/** Back to the Create tab. */
-export const goCreate = (page) => page.getByRole('tab', { name: 'Create' }).click();
+/** Back to the Tag tab. */
+export const goCreate = (page) => page.getByRole('tab', { name: 'Tag' }).click();
 
 /** One of the chip rows on Create: choiceRow(page, 'Brand' | 'Material' | 'Variant'). */
 export const choiceRow = (page, name) => page.getByRole('group', { name, exact: true });
@@ -208,22 +208,22 @@ export const colorStyle = (page, name) =>
 
 // Settings opens to a menu of groups; each card is inside one of them.
 const SETTINGS_GROUP = {
-  'Defaults for new tags': 'Your choices on the form',
-  Brands: 'Your choices on the form',
-  Materials: 'Your choices on the form',
-  Variants: 'Your choices on the form',
-  'Your chips': 'Your choices on the form',
-  'My filaments': 'Your saved data',
-  'Saved colors': 'Your saved data',
-  Backup: 'Your saved data',
-  'Color database': 'Brand colors',
-  'Color overrides': 'Brand colors',
-  'Closest brand colors': 'Brand colors',
+  'Defaults for new tags': 'Your lists',
+  Brands: 'Your lists',
+  Materials: 'Your lists',
+  Variants: 'Your lists',
+  'Your chips': 'Your lists',
+  'My filaments': 'Your data',
+  'Saved colors': 'Colors',
+  Backup: 'Your data',
+  'Color database': 'Colors',
+  'Color overrides': 'Colors',
+  'Closest brand colors': 'Colors',
   Appearance: 'App',
   About: 'App',
 };
 
-/** Open Settings and one of its groups ('Your saved data', …), starting from the menu whatever page it was on. */
+/** Open Settings and one of its groups ('Your data', …), starting from the menu whatever page it was on. */
 export async function openSettingsGroup(page, group) {
   await page.getByRole('tab', { name: 'Settings' }).click();
   const back = page.getByRole('button', { name: '‹ Settings' });

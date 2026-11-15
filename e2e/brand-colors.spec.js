@@ -128,7 +128,7 @@ test.describe('Brand colors', () => {
   test('a subtype the brand doesn’t list stays, as Custom', async ({ page }) => {
     await readFrom(page, { protocol: 'openspool', version: '1.0', type: 'PLA', brand: 'Bambu Lab', subtype: 'SnapSpeed', color_hex: '000000' });
     await expect(page.getByLabel('Custom variant')).toHaveValue('SnapSpeed');
-    await page.getByRole('button', { name: 'Update tag' }).click();
+    await page.getByRole('button', { name: 'Update this tag' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
     expect((await lastWrite(page)).subtype).toBe('SnapSpeed');
   });

@@ -135,7 +135,7 @@ test.describe('Color database', () => {
     await page.goto('/');
     // the warning also shows on the menu row, so it isn't hidden behind a tap
     await page.getByRole('tab', { name: 'Settings' }).click();
-    await expect(page.getByRole('button', { name: /^Brand colors/ })).toContainText('Out of date');
+    await expect(page.getByRole('button', { name: /^Colors/ })).toContainText('Out of date');
     const c = await openCard(page);
     await expect(c.getByRole('alert')).toContainText('30 days old or more');
     await expect(page.locator('summary', { hasText: 'Color database' })).toContainText('Out of date');

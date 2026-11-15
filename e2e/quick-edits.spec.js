@@ -13,9 +13,9 @@ const tap = (page, name) => card(page).getByRole('button', { name, exact: true }
 const changes = (page) => card(page).getByRole('list', { name: 'Changes' });
 
 test.describe('Quick edits', () => {
-  test('shows on Read & update after a read, and not before or on Create', async ({ page }) => {
+  test('shows after a read, and not before or after New tag', async ({ page }) => {
     await expect(card(page)).toHaveCount(0);
-    await page.getByRole('tab', { name: 'Read & update' }).click();
+    await page.getByRole('tab', { name: 'Tag' }).click();
     await expect(card(page)).toHaveCount(0);
     await placeTag(page, TAG);
     await readTag(page);
@@ -23,12 +23,12 @@ test.describe('Quick edits', () => {
     await expect(weight(page)).toHaveValue('1000');
     await expect(nozzle(page, 'min')).toHaveValue('190');
     await expect(nozzle(page, 'max')).toHaveValue('220');
-    await goCreate(page);
+    await page.getByRole('button', { name: 'New tag', exact: true }).click();
     await expect(card(page)).toHaveCount(0);
   });
 
   test('weight changes by 10 and by 50', async ({ page }) => {
-    await page.getByRole('tab', { name: 'Read & update' }).click();
+    await page.getByRole('tab', { name: 'Tag' }).click();
     await placeTag(page, TAG);
     await readTag(page);
     await tap(page, 'Weight plus 10');
@@ -42,7 +42,7 @@ test.describe('Quick edits', () => {
   });
 
   test('weight stops at 0', async ({ page }) => {
-    await page.getByRole('tab', { name: 'Read & update' }).click();
+    await page.getByRole('tab', { name: 'Tag' }).click();
     await placeTag(page, { ...TAG, weight: '30' });
     await readTag(page);
     await tap(page, 'Weight minus 50');
@@ -52,7 +52,7 @@ test.describe('Quick edits', () => {
   });
 
   test('temperatures change by 5 and the cards below agree', async ({ page }) => {
-    await page.getByRole('tab', { name: 'Read & update' }).click();
+    await page.getByRole('tab', { name: 'Tag' }).click();
     await placeTag(page, TAG);
     await readTag(page);
     await tap(page, 'Nozzle max plus 5');
@@ -66,7 +66,7 @@ test.describe('Quick edits', () => {
   });
 
   test('typing a number works too', async ({ page }) => {
-    await page.getByRole('tab', { name: 'Read & update' }).click();
+    await page.getByRole('tab', { name: 'Tag' }).click();
     await placeTag(page, TAG);
     await readTag(page);
     await weight(page).fill('850');
@@ -76,7 +76,7 @@ test.describe('Quick edits', () => {
   });
 
   test('lists what changed, with the old value, and Undo changes puts it back', async ({ page }) => {
-    await page.getByRole('tab', { name: 'Read & update' }).click();
+    await page.getByRole('tab', { name: 'Tag' }).click();
     await placeTag(page, TAG);
     await readTag(page);
     await expect(changes(page)).toHaveCount(0);
@@ -100,7 +100,7 @@ test.describe('Quick edits', () => {
   });
 
   test('a change put back by hand leaves the list', async ({ page }) => {
-    await page.getByRole('tab', { name: 'Read & update' }).click();
+    await page.getByRole('tab', { name: 'Tag' }).click();
     await placeTag(page, TAG);
     await readTag(page);
     await tap(page, 'Weight plus 10');
@@ -110,14 +110,14 @@ test.describe('Quick edits', () => {
   });
 
   test('Update tag writes the quick edits, and nothing is written before', async ({ page }) => {
-    await page.getByRole('tab', { name: 'Read & update' }).click();
+    await page.getByRole('tab', { name: 'Tag' }).click();
     await placeTag(page, TAG);
     await readTag(page);
     await tap(page, 'Weight minus 50');
     await tap(page, 'Nozzle min plus 5');
     await tap(page, 'Nozzle max plus 5');
     expect(await writeCount(page)).toBe(0);
-    await page.getByRole('button', { name: 'Update tag' }).click();
+    await page.getByRole('button', { name: 'Update this tag' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
     await expect(status(page)).toHaveText('Tag written.');
     const written = await lastWrite(page);
@@ -127,7 +127,7 @@ test.describe('Quick edits', () => {
   });
 
   test('a weight that is not set starts at 1000 g and can not go down', async ({ page }) => {
-    await page.getByRole('tab', { name: 'Read & update' }).click();
+    await page.getByRole('tab', { name: 'Tag' }).click();
     await placeTag(page, { ...TAG, weight: undefined, bed_min_temp: '60', bed_max_temp: '70' }); // a U1 tag without weight
     await readTag(page);
     await expect(weight(page)).toHaveValue('');
@@ -142,7 +142,7 @@ test.describe('Quick edits', () => {
   });
 
   test('a tag without U1 fields shows no weight, only a hint', async ({ page }) => {
-    await page.getByRole('tab', { name: 'Read & update' }).click();
+    await page.getByRole('tab', { name: 'Tag' }).click();
     await placeTag(page, PLAIN_TAG);
     await readTag(page);
     await expect(card(page)).toBeVisible();
@@ -156,7 +156,7 @@ test.describe('Quick edits', () => {
   });
 
   test('a min above the max shows the usual message in the card', async ({ page }) => {
-    await page.getByRole('tab', { name: 'Read & update' }).click();
+    await page.getByRole('tab', { name: 'Tag' }).click();
     await placeTag(page, TAG);
     await readTag(page);
     await nozzle(page, 'min').fill('300');
@@ -164,7 +164,7 @@ test.describe('Quick edits', () => {
   });
 
   test('Read another starts again from the new tag', async ({ page }) => {
-    await page.getByRole('tab', { name: 'Read & update' }).click();
+    await page.getByRole('tab', { name: 'Tag' }).click();
     await placeTag(page, TAG);
     await readTag(page);
     await tap(page, 'Weight plus 50');

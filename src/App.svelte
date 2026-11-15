@@ -7,6 +7,7 @@
   import NfcSheet from './components/NfcSheet.svelte';
   import TagDetails from './components/TagDetails.svelte';
   import Settings from './components/Settings.svelte';
+  import TabBar from './components/TabBar.svelte';
   import Fold from './components/Fold.svelte';
   import MyFilaments from './components/MyFilaments.svelte';
   import ConfirmWrite from './components/ConfirmWrite.svelte';
@@ -36,7 +37,7 @@
   const nfc = getNfc();
   const buildLabel = buildParts(__BUILD__);
 
-  let mode = $state('create'); // 'create' | 'filaments' | 'update' | 'settings'
+  let mode = $state('tag'); // 'tag' | 'filaments' | 'settings'
   let defaults = $state(Defaults.load()); // what new tags start with (Settings)
   let form = $state(Defaults.newForm(defaults));
   let loaded = $state(null); // { tag, raw, unknownKeys, notes, before } after a read (before: the quick-edit fields as read)
@@ -47,11 +48,12 @@
   let nextMessage = 0;
   let showErrors = $state(false);
   let colorSection = $state();
-  // Read & update shows the same cards as Create, but remembers which are open
-  // on its own, and starts with only Quick edits open
-  const reading = $derived(mode === 'update');
+  // A tag you read is edited in the same cards as a new tag, but they remember
+  // which are open on their own, and start with only Quick edits open
+  const fromTag = $derived(!!(loaded && !loaded.empty));
+  const reading = $derived(fromTag);
   const foldId = (name) => (reading ? `read-${name}` : name);
-  let suggestions = $state(null); // closest brand colors, shown in Quick edits on Read & update
+  let suggestions = $state(null); // closest brand colors, shown in Quick edits for a tag you read
   let backTo = $state('');
   let pickedColorName = $state('');
 
@@ -204,12 +206,13 @@
     ColorUpdates.requestChanges();
   }
 
+  const nfcReady = $derived(nfcState.available && nfcState.enabled !== false);
   const u1 = $derived(form.profile === 'u1');
   const errors = $derived(OpenSpool.validate(form));
   const errorFor = (field) => (showErrors ? errors.find((e) => e.field === field)?.message || '' : '');
   const colorErrors = $derived(showErrors ? errors.filter((e) => e.field.startsWith('color')) : []);
 
-  // The folding cards on Create: what each says while it's shut, and when an
+  // The folding cards on the Tag screen: what each says while it's shut, and when an
   // error inside it needs it open
   const range = (a, b) => (a && b ? `${a}–${b}` : a || b || '');
   const filamentSummary = $derived([form.brand, form.type, u1 ? form.subtype : ''].filter(Boolean).join(' · ') || 'Nothing chosen');
@@ -235,7 +238,7 @@
   const message = $derived(data ? encodeMessage([mimeRecord(OpenSpool.MIME_TYPE, payload)]) : new Uint8Array(0));
   // The series goes away once what would be written is no longer what it counted
   const tagKey = $derived(data ? JSON.stringify(data) : '');
-  const seriesNow = $derived(mode === 'create' ? WriteSeries.current(series, tagKey) : null);
+  const seriesNow = $derived(mode === 'tag' && !fromTag ? WriteSeries.current(series, tagKey) : null);
   // Room on the tag for an NDEF message: what the phone reported, else an
   // NTAG215 (the smallest tag OpenSpool supports)
   const capacity = $derived(
@@ -332,14 +335,14 @@
     const f = formFor(entry);
     const problems = OpenSpool.validate(f);
     if (problems.length) {
-      say(`${problems[0].message} Open Create to fix it.`, 'error');
+      say(`${problems[0].message} Tap the filament and choose Edit first to fix it.`, 'error');
       return;
     }
     const built = OpenSpool.build(f);
     const bytes = encodeMessage([mimeRecord(OpenSpool.MIME_TYPE, new TextEncoder().encode(JSON.stringify(built)))]);
     const room = maxMessageSize(NTAG.NTAG215.userBytes);
     if (bytes.length > room) {
-      say(`The data is ${bytes.length} bytes, more than the ${room} that fit on an NTAG215. Remove some colors from it on Create.`, 'error');
+      say(`The data is ${bytes.length} bytes, more than the ${room} that fit on an NTAG215. Tap the filament and choose Edit first to remove some colors.`, 'error');
       return;
     }
     say(null);
@@ -366,6 +369,15 @@
       sheet = null;
       if (e.code !== 'CANCELLED') say(e.message, 'error');
     }
+  }
+
+  // Edit first: the spool fills the Tag form, as a new tag, so you can change it before writing
+  async function editFilament(entry) {
+    form = formFor(entry);
+    loaded = null;
+    showErrors = false;
+    await switchMode('tag');
+    say(`Filled from ${entry.name || Filaments.title(entry)}. Change what you need, then write the tag.`, 'info');
   }
 
   function finishRun() {
@@ -404,6 +416,7 @@
   }
 
   async function startOver() {
+    loaded = null;
     form = Defaults.newForm(defaults);
     showErrors = false;
     offer = null;
@@ -415,9 +428,9 @@
 
   async function switchMode(next) {
     if (next === mode) return;
-    // The form (and its color lists) is gone from the page on Settings, Filaments and
-    // Read & update before a tag is read, so it comes back not knowing its picked color
-    const formWasShown = mode === 'create' || (mode === 'update' && loaded && !loaded.empty);
+    // The form (and its color lists) is gone from the page on Settings and Filaments,
+    // so it comes back not knowing its picked color
+    const formWasShown = mode === 'tag';
     mode = next;
     offer = null;
     series = null;
@@ -480,7 +493,7 @@
     if (!parsed) {
       loaded = { tag: result.tag, raw: null, unknownKeys: [], notes: [], empty: true };
       if (result.unreadable) say('This tag couldn’t be read as NDEF. It may be blank, locked or another kind of tag.', 'error');
-      else if (!result.records.length) say('This tag is blank. Use Create to write a new OpenSpool tag to it.', 'info');
+      else if (!result.records.length) say('This tag is blank. Fill in the form and tap Write tag to put an OpenSpool record on it.', 'info');
       else say(problem || 'This tag doesn’t hold an OpenSpool record.', 'error');
       return;
     }
@@ -493,27 +506,29 @@
     loaded = { tag: result.tag, raw: parsed.raw, unknownKeys: parsed.unknownKeys, notes: parsed.notes, empty: false, before: QuickEditsLib.snapshot(form) };
     showErrors = true;
     series = null;
-    mode = 'update';
+    mode = 'tag';
     // The saved-colors panel may only now be on screen; let it mount first
     await tick();
     colorSection?.afterLoad();
     say('Tag read. Change what you need, then update the tag.', 'ok');
   }
 
-  async function writeTag() {
+  async function writeTag(asNew = false) {
     showErrors = true;
     if (errors.length) {
       say(`Fix ${errors.length === 1 ? 'the highlighted field' : `the ${errors.length} highlighted fields`} first.`, 'error');
       focusFirstError();
       return;
     }
-    if (message.length > capacity) {
-      say(`The data is ${message.length} bytes, more than the ${capacity} that fit on ${capacityLabel}. Remove some colors or fields.`, 'error');
+    // A new tag after a read is another tag, so the one that was read doesn't set the room
+    const room = asNew && fromTag ? maxMessageSize(NTAG.NTAG215.userBytes) : capacity;
+    if (message.length > room) {
+      say(`The data is ${message.length} bytes, more than the ${room} that fit on ${asNew && fromTag ? 'an NTAG215' : capacityLabel}. Remove some colors or fields.`, 'error');
       return;
     }
     say(null);
     offer = null;
-    const updating = mode === 'update' && loaded && !loaded.empty;
+    const updating = fromTag && !asNew;
     sheet = { mode: 'write', wrongUid: '' };
     try {
       const record = mimeRecord(OpenSpool.MIME_TYPE, payload);
@@ -526,11 +541,13 @@
       sheet = null;
       // The colors are now a picked saved color (named after the brand color)
       colorSection?.afterWrite();
+      // The spool you read, written to another tag: from here on it's a new tag, counted as a series
+      if (asNew && fromTag) loaded = null;
       saveCustomsFromForm();
       if (nfc.kind === 'native' && !r.verified) {
         say('Tag written, but reading it back didn’t match. Read the tag to check it.', 'error');
       } else {
-        // Create: count it toward this spool's series. The same tag twice in a
+        // A new tag: count it toward this spool's series. The same tag twice in a
         // row (the app can tell) was rewritten, but isn't a new tag.
         let repeat = false;
         if (!updating) {
@@ -565,12 +582,6 @@
 <div class="page">
   <header>
     <h1>FilaScribe</h1>
-    <div class="modes" role="tablist" aria-label="Mode">
-      <button type="button" role="tab" aria-selected={mode === 'create'} onclick={() => switchMode('create')}>Create</button>
-      <button type="button" role="tab" aria-selected={mode === 'filaments'} onclick={() => switchMode('filaments')}>Filaments</button>
-      <button type="button" role="tab" aria-selected={mode === 'update'} onclick={() => switchMode('update')}>Read & update</button>
-      <button type="button" role="tab" aria-selected={mode === 'settings'} onclick={() => switchMode('settings')}>Settings</button>
-    </div>
   </header>
 
   {#if mode !== 'settings' && (!nfcState.available || nfcState.enabled === false)}
@@ -589,15 +600,15 @@
     <Settings {form} bind:defaults bind:chips bind:shownBrands bind:shownMaterials bind:hiddenVariants bind:filaments bind:autoFilaments {brandData} onbranddata={(db) => (rawBrandData = db)} onstatus={(t, isError) => say(t, isError ? 'error' : 'ok')} />
   {:else if mode === 'filaments'}
     <div class="tabpage">
-      <MyFilaments list={filaments} current={fRun ? Filaments.keyOf(fRun.entry) : ''} onuse={(e) => (pending = e)} onremove={removeFilament} onchange={changeFilament} ongocreate={() => switchMode('create')} />
+      <MyFilaments list={filaments} current={fRun ? Filaments.keyOf(fRun.entry) : ''} onuse={(e) => (pending = e)} onremove={removeFilament} onchange={changeFilament} ongocreate={() => switchMode('tag')} />
     </div>
-  {:else if mode === 'update' && (!loaded || loaded.empty)}
-    <section class="empty">
-      <h2>Read a tag to change it</h2>
-      <p>Tap Read tag, then hold an OpenSpool tag to your phone. Its details load here so you can edit and write them back.</p>
-      {#if loaded?.tag}<TagDetails tag={loaded.tag} />{/if}
-    </section>
   {:else}
+    {#if fromTag}
+      <div class="source" role="group" aria-label="Where this form came from">
+        <span class="source-label">From a tag you read</span>
+        <button type="button" class="btn small" onclick={startOver}>New tag</button>
+      </div>
+    {/if}
     <SpoolPreview
       colors={visibleColors}
       {gradient}
@@ -611,7 +622,7 @@
       {capacityLabel}
     />
 
-    {#if mode === 'update' && loaded && !loaded.empty}
+    {#if fromTag}
       <QuickEdits
         {form}
         before={loaded.before}
@@ -627,6 +638,8 @@
         onback={() => colorSection?.backToMine()}
       />
     {/if}
+
+    {#if loaded?.empty && loaded.tag}<TagDetails tag={loaded.tag} />{/if}
 
     <form class="form" onsubmit={(e) => { e.preventDefault(); writeTag(); }} novalidate>
       <div
@@ -701,7 +714,7 @@
         errors={colorErrors}
         foldId={foldId('colors')}
         foldOpen={!reading}
-        showSuggestions={!(mode === 'update' && loaded && !loaded.empty)}
+        showSuggestions={!fromTag}
         bind:suggestions
         bind:backTo
         bind:colorName={pickedColorName}
@@ -745,12 +758,12 @@
         <pre>{data ? JSON.stringify(data, null, 2) : 'Fix the colors to see the data.'}</pre>
       </Fold>
 
-      {#if mode === 'update' && loaded && !loaded.empty}
+      {#if fromTag}
         <TagDetails tag={loaded.tag} raw={loaded.raw} unknownKeys={loaded.unknownKeys} notes={loaded.notes} />
       {/if}
 
       <div class="form-actions">
-        {#if mode === 'create'}
+        {#if !fromTag}
           <button type="button" class="btn start-over" onclick={startOver}>Start over</button>
         {/if}
         <button type="button" class="btn save-spool" onclick={saveFilament}>+ Save this spool as a filament</button>
@@ -765,7 +778,7 @@
   </footer>
 </div>
 
-{#if (mode !== 'settings' && (mode !== 'filaments' || fRun)) || messages.length || colorNotice}
+{#if mode === 'tag' || (mode === 'filaments' && fRun) || messages.length || colorNotice}
 <div class="dock">
   <div class="dock-inner">
     {#if offerNow}
@@ -816,20 +829,22 @@
         <button type="button" class="btn" onclick={finishRun}>Done</button>
         <button type="button" class="btn primary wide" onclick={() => writeFilament(fRun.entry)} disabled={!nfcState.available || nfcState.enabled === false}>Write another tag</button>
       </div>
-    {:else if mode !== 'settings' && mode !== 'filaments'}
+    {:else if mode === 'tag'}
     <div class="dock-actions">
-      {#if mode === 'create' && seriesNow}
+      {#if fromTag}
+        <button type="button" class="btn" onclick={readTag} disabled={!nfcReady}>Read tag</button>
+        <button type="button" class="btn primary wide" onclick={() => writeTag()} disabled={!nfcReady}>Update this tag</button>
+      {:else if seriesNow}
         <button type="button" class="btn" onclick={finishSeries}>Done</button>
-        <button type="button" class="btn primary wide" onclick={writeTag} disabled={!nfcState.available || nfcState.enabled === false}>Write another tag</button>
-      {:else if mode === 'create'}
-        <button type="button" class="btn primary wide" onclick={writeTag} disabled={!nfcState.available || nfcState.enabled === false}>Write tag</button>
-      {:else if !loaded || loaded.empty}
-        <button type="button" class="btn primary wide" onclick={readTag} disabled={!nfcState.available || nfcState.enabled === false}>Read tag</button>
+        <button type="button" class="btn primary wide" onclick={() => writeTag()} disabled={!nfcReady}>Write another tag</button>
       {:else}
-        <button type="button" class="btn" onclick={readTag} disabled={!nfcState.available || nfcState.enabled === false}>Read another</button>
-        <button type="button" class="btn primary wide" onclick={writeTag} disabled={!nfcState.available || nfcState.enabled === false}>Update tag</button>
+        <button type="button" class="btn" onclick={readTag} disabled={!nfcReady}>Read tag</button>
+        <button type="button" class="btn primary wide" onclick={() => writeTag()} disabled={!nfcReady}>Write tag</button>
       {/if}
     </div>
+    {#if fromTag}
+      <button type="button" class="btn small new-tag" onclick={() => writeTag(true)} disabled={!nfcReady}>Write to a new tag instead</button>
+    {/if}
     {/if}
   </div>
 </div>
@@ -842,9 +857,12 @@
     defaults={confirmText(pending)}
     swatch={Filaments.swatch(pending)}
     onwrite={() => writeFilament(pending)}
+    onedit={() => { const e = pending; pending = null; editFilament(e); }}
     oncancel={() => (pending = null)}
   />
 {/if}
+
+<TabBar {mode} onswitch={switchMode} />
 
 {#if sheet}
   <NfcSheet mode={sheet.mode} wrongUid={sheet.wrongUid} note={sheet.mode === 'write' ? sheet.note || (seriesNow ? `Tag ${seriesNow.count + 1} of this spool` : '') : ''} oncancel={cancelNfc} />
@@ -854,26 +872,23 @@
   .page {
     max-width: 560px;
     margin: 0 auto;
-    padding: calc(var(--s4) + env(safe-area-inset-top)) var(--s4) 180px;
+    padding: calc(var(--s4) + env(safe-area-inset-top)) var(--s4) calc(180px + var(--tabbar-h));
   }
   header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s3); }
   h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: 0.01em; }
   .tabpage { margin-top: var(--s4); }
-  .modes { display: flex; width: 100%; gap: 2px; padding: 3px; border-radius: var(--r-control); background: var(--chip); }
-  .modes button {
-    flex: 1;
-    white-space: nowrap;
-    min-height: var(--h-chip);
-    padding: 0 var(--s2);
-    border: 0;
-    border-radius: calc(var(--r-control) - 3px);
-    background: transparent;
-    font-family: var(--font-label);
-    font-weight: 600;
-    font-size: 0.9375rem;
-    color: var(--muted);
+  .source {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s2);
+    margin-top: var(--s4);
+    padding: var(--s2) var(--s3);
+    border: 1px solid var(--highlight);
+    border-radius: var(--r-card);
+    background: var(--surface);
   }
-  .modes button[aria-selected='true'] { background: var(--surface); color: var(--ink); }
+  .source-label { font-family: var(--font-label); font-weight: 600; font-size: 0.875rem; color: var(--highlight); }
 
   :global(.banner-msg) { margin-top: var(--s4); }
 
@@ -931,7 +946,7 @@
     position: fixed;
     left: 0;
     right: 0;
-    bottom: 0;
+    bottom: var(--tabbar-h);
     z-index: 10;
     background: color-mix(in srgb, var(--bg) 92%, transparent);
     border-top: 1px solid var(--line);
@@ -940,13 +955,14 @@
   .dock-inner {
     max-width: 560px;
     margin: 0 auto;
-    padding: var(--s3) var(--s4) calc(var(--s3) + env(safe-area-inset-bottom));
+    padding: var(--s3) var(--s4);
     display: grid;
     gap: var(--s2);
   }
   .dock-actions { display: flex; gap: var(--s2); }
   .wide { flex: 1; min-height: 52px; font-size: 1.125rem; }
   .dock-actions .btn:not(.wide) { min-height: 52px; }
+  .new-tag { justify-self: stretch; }
   .series { margin: 0; font-size: 0.8125rem; color: var(--muted); }
   .bar { display: block; height: 6px; margin: var(--s2) 0; border-radius: 3px; background: var(--chip); overflow: hidden; }
   .bar span { display: block; height: 100%; background: var(--highlight); }

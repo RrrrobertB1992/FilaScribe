@@ -2,7 +2,7 @@ import { test, expect, colorStyle, lastWrite, writeCount, chip, writeTag, status
 
 test.describe('Create', () => {
   test('writes the default tag', async ({ page }) => {
-    await expect(page.getByRole('tab', { name: 'Create' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tab', { name: 'Tag' })).toHaveAttribute('aria-selected', 'true');
     await writeTag(page);
     await expect(status(page)).toHaveText('Tag written.');
     expect(await lastWrite(page)).toEqual({

@@ -38,6 +38,7 @@
   --h-chip: 40px; /* chips, tabs and the segmented switches */
   --h-control: 44px; /* inputs, buttons, steppers */
   --h-row: 56px; /* tappable rows and card headers */
+  --tabbar-h: calc(61px + env(safe-area-inset-bottom)); /* the bottom bar: 60 px and its top line */
   color-scheme: light;
 }
 

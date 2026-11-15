@@ -118,17 +118,16 @@ test.describe('Write several tags in a row', () => {
     await expect(count(page)).toHaveCount(0);
   });
 
-  test('Read & update keeps its own buttons', async ({ page }) => {
-    await write(page, writeButton(page));
+  test('a tag you read has its own buttons', async ({ page }) => {
     await placeTag(page, { protocol: 'openspool', version: '1.0', type: 'PLA', color_hex: 'FF0000', brand: 'Generic', min_temp: '190', max_temp: '220' });
-    await page.getByRole('tab', { name: 'Read & update' }).click();
+    await page.getByRole('tab', { name: 'Tag' }).click();
     await page.getByRole('button', { name: 'Read tag' }).click();
-    await expect(page.getByRole('button', { name: 'Update tag' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Read another' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Update this tag' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Read tag' })).toBeVisible();
     await expect(writeAnother(page)).toHaveCount(0);
     await expect(count(page)).toHaveCount(0);
 
-    await page.getByRole('button', { name: 'Update tag' }).click();
+    await page.getByRole('button', { name: 'Update this tag' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
     await expect(status(page)).toHaveText('Tag written.');
     await expect(count(page)).toHaveCount(0);
