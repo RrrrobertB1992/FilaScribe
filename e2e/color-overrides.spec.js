@@ -39,7 +39,7 @@ test.describe('Color overrides', () => {
     await expect(brandTile(page, 'Black')).toContainText('111111');
     await expect(header(page).locator('.now-name')).toHaveText('Black (#000000)');
     await expect(header(page).locator('.now-hex')).toHaveText('#111111');
-    await expect(header(page).locator('.swatch.edited')).toBeVisible();
+    await expect(header(page).locator('.reel.edited')).toBeVisible();
     await editBtn(page).click();
     await expect(box(page).getByRole('button', { name: 'Reset to database' })).toBeVisible();
   });

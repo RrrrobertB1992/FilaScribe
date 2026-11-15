@@ -1,6 +1,7 @@
 <script>
   import { circleFill } from '../lib/swatch.js';
   import { getCircleStyle } from '../lib/swatchStyleStore.svelte.js';
+  import Reel from './Reel.svelte';
   // The spool as it will be described by the tag.
   let { colors = ['FFFFFF'], gradient = false, type = '', brand = '', variant = '', nozzle = '', bed = '', bytes = 0, capacity = 0, capacityLabel = '' } = $props();
 
@@ -13,10 +14,7 @@
 </script>
 
 <section class="spool" aria-label="Tag preview">
-  <div class="reel" aria-hidden="true">
-    <div class="filament" style:background={fill}></div>
-    <div class="hub"></div>
-  </div>
+  <Reel {fill} />
   <div class="facts">
     <p class="name">{name || (type ? type : 'Pick a brand and material')}</p>
     {#if nozzle || bed}<p class="meta">{[nozzle && `Nozzle ${nozzle} °C`, bed && `Bed ${bed} °C`].filter(Boolean).join(' · ')}</p>{/if}
@@ -41,30 +39,6 @@
     padding: var(--s4);
     border: 1px solid var(--line);
     border-radius: var(--r-card);
-    background: var(--surface);
-  }
-  .reel {
-    position: relative;
-    width: 68px;
-    aspect-ratio: 1;
-    border-radius: 50%;
-    background: var(--ink);
-    padding: 4px;
-  }
-  .filament {
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    /* the wound filament: a thick ring */
-    mask: radial-gradient(circle, transparent 37%, #000 38%, #000 100%);
-    -webkit-mask: radial-gradient(circle, transparent 37%, #000 38%, #000 100%);
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
-  }
-  .hub {
-    position: absolute;
-    inset: 34%;
-    border-radius: 50%;
-    border: 4px solid var(--ink);
     background: var(--surface);
   }
   .facts { min-width: 0; display: grid; gap: 2px; }
