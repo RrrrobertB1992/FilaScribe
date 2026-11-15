@@ -44,6 +44,6 @@
   .circle { width: 40px; height: 40px; border-radius: 50%; }
   .bar { width: 100%; height: 26px; border-radius: 6px; }
   .small { width: 28px; height: 28px; border-radius: 50%; }
-  .medium { width: 50%; aspect-ratio: 1; border-radius: 50%; }
+  .medium { width: calc(14px + 50%); aspect-ratio: 1; border-radius: 50%; }
   .large { width: 100%; aspect-ratio: 1; border-radius: 50%; }
 </style>

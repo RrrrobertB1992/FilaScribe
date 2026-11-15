@@ -29,6 +29,7 @@
   .bar.round { display: grid; place-items: center; height: auto; min-height: 44px; overflow: visible; box-shadow: none; }
   .disc { display: block; aspect-ratio: 1; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25); }
   .disc.small { width: 44px; }
-  .disc.medium { width: 50%; }
+  /* Halfway between Small (44px) and Large (the full width) */
+  .disc.medium { width: calc(22px + 50%); }
   .disc.large { width: 100%; }
 </style>

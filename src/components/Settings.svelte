@@ -1019,7 +1019,7 @@
     {#if getTileStyle() === 'around'}
       <div class="size-row" transition:fold>
         <SwatchPicker label="Tile circle size" items={SIZE_ITEMS} value={getTileSize()} onpick={setTileSize} />
-        <p class="hint">Small is as tall as a color box, Medium is half a tile wide, Large is the full width of the tile.</p>
+        <p class="hint">Small is as tall as a color box, Medium is halfway between, Large is the full width of the tile.</p>
       </div>
     {/if}
     <Palette label="Animation speed" items={SPEED_ITEMS} bind:value={speed} allowCustom={false} onpick={setSpeed} />
