@@ -960,8 +960,9 @@
     gap: var(--s2);
   }
   .dock-actions { display: flex; gap: var(--s2); }
-  .wide { flex: 1; min-height: 52px; font-size: 1.125rem; }
-  .dock-actions .btn:not(.wide) { min-height: 52px; }
+  /* The same height as the OpenSpool / U1 switch buttons above */
+  .dock .btn { min-height: var(--h-chip); padding-top: 0; padding-bottom: 0; font-size: 1rem; }
+  .wide { flex: 1; }
   .new-tag { justify-self: stretch; }
   .series { margin: 0; font-size: 0.8125rem; color: var(--muted); }
   .bar { display: block; height: 6px; margin: var(--s2) 0; border-radius: 3px; background: var(--chip); overflow: hidden; }
