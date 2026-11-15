@@ -15,6 +15,7 @@
   import EmptyState from './EmptyState.svelte';
   import { normalizeHex } from '../lib/formats/openspool.js';
   import * as Manual from '../lib/manualColors.js';
+  import { diagonal } from '../lib/swatch.js';
   import { getEdits, setEdit, removeEdit, withManual } from '../lib/manualColorsStore.svelte.js';
 
   let {
@@ -380,11 +381,7 @@
     closeEditor();
   }
 
-  function bar(info) {
-    const list = info.colors.map((h) => `#${h}`);
-    if (list.length > 1 && info.gradient) return `linear-gradient(to right, ${list.join(', ')})`;
-    return null;
-  }
+  const bar = (info) => diagonal(info.colors, info.gradient);
 
   function filterNote() {
     const lines = `${result.lines.length} ${result.lines.length === 1 ? 'line' : 'lines'}`;
@@ -436,9 +433,7 @@
               title={`${tile.info.name}, ${[tile.line.name, ...tile.alsoIn].join(' / ')}: ${tile.info.colors.map((h) => '#' + h).join(' + ')}${tile.info.original ? ` (your override; database: ${tile.info.original.map((h) => '#' + h).join(' + ')})` : ''}`}
               onclick={() => (isPicked ? unpick() : pick(tile))}
             >
-              <span class="bar" style:background={bar(tile.info)} aria-hidden="true">
-                {#if !bar(tile.info)}{#each tile.info.colors as h}<span style:background={`#${h}`}></span>{/each}{/if}
-              </span>
+              <span class="bar" style:background={bar(tile.info)} aria-hidden="true"></span>
               <span class="name">{tile.info.name}</span>
               <span class="hex">{tile.info.colors.join('\n')}</span>
               {#if tile.info.original}<span class="edited-tag">Edited</span>{/if}
@@ -634,7 +629,6 @@
     overflow: hidden;
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
   }
-  .bar span { flex: 1; }
   .name { font-size: 0.8125rem; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
   .hex { font-family: var(--font-label); font-size: 0.8125rem; white-space: pre-line; line-height: 1.2; letter-spacing: 0.04em; color: var(--muted); }
   .multi { font-size: 0.6875rem; font-weight: 700; color: var(--action); line-height: 1.2; }

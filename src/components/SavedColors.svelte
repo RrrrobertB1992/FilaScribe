@@ -7,6 +7,7 @@
   // material only, not to a variant. (The variants are still recorded, but
   // nothing here uses them.)
   import { exportJson, readJsonFile } from '../lib/backup.js';
+  import { diagonal } from '../lib/swatch.js';
   import { fold, morph } from '../lib/motion.js';
   import HsvPicker from './HsvPicker.svelte';
   import EmptyState from './EmptyState.svelte';
@@ -291,11 +292,7 @@
     }
   }
 
-  function bar(entry) {
-    const list = entry.colors.map((h) => `#${h}`);
-    if (list.length > 1 && entry.colorType === '0') return `linear-gradient(to right, ${list.join(', ')})`;
-    return null;
-  }
+  const bar = (entry) => diagonal(entry.colors, entry.colorType === '0');
 
   function tileTitle(entry) {
     let t = entry.colors.map((h) => '#' + h).join(' + ');
@@ -326,9 +323,7 @@
               title={tileTitle(entry)}
               onclick={() => (isSel ? deselect() : select(entry))}
             >
-              <span class="bar" style:background={bar(entry)} aria-hidden="true">
-                {#if !bar(entry)}{#each entry.colors as h}<span style:background={`#${h}`}></span>{/each}{/if}
-              </span>
+              <span class="bar" style:background={bar(entry)} aria-hidden="true"></span>
               <span class="name">{entry.name || ' '}</span>
               <span class="hex">{entry.colors.join('\n')}</span>
             </button>
@@ -510,7 +505,6 @@
     overflow: hidden;
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
   }
-  .bar span { flex: 1; }
   .name { font-size: 0.8125rem; font-weight: 700; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .hex { font-family: var(--font-label); font-size: 0.8125rem; white-space: pre-line; line-height: 1.2; letter-spacing: 0.04em; color: var(--muted); }
   .saved > .hint { margin: 0; }
