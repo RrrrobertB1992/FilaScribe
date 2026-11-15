@@ -1,7 +1,7 @@
 // How a spool's colors are drawn (Settings → Appearance), three choices kept
 // on the device. Each is stored only when it isn't the default.
 //   circle: round swatches (spool preview, color slots, closest colors, My filaments, Settings)
-//   tile:   the Brand and Saved color tiles; 'around' draws a circle on tiles with 2+ colors
+//   tile:   the Brand and Saved color tiles; 'around' draws a circle on every tile
 //   size:   how big that circle is on a tile (small = as tall as a color box, medium = half a
 //           tile wide, large = the full tile width); only used when tile is 'around'
 export const CIRCLE_KEY = 'filascribe-swatch-circle';

@@ -1,12 +1,12 @@
 <script>
-  // The color box at the top of a Brand or Saved color tile. One color is always
-  // a plain box. With more than one, it follows Settings → Appearance: vertical or
-  // angled bands, or a circle (Around) at the chosen size.
+  // The color box at the top of a Brand or Saved color tile. It follows Settings →
+  // Appearance: vertical or angled bands, or a circle (Around) at the chosen size.
+  // With Around every tile is a circle, a single color included.
   import { around, tileFill } from '../lib/swatch.js';
   import { getTileStyle, getTileSize } from '../lib/swatchStyleStore.svelte.js';
 
   let { colors, gradient = false } = $props();
-  const round = $derived(getTileStyle() === 'around' && colors.length > 1);
+  const round = $derived(getTileStyle() === 'around');
 </script>
 
 {#if round}
