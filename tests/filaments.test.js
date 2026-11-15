@@ -128,4 +128,35 @@ describe('My filaments', () => {
     expect(F.load(storage)[0]).toMatchObject({ name: 'Everyday', pinned: true });
     expect(F.load(memoryStorage({ [F.STORAGE_KEY]: JSON.stringify([{ ...e, name: 5, note: {}, pinned: 'yes' }]) }))[0]).toEqual(e);
   });
+
+  it('sorts by brand, material or last used, pinned first, and remembers the choice', () => {
+    const mk = (brand, type, extra = {}) => ({ ...F.fromForm(form({ brand, type, subtype: '' })), ...extra });
+    // Saved order (newest first)
+    const list = [mk('Sunlu', 'PLA'), mk('Elegoo', 'PETG', { used: 50 }), mk('anycubic', 'PLA', { used: 90 }), mk('Polymaker', 'ABS', { pinned: true })];
+    const names = (sort) => F.ordered(list, sort).map((e) => e.brand);
+    expect(names('newest')).toEqual(['Polymaker', 'Sunlu', 'Elegoo', 'anycubic']);
+    expect(names('brand')).toEqual(['Polymaker', 'anycubic', 'Elegoo', 'Sunlu']);
+    expect(names('material')).toEqual(['Polymaker', 'Elegoo', 'anycubic', 'Sunlu']);
+    // Never written ones stay below, in the saved order
+    expect(names('used')).toEqual(['Polymaker', 'anycubic', 'Elegoo', 'Sunlu']);
+    expect(names('junk')).toEqual(names('newest'));
+    expect(list[0].brand).toBe('Sunlu');
+
+    // Writing a tag stamps a saved filament only, without changing which spool it is
+    const stamped = F.markUsed(list, list[0], 1234);
+    expect(stamped[0].used).toBe(1234);
+    expect(F.keyOf(stamped[0])).toBe(F.keyOf(list[0]));
+    expect(F.markUsed(list, mk('Nobody', 'PLA'), 1)).toBe(list);
+    const storage = memoryStorage();
+    F.store(stamped, storage);
+    expect(F.load(storage)[0].used).toBe(1234);
+    expect(F.load(memoryStorage({ [F.STORAGE_KEY]: JSON.stringify([{ ...list[0], used: 'yesterday' }]) }))[0].used).toBeUndefined();
+
+    expect(F.loadSort(storage)).toBe('newest');
+    F.storeSort('used', storage);
+    expect(F.loadSort(storage)).toBe('used');
+    F.storeSort('newest', storage);
+    expect(storage.getItem(F.SORT_KEY)).toBeNull();
+    expect(F.loadSort(memoryStorage({ [F.SORT_KEY]: 'sideways' }))).toBe('newest');
+  });
 });

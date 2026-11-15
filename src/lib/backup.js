@@ -75,6 +75,7 @@ export function snapshot(storage = globalThis.localStorage) {
   return {
     filaments: Filaments.load(storage),
     autoFilaments: Filaments.loadAuto(storage),
+    filamentSort: Filaments.loadSort(storage),
     savedColors: SC.load(storage),
     colorOverrides: Manual.load(storage),
     customChips,
@@ -95,6 +96,7 @@ export function snapshot(storage = globalThis.localStorage) {
 export function apply(data, storage = globalThis.localStorage) {
   Filaments.store(data.filaments, storage);
   Filaments.storeAuto(data.autoFilaments, storage);
+  Filaments.storeSort(data.filamentSort, storage);
   SC.store(data.savedColors, storage);
   Manual.store(data.colorOverrides, storage);
   CustomChips.store(data.customChips, storage);
@@ -141,6 +143,7 @@ export function parse(file) {
   if (typeof d.openMode === 'string') mem.setItem(OpenMode.STORAGE_KEY, d.openMode);
   if (d.colorAutoUpdate === true) mem.setItem(ColorAutoUpdate.STORAGE_KEY, 'on');
   if (d.autoFilaments === true) mem.setItem(Filaments.AUTO_KEY, '1');
+  if (typeof d.filamentSort === 'string') mem.setItem(Filaments.SORT_KEY, d.filamentSort);
   return snapshot(mem);
 }
 

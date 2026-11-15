@@ -108,6 +108,7 @@ describe('backup: files that are not backups', () => {
         theme: 'purple',
         motionSpeed: 'warp',
         openMode: 'both',
+        filamentSort: 'sideways',
       },
     });
     expect(d.filaments).toHaveLength(1);
@@ -123,6 +124,7 @@ describe('backup: files that are not backups', () => {
     expect(d.theme).toBe('system');
     expect(d.motionSpeed).toBe('normal');
     expect(d.openMode).toBe('leave');
+    expect(d.filamentSort).toBe('newest');
   });
 
   it('a backup with nothing in it is empty, not an error', () => {

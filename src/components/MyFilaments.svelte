@@ -1,7 +1,7 @@
 <script>
   // The Filaments tab: your saved spools as a plain list (no card around it, so
   // each row gets the full width). Tap one to write a tag with it (App.svelte
-  // asks first); search narrows the list. Each row
+  // asks first); search narrows the list and the Sort row orders it. Each row
   // has a star (pin to the top) and ⋯ (name, note and remove). Name, note and
   // pin stay on this device: they are never written to a tag.
   import { fold } from '../lib/motion.js';
@@ -14,7 +14,13 @@
   const SEARCH_FROM = 8;
   let query = $state('');
   const searchable = $derived(list.length >= SEARCH_FROM);
-  const shown = $derived(Filaments.ordered(searchable ? Filaments.search(list, query) : list));
+  // Sorting: the choice is remembered; pointless with a single row
+  let sort = $state(Filaments.loadSort());
+  function sortBy(id) {
+    sort = id;
+    Filaments.storeSort(id);
+  }
+  const shown = $derived(Filaments.ordered(searchable ? Filaments.search(list, query) : list, sort));
 
   const pinnedCount = $derived(list.filter((e) => e.pinned).length);
   const summary = $derived(list.length ? `${list.length} saved${pinnedCount ? ` · ${pinnedCount} pinned` : ''}` : '');
@@ -47,6 +53,14 @@
         autocapitalize="off"
         spellcheck="false"
       />
+    {/if}
+    {#if list.length > 1}
+      <div class="sort" role="group" aria-label="Sort">
+        <span class="sort-lab" aria-hidden="true">Sort</span>
+        {#each Filaments.SORTS as s (s.id)}
+          <button type="button" class="by" aria-pressed={sort === s.id} onclick={() => sortBy(s.id)}>{s.label}</button>
+        {/each}
+      </div>
     {/if}
     {#if shown.length}
       <ul class="rows" aria-label="Saved filaments">
@@ -127,6 +141,21 @@
     color: var(--ink);
     font: inherit;
   }
+  .sort { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1); }
+  .sort-lab { color: var(--muted); font-family: var(--font-label); font-size: 0.8125rem; margin-right: var(--s1); }
+  /* the same chip as the brand line filters */
+  .by {
+    min-height: var(--h-small);
+    padding: 0 var(--s3);
+    border-radius: var(--r-pill);
+    border: 1px solid transparent;
+    background: var(--chip);
+    color: var(--ink);
+    font-family: var(--font-label);
+    font-size: 0.9375rem;
+    cursor: pointer;
+  }
+  .by[aria-pressed='true'] { background: var(--ink); color: var(--bg); font-weight: 600; }
   .rows {
     list-style: none;
     margin: 0;

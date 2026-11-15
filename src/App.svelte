@@ -357,6 +357,7 @@
       }
       const next = WriteSeries.record(fRun && fRun.key === key ? fRun : null, r.tag?.uid, key);
       fRun = { entry, ...next.series };
+      useFilament(entry);
       if (next.repeat) {
         say(`That’s the same tag as the last one (${WriteSeries.cleanUid(r.tag.uid)}). It has this spool again, but no new tag was made.`, 'error');
       } else {
@@ -375,6 +376,14 @@
 
   function changeFilament(entry, patch) {
     filaments = Filaments.update(filaments, entry, patch);
+    Filaments.store(filaments);
+  }
+
+  // Remember when a saved filament was last written, for the Last used sort
+  function useFilament(entry) {
+    const next = Filaments.markUsed(filaments, entry);
+    if (next === filaments) return;
+    filaments = next;
     Filaments.store(filaments);
   }
 
@@ -552,6 +561,8 @@
             say(written, 'ok');
             if (isNew) offer = { entry, key: Filaments.keyOf(entry) };
           }
+          // A tag written on Create with a spool you saved counts as using it
+          if (!updating) useFilament(entry);
         }
       }
       if (updating) loaded = { ...loaded, raw: data, unknownKeys: [], notes: [], tag: { ...loaded.tag, ...(r.tag?.uid ? r.tag : {}) } };
