@@ -7,7 +7,8 @@
   // All three panels stay mounted (only hidden), so picks, searches and the
   // after-read / after-write matching keep working whichever one is open.
   import { tick } from 'svelte';
-  import { around } from '../lib/swatch.js';
+  import { circleFill } from '../lib/swatch.js';
+  import { getCircleStyle } from '../lib/swatchStyleStore.svelte.js';
   import { fold, morph } from '../lib/motion.js';
   import BrandColors from './BrandColors.svelte';
   import SavedColors from './SavedColors.svelte';
@@ -90,7 +91,7 @@
   }
 
   const style = $derived(colors.length > 1 && colorType === '0' ? 'Gradient' : 'Segments');
-  const swatch = $derived(around(colors.slice(0, max), style === 'Gradient'));
+  const swatch = $derived(circleFill(colors.slice(0, max), style === 'Gradient', getCircleStyle()));
   const summary = $derived.by(() => {
     if (brandName) {
       return brandOriginal

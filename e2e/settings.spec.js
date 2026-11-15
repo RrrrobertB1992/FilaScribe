@@ -164,6 +164,30 @@ test.describe('Settings', () => {
     expect(await ms()).toBe('200ms');
   });
 
+  test('appearance: swatch styles are Around and Angled until chosen, the circle size only shows for Around, and all are kept after a reload', async ({ page }) => {
+    const group = (name) => page.getByRole('radiogroup', { name, exact: true });
+    const on = (name, option) => expect(group(name).getByRole('radio', { name: option })).toHaveAttribute('aria-checked', 'true');
+    await settingsCard(page, 'Appearance');
+    await on('Circle swatches', 'Around');
+    await on('Color tiles', 'Angled');
+    await expect(group('Tile circle size')).toHaveCount(0);
+
+    await group('Circle swatches').getByRole('radio', { name: 'Vertical' }).click();
+    await group('Color tiles').getByRole('radio', { name: 'Around' }).click();
+    await expect(group('Tile circle size')).toBeVisible();
+    await on('Tile circle size', 'Medium');
+    await group('Tile circle size').getByRole('radio', { name: 'Large' }).click();
+
+    await page.reload();
+    await settingsCard(page, 'Appearance');
+    await on('Circle swatches', 'Vertical');
+    await on('Color tiles', 'Around');
+    await on('Tile circle size', 'Large');
+
+    await group('Color tiles').getByRole('radio', { name: 'Vertical' }).click();
+    await expect(group('Tile circle size')).toHaveCount(0);
+  });
+
   test('about: version, specs and data sources', async ({ page }) => {
     const about = (await settingsCard(page, 'About'));
     await expect(about).toContainText('FilaScribe');

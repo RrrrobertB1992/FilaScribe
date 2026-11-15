@@ -25,6 +25,9 @@ function filled() {
   s.setItem('filascribe-theme', 'dark');
   s.setItem('filascribe-motion-speed', 'slow');
   s.setItem('filascribe-open-mode', 'close');
+  s.setItem('filascribe-swatch-circle', 'vertical');
+  s.setItem('filascribe-swatch-tile', 'around');
+  s.setItem('filascribe-swatch-tile-size', 'large');
   return s;
 }
 
@@ -52,6 +55,9 @@ describe('backup: save and restore', () => {
     expect(d.theme).toBe('dark');
     expect(d.motionSpeed).toBe('slow');
     expect(d.openMode).toBe('close');
+    expect(d.swatchCircle).toBe('vertical');
+    expect(d.swatchTile).toBe('around');
+    expect(d.swatchTileSize).toBe('large');
   });
 
   it('leaves out the downloaded color database and which cards are open', () => {
@@ -108,6 +114,9 @@ describe('backup: files that are not backups', () => {
         theme: 'purple',
         motionSpeed: 'warp',
         openMode: 'both',
+        swatchCircle: 'sparkle',
+        swatchTile: 7,
+        swatchTileSize: 'huge',
         filamentSort: 'sideways',
       },
     });
@@ -124,6 +133,7 @@ describe('backup: files that are not backups', () => {
     expect(d.theme).toBe('system');
     expect(d.motionSpeed).toBe('normal');
     expect(d.openMode).toBe('leave');
+    expect([d.swatchCircle, d.swatchTile, d.swatchTileSize]).toEqual(['around', 'angled', 'medium']);
     expect(d.filamentSort).toBe('newest');
   });
 

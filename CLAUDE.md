@@ -25,7 +25,7 @@ Where things are:
 | Native NFC | `android/app/src/main/java/io/github/rrrrobertb1992/filascribe/FilaScribeNfcPlugin.java` |
 | Choices on the form | `src/lib/catalog.js`, `brandList.js`, `materialList.js`, `variantList.js` |
 | Brand colors | `src/lib/brandColors.js`, data in `src/data/*.json` (generated, see below); `src/lib/ofdSnapshot.js` builds it from the Open Filament Database download, `src/lib/colorDatabase.js` checks for and keeps an update |
-| Things kept on the device | `savedColors.js`, `filaments.js`, `customChips.js`, `manualColors.js`, `defaults.js`, `folds.js`, `theme.js`, `motionSpeed.js`, `openMode.js`, `suggestionCount.js`, `suggestionCloseness.js` (all localStorage, keys start `filascribe-`); `backup.js` saves and restores all of them |
+| Things kept on the device | `savedColors.js`, `filaments.js`, `customChips.js`, `manualColors.js`, `defaults.js`, `folds.js`, `theme.js`, `motionSpeed.js`, `openMode.js`, `swatchStyle.js`, `suggestionCount.js`, `suggestionCloseness.js` (all localStorage, keys start `filascribe-`); `backup.js` saves and restores all of them |
 | UI pieces | `src/components/*.svelte`; shared look in `src/app.css` (tokens) |
 | Empty states and messages | `EmptyState.svelte`; `say(text, kind)` in `src/App.svelte` with `Message.svelte` and the rules in `src/lib/messages.js` |
 | Folding and motion | `Fold.svelte`, `src/lib/motion.js` |

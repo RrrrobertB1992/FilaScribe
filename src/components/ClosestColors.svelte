@@ -1,6 +1,7 @@
 <script>
   import { fold } from '../lib/motion.js';
-  import { around } from '../lib/swatch.js';
+  import { circleFill } from '../lib/swatch.js';
+  import { getCircleStyle } from '../lib/swatchStyleStore.svelte.js';
   // The closest brand colors for colors that aren't a brand color: a few
   // tiles to tap, or, once one is picked, a way back to the color it replaced.
   // Used in the Colors card (Create) and in Quick edits (Read & update); the
@@ -11,7 +12,7 @@
   //   mine: the current colors as text, for the hint (optional)
   let { suggestions = null, backTo = '', label = '', mine = '', onuse = () => {}, onback = () => {} } = $props();
 
-  const swatchOf = around;
+  const swatchOf = (colors, gradient) => circleFill(colors, gradient, getCircleStyle());
 </script>
 
 {#if backTo}

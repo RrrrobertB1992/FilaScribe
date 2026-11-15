@@ -1,9 +1,10 @@
 <script>
-  import { around } from '../lib/swatch.js';
+  import { circleFill } from '../lib/swatch.js';
+  import { getCircleStyle } from '../lib/swatchStyleStore.svelte.js';
   // The spool as it will be described by the tag.
   let { colors = ['FFFFFF'], gradient = false, type = '', brand = '', variant = '', nozzle = '', bed = '', bytes = 0, capacity = 0, capacityLabel = '' } = $props();
 
-  const fill = $derived(around(colors, gradient));
+  const fill = $derived(circleFill(colors, gradient, getCircleStyle()));
 
   // How the U1 / Snapmaker Orca names it: <brand> <type> <subtype>
   const name = $derived([brand, type, variant].filter(Boolean).join(' '));

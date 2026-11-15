@@ -29,6 +29,7 @@
   import * as MaterialList from './lib/materialList.js';
   import * as VariantList from './lib/variantList.js';
   import * as Filaments from './lib/filaments.js';
+  import { getCircleStyle } from './lib/swatchStyleStore.svelte.js';
   import * as WriteSeries from './lib/writeSeries.js';
   import * as QuickEditsLib from './lib/quickEdits.js';
   import QuickEdits from './components/QuickEdits.svelte';
@@ -866,7 +867,7 @@
     name={pending.name || `${Filaments.title(pending)} · ${Filaments.colorLabel(pending)}`}
     details={pending.name ? `${Filaments.title(pending)} · ${Filaments.colorLabel(pending)}` : Filaments.meta(pending)}
     defaults={confirmText(pending)}
-    swatch={Filaments.swatch(pending)}
+    swatch={Filaments.swatch(pending, getCircleStyle())}
     onwrite={() => writeFilament(pending)}
     onedit={() => { const e = pending; pending = null; editFilament(e); }}
     oncancel={() => (pending = null)}

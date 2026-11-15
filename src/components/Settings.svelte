@@ -10,7 +10,9 @@
   import * as CustomChips from '../lib/customChips.js';
   import * as SC from '../lib/savedColors.js';
   import * as Filaments from '../lib/filaments.js';
-  import { around } from '../lib/swatch.js';
+  import { circleFill } from '../lib/swatch.js';
+  import { getCircleStyle, getTileStyle, getTileSize, setCircleStyle, setTileStyle, setTileSize } from '../lib/swatchStyleStore.svelte.js';
+  import SwatchPicker from './SwatchPicker.svelte';
   import * as Manual from '../lib/manualColors.js';
   import { getEdits, removeEdit, clearEdits, importEdits, replaceEdits } from '../lib/manualColorsStore.svelte.js';
   import * as Theme from '../lib/theme.js';
@@ -276,7 +278,7 @@
     }
   }
 
-  const bar = (entry) => around(entry.colors, entry.colorType === '0');
+  const bar = (entry) => circleFill(entry.colors, entry.colorType === '0', getCircleStyle());
 
   // --- Color overrides ---
 
@@ -285,7 +287,7 @@
   const describeOverride = (o) => (o.line === Manual.ALL_LINES ? `${o.brand} · ${o.material} · all lines · ${o.color}` : `${o.brand} · ${o.material} · ${o.line} · ${o.color}`);
   const hexText = (h) => h.split(',').map((x) => `#${x}`).join(' + ');
   // Several colors in one dot, like the Saved colors rows
-  const dot = (h) => around(h.split(','));
+  const dot = (h) => circleFill(h.split(','), false, getCircleStyle());
 
   function resetOverride(o) {
     if (!confirm(`Put ${describeOverride(o)} back to the database color ${hexText(o.was)}?`)) return;
@@ -541,6 +543,9 @@
     setSpeed(d.motionSpeed);
     openMode = d.openMode;
     setOpenMode(d.openMode);
+    setCircleStyle(d.swatchCircle);
+    setTileStyle(d.swatchTile);
+    setTileSize(d.swatchTileSize);
   }
 
   function restore(replace) {
@@ -566,6 +571,23 @@
     Theme.apply(t);
     Theme.store(t);
   }
+  // The three swatch choices live in the shared store, so everything on screen follows them
+  const SAMPLE = ['E8412C', 'F2C230', '2E86DE'];
+  const CIRCLE_ITEMS = [
+    { value: 'vertical', label: 'Vertical', fill: circleFill(SAMPLE, false, 'vertical'), shape: 'circle' },
+    { value: 'angled', label: 'Angled', fill: circleFill(SAMPLE, false, 'angled'), shape: 'circle' },
+    { value: 'around', label: 'Around', fill: circleFill(SAMPLE, false, 'around'), shape: 'circle' },
+  ];
+  const TILE_ITEMS = [
+    { value: 'vertical', label: 'Vertical', fill: circleFill(SAMPLE, false, 'vertical'), shape: 'bar' },
+    { value: 'angled', label: 'Angled', fill: circleFill(SAMPLE, false, 'angled'), shape: 'bar' },
+    { value: 'around', label: 'Around', fill: circleFill(SAMPLE, false, 'around'), shape: 'circle' },
+  ];
+  const SIZE_ITEMS = [
+    { value: 'small', label: 'Small', fill: circleFill(SAMPLE, false, 'around'), shape: 'small' },
+    { value: 'medium', label: 'Medium', fill: circleFill(SAMPLE, false, 'around'), shape: 'medium' },
+    { value: 'large', label: 'Large', fill: circleFill(SAMPLE, false, 'around'), shape: 'large' },
+  ];
   let openMode = $state(getOpenMode());
   const OPEN_ITEMS = [
     { value: 'leave', label: 'Leave the others' },
@@ -990,6 +1012,16 @@
     <summary><h2 id="set-look">Appearance</h2></summary>
     <div class="body">
     <Palette label="Theme" items={THEME_ITEMS} bind:value={theme} allowCustom={false} onpick={pickTheme} />
+    <SwatchPicker label="Circle swatches" items={CIRCLE_ITEMS} value={getCircleStyle()} onpick={setCircleStyle} />
+    <p class="hint">How a spool with more than one color is drawn as a circle: in the spool preview, the color slots, closest colors, My filaments and Settings.</p>
+    <SwatchPicker label="Color tiles" items={TILE_ITEMS} value={getTileStyle()} onpick={setTileStyle} />
+    <p class="hint">How the Brand and Saved color lists draw a color with more than one color. Around draws a circle on those tiles.</p>
+    {#if getTileStyle() === 'around'}
+      <div class="size-row" transition:fold>
+        <SwatchPicker label="Tile circle size" items={SIZE_ITEMS} value={getTileSize()} onpick={setTileSize} />
+        <p class="hint">Small is as tall as a color box, Medium is half a tile wide, Large is the full width of the tile.</p>
+      </div>
+    {/if}
     <Palette label="Animation speed" items={SPEED_ITEMS} bind:value={speed} allowCustom={false} onpick={setSpeed} />
     <p class="hint">How fast cards and editors fold open and shut. Nothing moves if your phone is set to reduce motion.</p>
     <Palette label="Opening a card" items={OPEN_ITEMS} bind:value={openMode} allowCustom={false} onpick={setOpenMode} />
