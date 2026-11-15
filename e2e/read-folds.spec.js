@@ -36,16 +36,16 @@ test.describe('Read & update cards', () => {
     await expect(fold(page, 'read-colors')).toHaveJSProperty('open', true);
   });
 
-  test('Create keeps its own cards, whatever Read & update does', async ({ page }) => {
+  test('a new tag keeps its own cards, whatever a tag you read does', async ({ page }) => {
     await expect(fold(page, 'filament')).toHaveJSProperty('open', true);
     await expect(fold(page, 'colors')).toHaveJSProperty('open', true);
     await readFrom(page, TAG);
     await fold(page, 'read-filament').locator('summary').click();
-    await goCreate(page);
+    await page.getByRole('button', { name: 'New tag', exact: true }).click();
     await expect(fold(page, 'filament')).toHaveJSProperty('open', true);
     await expect(fold(page, 'colors')).toHaveJSProperty('open', true);
     await fold(page, 'filament').locator('summary').click();
-    await page.getByRole('tab', { name: 'Read & update' }).click();
+    await readFrom(page, TAG);
     await expect(fold(page, 'read-filament')).toHaveJSProperty('open', true);
   });
 

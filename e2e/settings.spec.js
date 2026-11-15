@@ -3,7 +3,7 @@ import { test, expect, chip, goCreate, lastWrite, openSettingsGroup, settingsCar
 const settings = (page) => page.getByRole('tab', { name: 'Settings' }).click();
 
 test.describe('Settings', () => {
-  test('a Settings tab next to Create and Read & update, with no write button', async ({ page }) => {
+  test('a Settings tab next to Tag and Filaments, with no write button', async ({ page }) => {
     await settings(page);
     await expect(page.getByRole('tab', { name: 'Settings' })).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByRole('button', { name: 'Write tag' })).toHaveCount(0);
@@ -11,9 +11,9 @@ test.describe('Settings', () => {
     await expect(page.getByRole('button', { name: 'Write tag' })).toBeVisible();
   });
   const GROUPS = {
-    'Your choices on the form': ['Defaults for new tags', 'Brands', 'Materials', 'Variants', 'Your chips'],
-    'Your saved data': ['My filaments', 'Saved colors', 'Backup'],
-    'Brand colors': ['Color database', 'Color overrides', 'Closest brand colors'],
+    'Your lists': ['Defaults for new tags', 'Brands', 'Materials', 'Variants', 'Your chips'],
+    Colors: ['Saved colors', 'Color overrides', 'Closest brand colors', 'Color database'],
+    'Your data': ['My filaments', 'Backup'],
     App: ['Appearance', 'About'],
   };
   const row = (page, name) => page.getByRole('button', { name: new RegExp(`^${name}`) });
@@ -70,7 +70,7 @@ test.describe('Settings', () => {
     await chooser.setFiles({ name: 'b.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ app: 'FilaScribe backup', version: 1, data: {} })) });
     await expect(backup.getByRole('button', { name: 'Replace everything' })).toBeVisible();
     await page.getByRole('button', { name: '‹ Settings' }).click();
-    await row(page, 'Your saved data').click();
+    await row(page, 'Your data').click();
     await expect(backup.getByRole('button', { name: 'Replace everything' })).toHaveCount(0);
     await expect(backup.getByRole('button', { name: 'Restore backup' })).toBeVisible();
   });

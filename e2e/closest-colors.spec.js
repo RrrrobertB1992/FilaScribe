@@ -64,7 +64,7 @@ test.describe('Closest brand colors', () => {
   });
 
   test('Settings: choose how many, or Off', async ({ page }) => {
-    await openSettingsGroup(page, 'Brand colors');
+    await openSettingsGroup(page, 'Colors');
     const card = page.locator('details.card', { has: page.getByRole('heading', { name: 'Closest brand colors' }) });
     await expect(card).not.toHaveAttribute('open', '');
     await card.locator('summary').click();
@@ -85,14 +85,14 @@ test.describe('Closest brand colors', () => {
     // Loose says yes) and 14.3 from Purple, which the color family check keeps out
     await page.evaluate(() => localStorage.setItem('filascribe-defaults', JSON.stringify({ profile: 'u1', brand: 'Anycubic', type: 'PLA', subtype: 'Basic' })));
     await page.reload();
-    await openSettingsGroup(page, 'Brand colors');
+    await openSettingsGroup(page, 'Colors');
     const card = page.locator('details.card', { has: page.getByRole('heading', { name: 'Closest brand colors' }) });
     await card.locator('summary').click();
     await expect(card.getByRole('button', { name: 'Normal', exact: true })).toHaveAttribute('aria-pressed', 'true');
 
     const tryColor = async (level) => {
       await page.getByRole('tab', { name: 'Settings' }).click();
-      await openSettingsGroup(page, 'Brand colors');
+      await openSettingsGroup(page, 'Colors');
       await (await settingsCard(page, 'Closest brand colors')).getByRole('button', { name: level, exact: true }).click();
       await goCreate(page);
       await openCustom(page);
@@ -108,7 +108,7 @@ test.describe('Closest brand colors', () => {
     await expect(strip(page).getByRole('button').first()).toContainText('Blue');
 
     await page.reload();
-    await openSettingsGroup(page, 'Brand colors');
+    await openSettingsGroup(page, 'Colors');
     await expect((await settingsCard(page, 'Closest brand colors')).getByRole('button', { name: 'Loose', exact: true })).toHaveAttribute('aria-pressed', 'true');
   });
 });
@@ -164,14 +164,14 @@ test.describe('Closest brand colors in Quick edits', () => {
   test('Update tag writes the picked brand color, and the old one if you went back', async ({ page }) => {
     await readFrom(page, TAG);
     await quick(page).getByRole('button', { name: /^Use Blue, PLA Basic/ }).click();
-    await page.getByRole('button', { name: 'Update tag' }).click();
+    await page.getByRole('button', { name: 'Update this tag' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
     expect((await lastWrite(page)).color_hex).toBe('0A2989');
 
     await readFrom(page, TAG);
     await quick(page).getByRole('button', { name: /^Use Blue, PLA Basic/ }).click();
     await quick(page).getByRole('button', { name: 'Back to my color' }).click();
-    await page.getByRole('button', { name: 'Update tag' }).click();
+    await page.getByRole('button', { name: 'Update this tag' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
     expect((await lastWrite(page)).color_hex).toBe('0A2A8C');
   });

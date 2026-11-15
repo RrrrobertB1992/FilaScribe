@@ -33,6 +33,21 @@ async function saveSpool(page, brand, material) {
 }
 
 test.describe('My filaments', () => {
+  test('Edit first fills the Tag form with the spool as a new tag, and writes nothing', async ({ page }) => {
+    await saveSpool(page, 'Overture', 'PLA');
+    await page.reload();
+    await chip(page, 'SUNLU').click(); // the form isn't the spool until Edit first
+    await openCard(page);
+    await rows(page).first().getByRole('button', { name: /^Use Overture PLA/ }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Edit first' }).click();
+    await expect(page.getByRole('tab', { name: 'Tag' })).toHaveAttribute('aria-selected', 'true');
+    await expect(chip(page, 'Overture')).toHaveAttribute('aria-pressed', 'true');
+    await expect(chip(page, 'PLA')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: 'Write tag' })).toBeVisible();
+    await expect(page.getByText('From a tag you read')).toHaveCount(0);
+    expect(await writeCount(page)).toBe(0);
+  });
+
   test('starts empty, with the save button at the end of the form', async ({ page }) => {
     await saved(page, 'None yet');
     await expect(saveButton(page)).toBeVisible();

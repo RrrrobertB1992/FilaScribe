@@ -57,7 +57,7 @@ test.describe('Starting color', () => {
 // Settings, Filaments and Read & update replace the form, and the color lists
 // forget what they had picked. Coming back must show the same choice, not turn
 // a brand color into Custom.
-for (const tab of ['Settings', 'Filaments', 'Read & update']) test.describe(`Colors after a visit to ${tab}`, () => {
+for (const tab of ['Settings', 'Filaments']) test.describe(`Colors after a visit to ${tab}`, () => {
   const toSettingsAndBack = async (page) => {
     await page.getByRole('tab', { name: tab }).click();
     await goCreate(page);

@@ -107,8 +107,8 @@
     <p class="hint">Tap one to write a tag with it. Brand, material, variant, colors and temperatures are used; weight and diameter come from your defaults for new tags.</p>
   {:else}
     <EmptyState title="No saved filaments yet">
-      Save a spool from Create with “Save this spool as a filament”, or accept the offer after you write a tag. It will be listed here, ready to write again.
-      {#snippet action()}<button type="button" class="btn" onclick={ongocreate}>Go to Create</button>{/snippet}
+      Save a spool from the Tag screen with “Save this spool as a filament”, or accept the offer after you write a tag. It will be listed here, ready to write again.
+      {#snippet action()}<button type="button" class="btn" onclick={ongocreate}>Go to Tag</button>{/snippet}
     </EmptyState>
   {/if}
 </section>

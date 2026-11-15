@@ -30,7 +30,7 @@
   import { untrack } from 'svelte';
 
   let {
-    form, // the form on screen (Create or a read tag), for "Use the form"
+    form, // the form on screen (a new tag or one you read), for "Use the form"
     defaults = $bindable({}),
     chips = $bindable({ brands: [], materials: [], variants: {} }),
     shownBrands = $bindable([...BrandList.DEFAULT]),
@@ -175,9 +175,9 @@
   // --- Groups: Settings opens to a short menu, and a group opens its cards ---
 
   const GROUPS = [
-    { id: 'form', title: 'Your choices on the form', cards: 'Defaults, Brands, Materials, Variants, Your chips' },
-    { id: 'data', title: 'Your saved data', cards: 'My filaments, Saved colors, Backup' },
-    { id: 'colors', title: 'Brand colors', cards: 'Color database, Color overrides, Closest brand colors' },
+    { id: 'form', title: 'Your lists', cards: 'Defaults, Brands, Materials, Variants, Your chips' },
+    { id: 'colors', title: 'Colors', cards: 'Saved colors, Color overrides, Closest brand colors, Color database' },
+    { id: 'data', title: 'Your data', cards: 'My filaments, Backup' },
     { id: 'app', title: 'App', cards: 'Appearance, About' },
   ];
   let group = $state(null); // the group on screen; null is the menu
@@ -631,7 +631,7 @@
   <details class="card" open={open.includes('defaults')} ontoggle={(e) => toggled('defaults', e)}>
     <summary><h2 id="set-defaults">Defaults for new tags</h2></summary>
     <div class="body">
-    <p class="hint">What Create starts with, and what Start over goes back to. Colors aren’t included; they start white.</p>
+    <p class="hint">What new tags start with, and what Start over goes back to. Colors aren’t included; they start white.</p>
     <dl class="rows">
       {#each rows as [k, v]}
         <div><dt>{k}</dt><dd>{v}</dd></div>
@@ -815,33 +815,6 @@
     </div>
   </details>
 
-  <details class="card" open={open.includes('saved')} ontoggle={(e) => toggled('saved', e)}>
-    <summary><h2 id="set-saved">Saved colors</h2></summary>
-    <div class="body">
-    {#if savedCount}
-      <p class="hint">{savedCount} saved {savedCount === 1 ? 'color' : 'colors'}, kept per brand and material.</p>
-      <ul class="saved-list">
-        {#each savedGroups as g (g.key)}
-          <li>
-            <span class="swatches" aria-hidden="true">
-              {#each g.list.slice(0, 6) as e}<span style:background={bar(e)}></span>{/each}
-            </span>
-            <span class="what">{g.label} <span class="n">{g.list.length}</span></span>
-            <button type="button" class="btn small danger" aria-label={`Clear ${g.label}`} onclick={() => clearSaved(g.key)}>Clear</button>
-          </li>
-        {/each}
-      </ul>
-    {:else}
-      <EmptyState compact>You have no saved colors yet. Colors are saved when you write a tag, or with Save colors under Custom.</EmptyState>
-    {/if}
-    <div class="actions">
-      <button type="button" class="btn small" onclick={exportSaved} disabled={!savedCount}>Export saved colors</button>
-      <button type="button" class="btn small" onclick={() => importInput?.click()}>Import saved colors</button>
-      {#if savedCount}<button type="button" class="btn small danger" onclick={clearAllSaved}>Clear all</button>{/if}
-      <input bind:this={importInput} type="file" accept="application/json,.json" class="visually-hidden" tabindex="-1" aria-label="Saved colors file" onchange={importSaved} />
-    </div>
-    </div>
-  </details>
 
   <details class="card" open={open.includes('backup')} ontoggle={(e) => toggled('backup', e)}>
     <summary><h2 id="set-backup">Backup</h2></summary>
@@ -879,6 +852,76 @@
     </div>
   </details>
     {:else if group === 'colors'}
+  <details class="card" open={open.includes('saved')} ontoggle={(e) => toggled('saved', e)}>
+    <summary><h2 id="set-saved">Saved colors</h2></summary>
+    <div class="body">
+    {#if savedCount}
+      <p class="hint">{savedCount} saved {savedCount === 1 ? 'color' : 'colors'}, kept per brand and material.</p>
+      <ul class="saved-list">
+        {#each savedGroups as g (g.key)}
+          <li>
+            <span class="swatches" aria-hidden="true">
+              {#each g.list.slice(0, 6) as e}<span style:background={bar(e)}></span>{/each}
+            </span>
+            <span class="what">{g.label} <span class="n">{g.list.length}</span></span>
+            <button type="button" class="btn small danger" aria-label={`Clear ${g.label}`} onclick={() => clearSaved(g.key)}>Clear</button>
+          </li>
+        {/each}
+      </ul>
+    {:else}
+      <EmptyState compact>You have no saved colors yet. Colors are saved when you write a tag, or with Save colors under Custom.</EmptyState>
+    {/if}
+    <div class="actions">
+      <button type="button" class="btn small" onclick={exportSaved} disabled={!savedCount}>Export saved colors</button>
+      <button type="button" class="btn small" onclick={() => importInput?.click()}>Import saved colors</button>
+      {#if savedCount}<button type="button" class="btn small danger" onclick={clearAllSaved}>Clear all</button>{/if}
+      <input bind:this={importInput} type="file" accept="application/json,.json" class="visually-hidden" tabindex="-1" aria-label="Saved colors file" onchange={importSaved} />
+    </div>
+    </div>
+  </details>
+  <details class="card" open={open.includes('overrides')} ontoggle={(e) => toggled('overrides', e)}>
+    <summary><h2 id="set-overrides">Color overrides</h2></summary>
+    <div class="body">
+    {#if overrides.length}
+      <p class="hint">{overrides.length} brand {overrides.length === 1 ? 'color' : 'colors'} with your own hex. Yours always wins over the database.</p>
+      <ul class="saved-list">
+        {#each overrides as o (describeOverride(o))}
+          <li>
+            <span class="swatches pair" aria-hidden="true">
+              <span style:background={dot(o.was)}></span>
+              <span style:background={dot(o.hex)}></span>
+            </span>
+            <span class="what">
+              {describeOverride(o)}
+              <span class="note">{hexText(o.was)} → {hexText(o.hex)}</span>
+              {#if o.state === 'changed'}<span class="note warn">The database now says {hexText(o.dbNow)}</span>{/if}
+              {#if o.state === 'missing'}<span class="note warn">No longer in the database. Reset to remove it.</span>{/if}
+            </span>
+            <button type="button" class="btn small danger" aria-label={`Reset ${describeOverride(o)}`} onclick={() => resetOverride(o)}>Reset</button>
+          </li>
+        {/each}
+      </ul>
+    {:else}
+      <EmptyState compact>You have no color overrides yet. On the Tag screen, tap the wrench on a brand color and choose Override to give it your own hex.</EmptyState>
+    {/if}
+    <div class="actions">
+      <button type="button" class="btn small" onclick={exportOverrides} disabled={!overrides.length}>Export color overrides</button>
+      <button type="button" class="btn small" onclick={() => overridesInput?.click()}>Import color overrides</button>
+      {#if overrides.length}<button type="button" class="btn small danger" onclick={clearOverrides}>Clear all</button>{/if}
+      <input bind:this={overridesInput} type="file" accept="application/json,.json" class="visually-hidden" tabindex="-1" aria-label="Color overrides file" onchange={importOverrides} />
+    </div>
+    </div>
+  </details>
+
+  <details class="card" open={open.includes('closest')} ontoggle={(e) => toggled('closest', e)}>
+    <summary><h2 id="set-closest">Closest brand colors</h2></summary>
+    <div class="body">
+      <p class="hint">When a color isn’t a brand color, suggest the nearest ones from the brand you picked. Colors from a different color family, like blue and violet, are never suggested, so fewer than this may show.</p>
+      <Palette label="How many to show" items={SUGGEST_ITEMS} bind:value={suggestCount} allowCustom={false} onpick={pickSuggestCount} />
+      <Palette label="How close" items={CLOSENESS_ITEMS} bind:value={closeness} allowCustom={false} onpick={setCloseness} />
+      <p class="hint small">Normal suggests shades that are clearly alike. Strict only suggests near-identical ones. Loose also suggests shades that are a little different.</p>
+    </div>
+  </details>
   <details class="card" open={open.includes('colordb')} ontoggle={(e) => toggled('colordb', e)}>
     <summary><h2 id="set-colordb">Color database</h2>{#if dbOld}<span class="tag">Out of date</span>{/if}</summary>
     <div class="body">
@@ -952,49 +995,6 @@
     </div>
   </details>
 
-  <details class="card" open={open.includes('overrides')} ontoggle={(e) => toggled('overrides', e)}>
-    <summary><h2 id="set-overrides">Color overrides</h2></summary>
-    <div class="body">
-    {#if overrides.length}
-      <p class="hint">{overrides.length} brand {overrides.length === 1 ? 'color' : 'colors'} with your own hex. Yours always wins over the database.</p>
-      <ul class="saved-list">
-        {#each overrides as o (describeOverride(o))}
-          <li>
-            <span class="swatches pair" aria-hidden="true">
-              <span style:background={dot(o.was)}></span>
-              <span style:background={dot(o.hex)}></span>
-            </span>
-            <span class="what">
-              {describeOverride(o)}
-              <span class="note">{hexText(o.was)} → {hexText(o.hex)}</span>
-              {#if o.state === 'changed'}<span class="note warn">The database now says {hexText(o.dbNow)}</span>{/if}
-              {#if o.state === 'missing'}<span class="note warn">No longer in the database. Reset to remove it.</span>{/if}
-            </span>
-            <button type="button" class="btn small danger" aria-label={`Reset ${describeOverride(o)}`} onclick={() => resetOverride(o)}>Reset</button>
-          </li>
-        {/each}
-      </ul>
-    {:else}
-      <EmptyState compact>You have no color overrides yet. On Create, tap the wrench on a brand color and choose Override to give it your own hex.</EmptyState>
-    {/if}
-    <div class="actions">
-      <button type="button" class="btn small" onclick={exportOverrides} disabled={!overrides.length}>Export color overrides</button>
-      <button type="button" class="btn small" onclick={() => overridesInput?.click()}>Import color overrides</button>
-      {#if overrides.length}<button type="button" class="btn small danger" onclick={clearOverrides}>Clear all</button>{/if}
-      <input bind:this={overridesInput} type="file" accept="application/json,.json" class="visually-hidden" tabindex="-1" aria-label="Color overrides file" onchange={importOverrides} />
-    </div>
-    </div>
-  </details>
-
-  <details class="card" open={open.includes('closest')} ontoggle={(e) => toggled('closest', e)}>
-    <summary><h2 id="set-closest">Closest brand colors</h2></summary>
-    <div class="body">
-      <p class="hint">When a color isn’t a brand color, suggest the nearest ones from the brand you picked. Colors from a different color family, like blue and violet, are never suggested, so fewer than this may show.</p>
-      <Palette label="How many to show" items={SUGGEST_ITEMS} bind:value={suggestCount} allowCustom={false} onpick={pickSuggestCount} />
-      <Palette label="How close" items={CLOSENESS_ITEMS} bind:value={closeness} allowCustom={false} onpick={setCloseness} />
-      <p class="hint small">Normal suggests shades that are clearly alike. Strict only suggests near-identical ones. Loose also suggests shades that are a little different.</p>
-    </div>
-  </details>
     {:else if group === 'app'}
   <details class="card" open={open.includes('look')} ontoggle={(e) => toggled('look', e)}>
     <summary><h2 id="set-look">Appearance</h2></summary>
