@@ -11,6 +11,7 @@
   import Fold from './components/Fold.svelte';
   import MyFilaments from './components/MyFilaments.svelte';
   import ConfirmWrite from './components/ConfirmWrite.svelte';
+  import ConfirmErase from './components/ConfirmErase.svelte';
   import Message from './components/Message.svelte';
   import * as Messages from './lib/messages.js';
   import * as ColorUpdates from './lib/colorUpdates.svelte.js';
@@ -18,7 +19,7 @@
   import * as Defaults from './lib/defaults.js';
   import * as OpenSpool from './lib/formats/openspool.js';
   import { MATERIALS, VARIANTS } from './lib/catalog.js';
-  import { encodeMessage, mimeRecord, maxMessageSize, NTAG, TNF } from './lib/ndef.js';
+  import { encodeMessage, mimeRecord, emptyRecord, isBlank, maxMessageSize, NTAG, TNF } from './lib/ndef.js';
   import { getNfc } from './lib/nfc/index.js';
   import { variantChoices, carryVariant, materialChoices, carryMaterial, canonicalBrand, suggestBrands, findBrand, findColor } from './lib/brandColors.js';
   import { loadBrandColors } from './lib/brandColorsData.js';
@@ -41,9 +42,10 @@
   let mode = $state('tag'); // 'tag' | 'filaments' | 'settings'
   let defaults = $state(Defaults.load()); // what new tags start with (Settings)
   let form = $state(Defaults.newForm(defaults));
-  let loaded = $state(null); // { tag, raw, unknownKeys, notes, before } after a read (before: the quick-edit fields as read)
+  let loaded = $state(null); // { tag, raw, unknownKeys, notes, before, hasData } after a read (before: the quick-edit fields as read; hasData: the tag holds something that can be erased)
+  let eraseAsk = $state(false); // the Erase this tag confirm sheet is open
   let nfcState = $state({ available: true, enabled: true });
-  let sheet = $state(null); // { mode: 'read' | 'write', wrongUid }
+  let sheet = $state(null); // { mode: 'read' | 'write' | 'erase', wrongUid }
   let messages = $state([]); // [{ id, kind: 'ok' | 'error' | 'info', text }], oldest first
   const timers = new Map(); // the fade timers, by message id
   let nextMessage = 0;
@@ -53,6 +55,17 @@
   // which are open on their own, and start with only Quick edits open
   const fromTag = $derived(!!(loaded && !loaded.empty));
   const reading = $derived(fromTag);
+  // Erasing is only offered where it can be tied to the tag you read: the Android
+  // app refuses any other UID, while Web NFC writes to whichever tag it meets first
+  const canErase = $derived(nfc.kind === 'native' && !!loaded?.hasData && !!loaded.tag?.uid);
+  // What the confirm sheet says is on the tag: from the tag itself, not from the form (which may have been edited)
+  const eraseWho = $derived.by(() => {
+    const raw = loaded?.raw;
+    if (!raw) return { name: 'A tag with other data', details: '', swatch: '' };
+    const name = [raw.brand, raw.type, raw.subtype].filter((x) => typeof x === 'string' && x).join(' ') || 'This tag';
+    const hex = typeof raw.color_hex === 'string' && /^[0-9a-f]{6}$/i.test(raw.color_hex) ? `#${raw.color_hex}` : '';
+    return { name, details: loaded.tag?.uid ? `UID ${loaded.tag.uid}` : '', swatch: hex };
+  });
   const foldId = (name) => (reading ? `read-${name}` : name);
   let suggestions = $state(null); // closest brand colors, shown in Quick edits for a tag you read
   let backTo = $state('');
@@ -501,9 +514,9 @@
     }
 
     if (!parsed) {
-      loaded = { tag: result.tag, raw: null, unknownKeys: [], notes: [], empty: true };
+      loaded = { tag: result.tag, raw: null, unknownKeys: [], notes: [], empty: true, hasData: !result.unreadable && !isBlank(result.records) };
       if (result.unreadable) say('This tag couldn’t be read as NDEF. It may be blank, locked or another kind of tag.', 'error');
-      else if (!result.records.length) say('This tag is blank. Fill in the form and tap Write tag to put an OpenSpool record on it.', 'info');
+      else if (isBlank(result.records)) say('This tag is blank. Fill in the form and tap Write tag to put an OpenSpool record on it.', 'info');
       else say(problem || 'This tag doesn’t hold an OpenSpool record.', 'error');
       return;
     }
@@ -513,7 +526,7 @@
     // update writes the same name as a new tag would
     if (!brandData) rawBrandData = await loadBrandColors().catch(() => null);
     form.brand = canonicalBrand(brandData, form.brand);
-    loaded = { tag: result.tag, raw: parsed.raw, unknownKeys: parsed.unknownKeys, notes: parsed.notes, empty: false, before: QuickEditsLib.snapshot(form) };
+    loaded = { tag: result.tag, raw: parsed.raw, unknownKeys: parsed.unknownKeys, notes: parsed.notes, empty: false, hasData: true, before: QuickEditsLib.snapshot(form) };
     showErrors = true;
     series = null;
     mode = 'tag';
@@ -521,6 +534,32 @@
     await tick();
     colorSection?.afterLoad();
     say('Tag read. Change what you need, then update the tag.', 'ok');
+  }
+
+  // Erase: write one empty record to the tag you read. The app only accepts that
+  // same tag (by UID); any other tag shows the wrong-tag warning and it keeps waiting.
+  async function eraseTag() {
+    eraseAsk = false;
+    if (!canErase) return;
+    const tag = loaded.tag;
+    say(null);
+    offer = null;
+    sheet = { mode: 'erase', wrongUid: '' };
+    try {
+      const r = await nfc.write(encodeMessage([emptyRecord()]), {
+        expectedUid: tag.uid,
+        onWrongTag: (uid) => { if (sheet) sheet.wrongUid = uid; },
+      });
+      sheet = null;
+      // Now a blank tag, as if you had read one: the form stays as it is
+      loaded = { tag: r.tag?.uid ? r.tag : { ...tag, pages: null }, raw: null, unknownKeys: [], notes: [], empty: true, hasData: false };
+      series = null;
+      if (r.verified) say('Tag erased. It’s blank now.', 'ok');
+      else say('Tag erased, but reading it back didn’t match. Read the tag to check it.', 'error');
+    } catch (e) {
+      sheet = null;
+      if (e.code !== 'CANCELLED') say(e.message, 'error');
+    }
   }
 
   async function writeTag(asNew = false) {
@@ -778,6 +817,9 @@
         {#if !fromTag}
           <button type="button" class="btn start-over" onclick={startOver}>Start over</button>
         {/if}
+        {#if canErase}
+          <button type="button" class="btn danger erase" onclick={() => (eraseAsk = true)} disabled={!nfcReady}>Erase this tag</button>
+        {/if}
         <button type="button" class="btn save-spool" onclick={saveFilament}>+ Save this spool as a filament</button>
       </div>
     </form>
@@ -874,6 +916,10 @@
   />
 {/if}
 
+{#if eraseAsk}
+  <ConfirmErase name={eraseWho.name} details={eraseWho.details} swatch={eraseWho.swatch} onerase={eraseTag} oncancel={() => (eraseAsk = false)} />
+{/if}
+
 <TabBar {mode} onswitch={switchMode} />
 
 {#if sheet}
@@ -940,6 +986,7 @@
   /* Set apart from the cards (12 px gap + 12 px margin = 24 px) */
   .form-actions { display: flex; gap: var(--s2); margin-top: var(--s3); }
   .start-over { flex: none; }
+  .erase { flex: none; }
   .save-spool { flex: 1; min-width: 0; border-style: dashed; color: var(--action); font-weight: 600; font-size: 0.9375rem; }
   .offer {
     display: flex;

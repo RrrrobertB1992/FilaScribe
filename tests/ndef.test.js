@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { encodeMessage, decodeMessage, mimeRecord, wrapTlv, unwrapTlv, type2Footprint, TNF } from '../src/lib/ndef.js';
+import { encodeMessage, decodeMessage, mimeRecord, emptyRecord, isBlank, wrapTlv, unwrapTlv, type2Footprint, TNF } from '../src/lib/ndef.js';
 
 const bytes = (s) => new TextEncoder().encode(s);
 
@@ -42,5 +42,14 @@ describe('NDEF', () => {
     expect([...unwrapTlv(new Uint8Array([0x00, ...mem, 0, 0]))]).toEqual([...msg]);
     const big = new Uint8Array(300);
     expect([...wrapTlv(big).subarray(0, 4)]).toEqual([0x03, 0xff, 0x01, 0x2c]);
+  });
+
+  it('erases a tag with one empty record, and counts that as blank', () => {
+    const msg = encodeMessage([emptyRecord()]);
+    // MB|ME|SR|TNF=0, no type, no payload: the smallest valid NDEF message
+    expect([...msg]).toEqual([0xd0, 0, 0]);
+    expect(isBlank(decodeMessage(msg))).toBe(true);
+    expect(isBlank([])).toBe(true);
+    expect(isBlank([emptyRecord(), mimeRecord('application/json', bytes('{}'))])).toBe(false);
   });
 });

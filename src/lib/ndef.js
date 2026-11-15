@@ -22,6 +22,16 @@ export function mimeRecord(mediaType, payload) {
   return { tnf: TNF.MIME, type: mediaType, payload };
 }
 
+/** An empty record: a message of just this is how a tag is erased (it reads back as blank). */
+export function emptyRecord() {
+  return { tnf: TNF.EMPTY, type: '', payload: new Uint8Array(0) };
+}
+
+/** True when these records hold nothing: no records at all, or only empty ones (an erased tag). */
+export function isBlank(records) {
+  return records.every((r) => r.tnf === TNF.EMPTY);
+}
+
 /** Encode records into one NDEF message. */
 export function encodeMessage(records) {
   if (!records.length) throw new Error('An NDEF message needs at least one record.');

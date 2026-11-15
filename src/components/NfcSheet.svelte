@@ -9,7 +9,7 @@
 <div class="scrim">
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" aria-describedby="sheet-text">
     <div class="pulse" aria-hidden="true"><span></span></div>
-    <h2 id="sheet-title">{mode === 'write' ? 'Ready to write' : 'Ready to read'}</h2>
+    <h2 id="sheet-title">{mode === 'write' ? 'Ready to write' : mode === 'erase' ? 'Ready to erase' : 'Ready to read'}</h2>
     {#if note}<p class="note">{note}</p>{/if}
     <p id="sheet-text">
       Hold the tag flat against the back of your phone and keep it there until this closes.
