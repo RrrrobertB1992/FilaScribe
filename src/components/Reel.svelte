@@ -17,7 +17,7 @@
     width: 68px;
     aspect-ratio: 1;
     border-radius: 50%;
-    background: var(--ink);
+    background: var(--reel-edge);
     padding: 4px;
   }
   .reel.edited { outline: 2px dashed var(--muted); outline-offset: 3px; }
@@ -34,7 +34,7 @@
     position: absolute;
     inset: 34%;
     border-radius: 50%;
-    border: 4px solid var(--ink);
+    border: 4px solid var(--reel-edge);
     background: var(--surface);
   }
 </style>
