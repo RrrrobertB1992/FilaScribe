@@ -1,4 +1,4 @@
-import { test, expect, colorStyle, lastWrite, writeCount, chip, writeTag, status, temps, showAllMaterials, typeOther, choiceRow } from './nfc.js';
+import { test, expect, colorStyle, lastWrite, writeCount, chip, writeTag, status, temps, showAllMaterials, typeOther, choiceRow, answer } from './nfc.js';
 
 test.describe('Create', () => {
   test('writes the default tag', async ({ page }) => {
@@ -118,6 +118,7 @@ test.describe('Create', () => {
     await expect(add).toBeHidden();
     await page.getByRole('button', { name: /^Color 2,/ }).click();
     await page.getByRole('button', { name: 'Remove', exact: true }).click();
+    await answer(page, true);
     await expect(page.getByRole('button', { name: /^Color \d,/ })).toHaveCount(4);
     await writeTag(page);
     expect((await lastWrite(page)).additional_color_hexes).toHaveLength(3);

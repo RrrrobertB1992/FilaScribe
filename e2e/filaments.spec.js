@@ -1,4 +1,4 @@
-import { test, expect, chip, lastWrite, writeCount, writeTag, status, settingsCard, fold, goCreate } from './nfc.js';
+import { test, expect, chip, lastWrite, writeCount, writeTag, status, settingsCard, fold, goCreate, answer } from './nfc.js';
 
 const rows = (page) => fold(page, 'filaments').getByRole('list', { name: 'Saved filaments' }).getByRole('listitem');
 const saveButton = (page) => page.getByRole('button', { name: '+ Save this spool as a filament' });
@@ -13,17 +13,6 @@ async function saved(page, text) {
   if (text === 'None yet') await expect(fold(page, 'filaments')).toContainText('No saved filaments yet');
   else await expect(fold(page, 'filaments').locator('.sum')).toHaveText(text);
   await goCreate(page);
-}
-
-/** Answer the next confirm() with `yes`, and return what it asked. */
-function answer(page, yes) {
-  page.removeAllListeners('dialog');
-  return new Promise((resolve) => {
-    page.once('dialog', async (d) => {
-      resolve(d.message());
-      await (yes ? d.accept() : d.dismiss());
-    });
-  });
 }
 
 async function saveSpool(page, brand, material) {
@@ -159,14 +148,12 @@ test.describe('My filaments', () => {
     await rows(page).first().getByRole('button', { name: /^Edit/ }).click();
     const remove = rows(page).first().getByRole('button', { name: 'Remove', exact: true });
 
-    let asked = answer(page, false);
     await remove.click();
-    expect(await asked).toMatch(/Remove Overture PLA .* from My filaments\?/);
+    expect(await answer(page, false)).toMatch(/Remove Overture PLA .* from My filaments\?/);
     await expect(rows(page)).toHaveCount(1);
 
-    asked = answer(page, true);
     await remove.click();
-    await asked;
+    await answer(page, true);
     await expect(fold(page, 'filaments')).toContainText('No saved filaments yet');
   });
 
@@ -244,14 +231,12 @@ test.describe('My filaments', () => {
     await expect(card.getByRole('list')).toHaveCount(0);
     await expect(card).toContainText('1 saved filament');
 
-    let asked = answer(page, false);
     await card.getByRole('button', { name: 'Clear all' }).click();
-    expect(await asked).toMatch(/Remove all 1 saved filament from My filaments\?/);
+    expect(await answer(page, false)).toMatch(/Remove all 1 saved filament from My filaments\?/);
     await expect(card).toContainText('1 saved filament');
 
-    asked = answer(page, true);
     await card.getByRole('button', { name: 'Clear all' }).click();
-    await asked;
+    await answer(page, true);
     await expect(card).toContainText('No saved filaments yet');
   });
 

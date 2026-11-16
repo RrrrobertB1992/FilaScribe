@@ -1,4 +1,4 @@
-import { test, expect, chip, settingsCard, brandPanel, brandTile } from './nfc.js';
+import { test, expect, chip, settingsCard, brandPanel, brandTile, answer } from './nfc.js';
 
 // Bambu Lab PLA Basic Black is #000000 in the bundled database snapshot
 const header = (page) => page.locator('.colorsec');
@@ -88,15 +88,12 @@ test.describe('Color overrides', () => {
   test('Reset to database asks first, then gives the database color back', async ({ page }) => {
     await pickBlack(page);
     await override(page, '111111');
-    let asked = '';
-    page.removeAllListeners('dialog');
-    page.once('dialog', (d) => { asked = d.message(); d.dismiss(); });
     await editBtn(page).click();
     await box(page).getByRole('button', { name: 'Reset to database' }).click();
-    expect(asked).not.toBe('');
+    expect(await answer(page, false)).toContain('back to the database color');
     await expect(brandTile(page, 'Black')).toContainText('Edited');
-    page.once('dialog', (d) => d.accept());
     await box(page).getByRole('button', { name: 'Reset to database' }).click();
+    await answer(page, true);
     await expect(brandTile(page, 'Black')).not.toContainText('Edited');
     await expect(header(page).locator('.now-name')).toHaveText('Black');
   });
@@ -114,15 +111,12 @@ test.describe('Color overrides in Settings', () => {
     await expect(card).toContainText('000000');
     await expect(card).toContainText('111111');
 
-    let asked = '';
-    page.removeAllListeners('dialog');
-    page.once('dialog', (d) => { asked = d.message(); d.dismiss(); });
     await card.getByRole('button', { name: /^Reset / }).click();
-    expect(asked).not.toBe('');
+    expect(await answer(page, false)).toContain('back to the database color');
     await expect(card.getByRole('button', { name: /^Reset / })).toHaveCount(1);
 
-    page.once('dialog', (d) => d.accept());
     await card.getByRole('button', { name: /^Reset / }).click();
+    await answer(page, true);
     await expect(card.getByRole('button', { name: /^Reset / })).toHaveCount(0);
   });
 
@@ -130,12 +124,11 @@ test.describe('Color overrides in Settings', () => {
     await pickBlack(page);
     await override(page, '111111');
     const card = await openSettings(page);
-    page.removeAllListeners('dialog');
-    page.once('dialog', (d) => d.dismiss());
     await card.getByRole('button', { name: 'Clear all' }).click();
+    await answer(page, false);
     await expect(card.getByRole('button', { name: /^Reset / })).toHaveCount(1);
-    page.once('dialog', (d) => d.accept());
     await card.getByRole('button', { name: 'Clear all' }).click();
+    await answer(page, true);
     await expect(card.getByRole('button', { name: /^Reset / })).toHaveCount(0);
   });
 });
