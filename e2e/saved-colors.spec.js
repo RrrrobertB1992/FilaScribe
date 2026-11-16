@@ -1,4 +1,4 @@
-import { test, expect, colorStyle, colorTab, openCustom, lastWrite, chip, writeTag, status, openCards, readFrom } from './nfc.js';
+import { test, expect, colorStyle, colorTab, openCustom, lastWrite, chip, writeTag, status, openCards, readFrom, answer } from './nfc.js';
 
 const panel = (page) => page.locator('.saved');
 const tiles = (page) => panel(page).getByRole('button', { pressed: undefined }).filter({ has: page.locator('.hex') });
@@ -159,6 +159,7 @@ test.describe('Saved colors', () => {
     // Removing the last one turns Saved off and opens another source
     await panel(page).getByRole('button', { name: /^Edit / }).click();
     await panel(page).getByRole('button', { name: 'Remove', exact: true }).click();
+    await answer(page, true);
     await expect(colorTab(page, 'Saved')).toBeDisabled();
 
     await openCustom(page);
@@ -168,6 +169,7 @@ test.describe('Saved colors', () => {
     await expect(colorTab(page, 'Saved')).toHaveText(/Saved\s*2/);
     await colorTab(page, 'Saved').click();
     await panel(page).getByRole('button', { name: 'Clear Polymaker PLA' }).click();
+    await answer(page, true);
     await expect(colorTab(page, 'Saved')).toBeDisabled();
   });
 

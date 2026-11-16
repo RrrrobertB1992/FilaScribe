@@ -65,7 +65,6 @@ export const test = base.extend({
     const problems = [];
     page.on('pageerror', (e) => problems.push(String(e)));
     page.on('console', (m) => { if (m.type() === 'error') problems.push(m.text()); });
-    page.on('dialog', (d) => d.accept()); // confirm() prompts: say yes
     await page.addInitScript(installFakeNfc);
     // Seed the storage once, before the app's first load. Start with the
     // Temperatures, Spool details and Tag data cards open so tests can reach
@@ -125,6 +124,20 @@ export async function readFrom(page, tag) {
   await page.getByRole('tab', { name: 'Tag' }).click();
   await placeTag(page, tag);
   await readTag(page);
+}
+
+/** The confirm sheet (the app's own "Are you sure?", not a browser pop-up). */
+export const confirmSheet = (page) => page.locator('[aria-labelledby="confirm-sheet-title"]');
+
+/** Answer the open confirm sheet: yes taps its action button, no taps Cancel. Gives back the question it asked. */
+export async function answer(page, yes) {
+  const sheet = confirmSheet(page);
+  await expect(sheet).toBeVisible();
+  const asked = (await sheet.getByRole('heading').textContent()) || '';
+  if (yes) await sheet.locator('.actions .btn').last().click();
+  else await sheet.getByRole('button', { name: 'Cancel' }).click();
+  await expect(sheet).toBeHidden();
+  return asked;
 }
 
 /** A card that folds, by its data-fold id ('quick', 'filaments', …). */

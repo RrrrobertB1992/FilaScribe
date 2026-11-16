@@ -1,4 +1,4 @@
-import { test, expect, chip, goCreate, lastWrite, openSettingsGroup, settingsCard, status, temps, writeTag } from './nfc.js';
+import { test, expect, chip, goCreate, lastWrite, openSettingsGroup, settingsCard, status, temps, writeTag, answer } from './nfc.js';
 
 const settings = (page) => page.getByRole('tab', { name: 'Settings' }).click();
 
@@ -131,8 +131,10 @@ test.describe('Settings', () => {
     expect(download.suggestedFilename()).toBe('filascribe-saved-colors.json');
 
     await saved.getByRole('button', { name: 'Clear Polymaker PLA' }).click();
+    await answer(page, true);
     await expect(saved).not.toContainText('Polymaker PLA');
     await saved.getByRole('button', { name: 'Clear all' }).click();
+    await answer(page, true);
     await expect(saved).toContainText('no saved colors yet');
   });
   test('appearance: light, dark or follow the system, kept after a reload', async ({ page }) => {
