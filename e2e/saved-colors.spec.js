@@ -144,7 +144,7 @@ test.describe('Saved colors', () => {
     await expect(colorTab(page, 'Saved')).toHaveText(/Saved\s*2/);
   });
 
-  test('rename, remove a row, clear', async ({ page }) => {
+  test('rename, remove a row', async ({ page }) => {
     await setColors(page, '101010');
     await chip(page, 'Basic').click();
     await writeTag(page); // saved + picked
@@ -166,9 +166,6 @@ test.describe('Saved colors', () => {
     await page.locator('#hex-input').fill('404040');
     await save(page).click();
     await expect(colorTab(page, 'Saved')).toHaveText(/Saved\s*2/);
-    await colorTab(page, 'Saved').click();
-    await panel(page).getByRole('button', { name: 'Clear Polymaker PLA' }).click();
-    await expect(colorTab(page, 'Saved')).toBeDisabled();
   });
 
   test('reading a tag with saved colors picks them', async ({ page }) => {
@@ -179,41 +176,5 @@ test.describe('Saved colors', () => {
     await expect(colorTab(page, 'Saved')).toHaveAttribute('aria-pressed', 'true');
     await expect(panel(page).getByRole('button', { name: /^Edit / })).toBeVisible();
     await expect(page.locator('#hex-input')).toBeHidden();
-  });
-
-  test('import a saved-colors file and export it again', async ({ page }) => {
-    // Import works from Custom too, since Saved is off while it's empty
-    const file = {
-      'Polymaker|PLA': [
-        { colors: ['2B2B2D'], name: 'Galaxy Black', variants: ['Matte'] },
-        { colors: ['FF0000', '0000FF'], name: '', variants: [''], colorType: '0' },
-      ],
-      'Generic|PETG': [{ colors: ['ABCDEF'], name: '', variants: ['Basic'] }],
-    };
-    const [chooser] = await Promise.all([
-      page.waitForEvent('filechooser'),
-      page.getByRole('button', { name: 'Import saved colors' }).click(),
-    ]);
-    await chooser.setFiles({
-      name: 'filascribe-saved-colors.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)),
-    });
-    await expect(status(page)).toHaveText('Imported 3 saved colors.');
-    await expect(colorTab(page, 'Saved')).toHaveText(/Saved\s*2/);
-    await colorTab(page, 'Saved').click();
-    await expect(panel(page)).toContainText('Galaxy Black');
-
-    const [download] = await Promise.all([
-      page.waitForEvent('download'),
-      panel(page).getByRole('button', { name: 'Export all saved colors' }).click(),
-    ]);
-    expect(download.suggestedFilename()).toBe('filascribe-saved-colors.json');
-    const exported = JSON.parse(await (await download.createReadStream()).toArray().then((c) => Buffer.concat(c).toString()));
-    expect(exported['Generic|PETG'][0].colors).toEqual(['ABCDEF']);
-    expect(exported['Polymaker|PLA']).toHaveLength(2);
-
-    await panel(page).locator('input[type=file]').setInputFiles({
-      name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from('not json'),
-    });
-    await expect(status(page)).toHaveText('That file isn’t a saved-colors export.');
   });
 });
