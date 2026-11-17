@@ -232,7 +232,6 @@
     {#if tab === 'custom'}{@render closest()}{/if}
     <div class="row">
       <button type="button" class="btn small" onclick={saveCurrent} disabled={!brand || !type}>Save colors</button>
-      <button type="button" class="btn small" onclick={() => savedList?.openImport()}>Import saved colors</button>
     </div>
     <p class="hint">Saved colors are kept for {[brand, type].filter(Boolean).join(' ') || 'this brand and material'}. Colors are also saved when you write a tag.</p>
   </div>
