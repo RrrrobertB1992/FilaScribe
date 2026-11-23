@@ -142,6 +142,22 @@ test.describe('Backup', () => {
     await expect(row(card, 'My filaments')).toContainText('3');
   });
 
+  test('Escape and a tap outside close the restore choice, but not under the Replace everything question', async ({ page }) => {
+    const card = await start(page);
+    await choose(page, card, THERE);
+    await page.keyboard.press('Escape');
+    await expect(card.getByRole('button', { name: 'Save backup' })).toBeVisible();
+    await choose(page, card, THERE);
+    await card.getByRole('button', { name: 'Replace everything' }).click();
+    await expect(confirmSheet(page)).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(confirmSheet(page)).toBeHidden();
+    await expect(card.getByRole('button', { name: 'Replace everything' })).toBeVisible();
+    await page.mouse.click(2, 2);
+    await expect(card.getByRole('button', { name: 'Save backup' })).toBeVisible();
+    expect(JSON.parse(await stored(page, 'filascribe-filaments'))).toHaveLength(2);
+  });
+
   test('Replace everything asks first, and Cancel on that pop-up changes nothing', async ({ page }) => {
     const card = await start(page);
     await choose(page, card, THERE);
