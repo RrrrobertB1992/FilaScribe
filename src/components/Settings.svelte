@@ -1,5 +1,5 @@
 <script>
-  import { ask } from '../lib/confirmSheet.svelte.js';
+  import { ask, confirmState } from '../lib/confirmSheet.svelte.js';
   // The Settings tab: defaults for new tags, your chips and saved colors,
   // appearance, and about.
   import Palette from './Palette.svelte';
@@ -501,6 +501,23 @@
 
   let backupInput = $state();
   let restoring = $state(null); // { name, rows, data } once a backup file is chosen
+
+  // Escape or a tap outside the restore choice closes it, like Cancel. Not while the
+  // Replace everything question is open: that sheet answers its own Escape and taps.
+  $effect(() => {
+    if (!restoring) return;
+    const away = (e) => {
+      if (confirmState.request) return;
+      if (e.type === 'keydown' ? e.key === 'Escape' : !e.target.closest?.('[data-restore]')) restoring = null;
+    };
+    // Capture phase, so we look at the question before the sheet's own Escape closes it
+    window.addEventListener('keydown', away, true);
+    window.addEventListener('pointerdown', away, true);
+    return () => {
+      window.removeEventListener('keydown', away, true);
+      window.removeEventListener('pointerdown', away, true);
+    };
+  });
   const counts = $derived(Backup.totals({ filaments, savedColors: saved, colorOverrides: getEdits(), customChips: chips }));
 
   async function saveBackup() {
@@ -835,19 +852,19 @@
     <div class="body">
     <p class="hint">Everything you’ve set up in one file: keep it safe, or move it to another phone.</p>
     {#if restoring}
-      <p class="backup-file"><strong>{restoring.name}</strong></p>
-      <ul class="backup-list">
+      <p class="backup-file" data-restore><strong>{restoring.name}</strong></p>
+      <ul class="backup-list" data-restore>
         {#each restoring.rows as r (r.label)}
           <li><span>{r.label}</span><span>{r.total}{r.added ? ` (${r.added} new)` : ''}</span></li>
         {/each}
         <li><span>Settings and theme</span><span>from the file</span></li>
       </ul>
-      <div class="actions">
+      <div class="actions" data-restore>
         <button type="button" class="btn small primary" onclick={() => restore(false)}>Add what’s new</button>
         <button type="button" class="btn small" onclick={() => (restoring = null)}>Cancel</button>
         <button type="button" class="btn small danger" onclick={() => restore(true)}>Replace everything</button>
       </div>
-      <p class="hint small">Add what’s new keeps everything you have. Replace everything deletes what’s on this device first, and asks you to confirm.</p>
+      <p class="hint small" data-restore>Add what’s new keeps everything you have. Replace everything deletes what’s on this device first, and asks you to confirm.</p>
     {:else}
       <ul class="backup-list">
         {#each counts as r (r.label)}
