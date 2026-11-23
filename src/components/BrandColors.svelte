@@ -1,4 +1,5 @@
 <script>
+  import { ask } from '../lib/confirmSheet.svelte.js';
   // Brand colors (the "Brand" panel of the color section): the brand's named
   // colors for the picked material, narrowed by the variant (see
   // lib/brandColors.js). Works like Saved colors but read-only: pick a color
@@ -368,13 +369,13 @@
     closeEditor();
   }
 
-  function resetEditor() {
+  async function resetEditor() {
     const tile = pickedTile;
     const edit = pickedEdit;
     if (!tile || !edit) return;
     const orig = (tile.info.original || tile.info.colors).map((h) => `#${h}`).join(' + ');
     const where = edit.line === Manual.ALL_LINES ? ` in every ${label} line` : '';
-    if (!confirm(`Put ${tile.info.name}${where} back to the database color ${orig}?`)) return;
+    if (!(await ask({ kicker: 'Color override', title: `Put ${tile.info.name}${where} back to the database color ${orig}?`, confirm: 'Put back' }))) return;
     const name = tile.info.name;
     removeEdit(edit);
     repick(tile.line.name, name);

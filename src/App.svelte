@@ -12,6 +12,7 @@
   import MyFilaments from './components/MyFilaments.svelte';
   import ConfirmWrite from './components/ConfirmWrite.svelte';
   import ConfirmErase from './components/ConfirmErase.svelte';
+  import ConfirmSheet from './components/ConfirmSheet.svelte';
   import Message from './components/Message.svelte';
   import * as Messages from './lib/messages.js';
   import * as ColorUpdates from './lib/colorUpdates.svelte.js';
@@ -919,6 +920,8 @@
 {#if eraseAsk}
   <ConfirmErase name={eraseWho.name} details={eraseWho.details} swatch={eraseWho.swatch} onerase={eraseTag} oncancel={() => (eraseAsk = false)} />
 {/if}
+
+<ConfirmSheet />
 
 <TabBar {mode} onswitch={switchMode} />
 

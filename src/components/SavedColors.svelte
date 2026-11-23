@@ -1,4 +1,5 @@
 <script>
+  import { ask } from '../lib/confirmSheet.svelte.js';
   // Saved colors for the current brand + material (the "Saved" panel of the
   // color section): pick one to fill the colors. Each tile has a wrench button
   // that opens an editor right under that tile’s row: name, a picker for each of its colors
@@ -137,9 +138,9 @@
     onstatus('Saved as a new color');
   }
 
-  function removeRow(entry) {
+  async function removeRow(entry) {
     const what = entry.colors.join(' + ') + (entry.name ? ` (${entry.name})` : '');
-    if (!confirm(`Remove saved color ${what}?`)) return;
+    if (!(await ask({ kicker: 'Remove', title: `Remove saved color ${what}?`, confirm: 'Remove', danger: true }))) return;
     const id = SC.entryId(entry);
     persist(SC.removeEntry(all, key, id));
     if (selected === id) deselect();
@@ -216,8 +217,8 @@
     editor.active = Math.min(editor.active, editor.colors.length - 1);
     if (editor.colors.length < 2) editor.type = undefined;
   }
-  function clearAll() {
-    if (!confirm(`Remove all saved colors for ${label}?`)) return;
+  async function clearAll() {
+    if (!(await ask({ kicker: 'Remove', title: `Remove all saved colors for ${label}?`, confirm: 'Remove all', danger: true }))) return;
     morph(root, () => {
       persist(SC.clearKey(all, key));
       deselect();

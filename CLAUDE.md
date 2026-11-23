@@ -128,12 +128,13 @@ When a test is needed:
   Storage modules take a `storage` argument (default `globalThis.localStorage`)
   so tests can pass a fake. Test junk in storage and the size limit too.
 - Behavior on screen gets an `e2e/<feature>.spec.js`. Import from `e2e/nfc.js`:
-  it fakes Web NFC, clears localStorage before each test, auto-accepts
-  `confirm()` dialogs, and fails a test on any console error. Helpers:
+  it fakes Web NFC, clears localStorage before each test, and fails a test on
+  any console error. Helpers:
   `placeTag`, `readTag`, `readFrom`, `lastWrite`, `writeTag`, `goCreate`,
   `chip`, `choiceRow`, `typeOther`, `fold`, `openCustom`, `colorTab`,
   `brandPanel`, `brandTile`, `temps`, `showAllMaterials`, `status`,
-  `openSettingsGroup`, `settingsCard`. Use these instead of writing the same steps again.
+  `openSettingsGroup`, `settingsCard`, `answer` (taps Cancel or the action
+  button on the confirm sheet and gives back its question). Use these instead of writing the same steps again.
   Unit tests get a fake storage from `tests/storage.js` (`memoryStorage`,
   `brokenStorage`).
 - A message that isn't an error fades after 5 seconds, and messages stack, so
@@ -182,6 +183,9 @@ When a test is needed:
   (`src/lib/backup.js`), with old backups still loading.
 - Every card in Settings starts closed. Every Create card folds and its
   open/closed state is remembered.
+- Never use the browser's `confirm()`, `alert()` or `prompt()`: ask with `ask()` from
+  `src/lib/confirmSheet.svelte.js` (the app's own sheet; the button says the action itself,
+  and `danger: true` only for things that delete data).
 - One look for the same thing everywhere: an empty list or a search with no
   match uses `EmptyState.svelte`; anything about what just happened goes
   through `say(text, kind)` (a `Message.svelte` strip, never loose colored
