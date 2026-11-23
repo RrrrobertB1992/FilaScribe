@@ -1,4 +1,4 @@
-import { test, expect, status, settingsCard, goCreate } from './nfc.js';
+import { test, expect, status, settingsCard, goCreate, answer, confirmSheet } from './nfc.js';
 
 const spool = (colors, colorName) => ({
   profile: 'u1', brand: 'Polymaker', type: 'PLA', subtype: 'Matte', minTemp: '190', maxTemp: '220',
@@ -143,14 +143,12 @@ test.describe('Backup', () => {
   });
 
   test('Replace everything asks first, and Cancel on that pop-up changes nothing', async ({ page }) => {
-    page.removeAllListeners('dialog');
     const card = await start(page);
     await choose(page, card, THERE);
-    let message = '';
-    page.once('dialog', (d) => { message = d.message(); d.dismiss(); });
     await card.getByRole('button', { name: 'Replace everything' }).click();
-    await expect.poll(() => message).toContain('Replace everything on this device');
-    expect(message).toContain('can’t be undone');
+    await expect(confirmSheet(page)).toContainText('Replace everything on this device');
+    await expect(confirmSheet(page)).toContainText('can’t be undone');
+    await answer(page, false);
     // nothing changed, and the choice is still there
     expect(JSON.parse(await stored(page, 'filascribe-filaments'))).toHaveLength(2);
     expect(await stored(page, 'filascribe-closest-colors')).toBe('5');
@@ -158,11 +156,10 @@ test.describe('Backup', () => {
   });
 
   test('Replace everything, once confirmed, leaves exactly what the backup holds', async ({ page }) => {
-    page.removeAllListeners('dialog');
     const card = await start(page);
     await choose(page, card, THERE);
-    page.once('dialog', (d) => d.accept());
     await card.getByRole('button', { name: 'Replace everything' }).click();
+    await answer(page, true);
     await expect(status(page)).toHaveText('Backup restored. Everything now matches it.');
     await expect(row(card, 'My filaments')).toContainText('2');
     await expect(row(card, 'Saved colors')).toContainText('1');

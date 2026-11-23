@@ -1,4 +1,5 @@
 <script>
+  import { ask } from '../lib/confirmSheet.svelte.js';
   // The Filaments tab: your saved spools as a plain list (no card around it, so
   // each row gets the full width). Tap one to write a tag with it (App.svelte
   // asks first); search narrows the list and the Sort row orders it. Each row
@@ -33,8 +34,8 @@
 
   const swatch = (e) => Filaments.swatch(e, getCircleStyle());
 
-  function remove(e) {
-    if (!confirm(`Remove ${Filaments.title(e)} · ${Filaments.colorLabel(e)} from My filaments?`)) return;
+  async function remove(e) {
+    if (!(await ask({ kicker: 'Remove', title: `Remove ${Filaments.title(e)} · ${Filaments.colorLabel(e)} from My filaments?`, confirm: 'Remove', danger: true }))) return;
     editing = '';
     onremove(e);
   }

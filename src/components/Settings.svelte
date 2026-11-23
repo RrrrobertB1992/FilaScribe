@@ -1,4 +1,5 @@
 <script>
+  import { ask } from '../lib/confirmSheet.svelte.js';
   // The Settings tab: defaults for new tags, your chips and saved colors,
   // appearance, and about.
   import Palette from './Palette.svelte';
@@ -141,8 +142,8 @@
     findMaterial = '';
   }
 
-  function resetMaterials() {
-    if (!confirm('Show the default materials again? Materials you turned on are turned off.')) return;
+  async function resetMaterials() {
+    if (!(await ask({ kicker: 'Materials', title: 'Show the default materials again?', text: 'Materials you turned on are turned off.', confirm: 'Show defaults' }))) return;
     setMaterials([...MaterialList.DEFAULT]);
   }
 
@@ -216,8 +217,8 @@
     }
   }
 
-  function resetBrands() {
-    if (!confirm('Show the default brands again? Brands you turned on are turned off.')) return;
+  async function resetBrands() {
+    if (!(await ask({ kicker: 'Brands', title: 'Show the default brands again?', text: 'Brands you turned on are turned off.', confirm: 'Show defaults' }))) return;
     setBrands([...BrandList.DEFAULT]);
   }
 
@@ -232,8 +233,8 @@
     CustomChips.store(chips);
   }
 
-  function clearChips() {
-    if (!confirm('Remove all your chips? Built-in chips stay.')) return;
+  async function clearChips() {
+    if (!(await ask({ kicker: 'Remove', title: 'Remove all your chips?', text: 'Built-in chips stay.', confirm: 'Remove all', danger: true }))) return;
     chips = { ...chips, variants: {} };
     CustomChips.store(chips);
   }
@@ -250,13 +251,13 @@
     SC.store(next);
   }
 
-  function clearSaved(key) {
-    if (!confirm(`Remove all saved colors for ${key.replace('|', ' ')}?`)) return;
+  async function clearSaved(key) {
+    if (!(await ask({ kicker: 'Remove', title: `Remove all saved colors for ${key.replace('|', ' ')}?`, confirm: 'Remove all', danger: true }))) return;
     persistSaved(SC.clearKey(saved, key));
   }
 
-  function clearAllSaved() {
-    if (!confirm('Remove every saved color, for every brand and material?')) return;
+  async function clearAllSaved() {
+    if (!(await ask({ kicker: 'Remove', title: 'Remove every saved color?', text: 'This covers every brand and material.', confirm: 'Remove all', danger: true }))) return;
     persistSaved({});
   }
 
@@ -289,14 +290,14 @@
   // Several colors in one dot, like the Saved colors rows
   const dot = (h) => circleFill(h.split(','), false, getCircleStyle());
 
-  function resetOverride(o) {
-    if (!confirm(`Put ${describeOverride(o)} back to the database color ${hexText(o.was)}?`)) return;
+  async function resetOverride(o) {
+    if (!(await ask({ kicker: 'Color override', title: `Put ${describeOverride(o)} back to the database color ${hexText(o.was)}?`, confirm: 'Put back' }))) return;
     removeEdit(o);
   }
 
-  function clearOverrides() {
+  async function clearOverrides() {
     const n = getEdits().length;
-    if (!confirm(`Remove all ${n} color ${n === 1 ? 'override' : 'overrides'} and go back to the database colors?`)) return;
+    if (!(await ask({ kicker: 'Remove', title: `Remove all ${n} color ${n === 1 ? 'override' : 'overrides'}?`, text: 'The colors go back to the database colors.', confirm: 'Remove all', danger: true }))) return;
     clearEdits();
   }
 
@@ -446,7 +447,7 @@
   }
 
   async function goBackToBuiltIn() {
-    if (dbBusy || !confirm('Go back to the brand colors built into the app? Your saved colors and color overrides stay.')) return;
+    if (dbBusy || !(await ask({ kicker: 'Color database', title: 'Go back to the brand colors built into the app?', text: 'Your saved colors and color overrides stay.', confirm: 'Go back' }))) return;
     dbBusy = true;
     dbError = '';
     try {
@@ -471,8 +472,8 @@
     Filaments.storeAuto(autoFilaments);
   }
 
-  function clearFilaments() {
-    if (!confirm(`Remove all ${filaments.length} saved ${filaments.length === 1 ? 'filament' : 'filaments'} from My filaments?`)) return;
+  async function clearFilaments() {
+    if (!(await ask({ kicker: 'Remove', title: `Remove all ${filaments.length} saved ${filaments.length === 1 ? 'filament' : 'filaments'} from My filaments?`, confirm: 'Remove all', danger: true }))) return;
     filaments = [];
     Filaments.store(filaments);
   }
@@ -548,9 +549,10 @@
     setTileSize(d.swatchTileSize);
   }
 
-  function restore(replace) {
+  async function restore(replace) {
     if (!restoring) return;
-    if (replace && !confirm('Replace everything on this device with this backup? Your filaments, saved colors, color overrides, chips and settings now will be deleted. This can’t be undone.')) return;
+    if (replace && !(await ask({ kicker: 'Replace everything', title: 'Replace everything on this device with this backup?', text: 'Your filaments, saved colors, color overrides, chips and settings now will be deleted. This can’t be undone.', confirm: 'Replace everything', danger: true }))) return;
+    if (!restoring) return;
     const data = replace ? restoring.data : Backup.merge(Backup.snapshot(), restoring.data);
     Backup.apply(data);
     showRestored(Backup.snapshot());

@@ -1,4 +1,5 @@
 <script>
+  import { ask } from '../lib/confirmSheet.svelte.js';
   import { untrack } from 'svelte';
   import { fold } from '../lib/motion.js';
   import HsvPicker from './HsvPicker.svelte';
@@ -48,9 +49,9 @@
     onchange();
   }
 
-  function remove(i) {
+  async function remove(i) {
     if (colors.length < 2) return;
-    if (!confirm(`Remove color ${i + 1} (#${colors[i]})?`)) return;
+    if (!(await ask({ kicker: 'Remove', title: `Remove color ${i + 1} (#${colors[i]})?`, confirm: 'Remove', danger: true }))) return;
     colors = colors.filter((_, j) => j !== i);
     active = Math.min(i, colors.length - 1);
     onchange();

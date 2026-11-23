@@ -1,4 +1,4 @@
-import { test, expect, chip, choiceRow, goCreate, lastWrite, openCards, readFrom, settingsCard, showAllMaterials, temps, typeOther, writeTag } from './nfc.js';
+import { test, expect, chip, choiceRow, goCreate, lastWrite, openCards, readFrom, settingsCard, showAllMaterials, temps, typeOther, writeTag, answer } from './nfc.js';
 
 // The lists in Settings that choose what the Create form offers
 const settings = (page) => page.getByRole('tab', { name: 'Settings' }).click();
@@ -57,6 +57,7 @@ test.describe('Settings: your brands, materials and variants', () => {
 
     // reset
     await (await settingsCard(page, 'Brands')).getByRole('button', { name: 'Show the default brands' }).click();
+    await answer(page, true);
     await goCreate(page);
     await expect(brandRow.getByRole('button', { name: 'SUNLU', exact: true })).toBeVisible();
     await expect(brandRow.getByRole('button', { name: 'Elegoo', exact: true })).toHaveCount(0);
@@ -106,6 +107,7 @@ test.describe('Settings: your brands, materials and variants', () => {
 
     // reset
     await (await settingsCard(page, 'Materials')).getByRole('button', { name: 'Show the default materials' }).click();
+    await answer(page, true);
     await goCreate(page);
     await expect(row.getByRole('button', { name: 'PETG', exact: true })).toBeVisible();
     await expect(row.getByRole('button', { name: 'TPU', exact: true })).toHaveCount(0);

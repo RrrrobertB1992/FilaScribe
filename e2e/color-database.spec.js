@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { test, expect, status, settingsCard, typeOther, goCreate } from './nfc.js';
+import { test, expect, status, settingsCard, typeOther, goCreate, answer } from './nfc.js';
 
 import { toAll, manifestFor } from '../tests/ofdFixture.js';
 
@@ -76,6 +76,7 @@ test.describe('Color database', () => {
     const again = await openCard(page);
     await expect(again).toContainText('Downloaded copy');
     await again.getByRole('button', { name: 'Go back to the built-in copy' }).click();
+    await answer(page, true);
     await expect(status(page)).toHaveText('Using the brand colors built into the app.');
     await expect(again).toContainText('Built into the app');
     await expect(again).toContainText(colorCount.toLocaleString());
