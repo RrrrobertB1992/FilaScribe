@@ -7,7 +7,6 @@
   // automatically after a successful write. Saved colors belong to a brand +
   // material only, not to a variant. (The variants are still recorded, but
   // nothing here uses them.)
-  import { exportJson, readJsonFile } from '../lib/backup.js';
   import TileSwatch from './TileSwatch.svelte';
   import { fold, morph } from '../lib/motion.js';
   import HsvPicker from './HsvPicker.svelte';
@@ -217,14 +216,6 @@
     editor.active = Math.min(editor.active, editor.colors.length - 1);
     if (editor.colors.length < 2) editor.type = undefined;
   }
-  async function clearAll() {
-    if (!(await ask({ kicker: 'Remove', title: `Remove all saved colors for ${label}?`, confirm: 'Remove all', danger: true }))) return;
-    morph(root, () => {
-      persist(SC.clearKey(all, key));
-      deselect();
-    });
-  }
-
   // --- Called by the app ---
 
   /**
@@ -265,34 +256,6 @@
     userPicked = false;
     editor = null;
   }
-
-  // --- Backup ---
-
-  let importInput = $state();
-
-  /** Open the file picker for importing saved colors. */
-  export function openImport() {
-    importInput?.click();
-  }
-
-  async function exportAll() {
-    const r = await exportJson(all, 'filascribe-saved-colors.json');
-    if (r.message) onstatus(r.ok ? `Saved colors copied. ${r.message.replace(/^Copied\. /, '')}` : 'Couldn’t copy the saved colors.', !r.ok);
-  }
-
-  async function importFile(e) {
-    const file = e.currentTarget.files?.[0];
-    e.currentTarget.value = '';
-    if (!file) return;
-    try {
-      const r = SC.importInto(all, await readJsonFile(file));
-      persist(r.all);
-      onstatus(r.added ? `Imported ${r.added} saved ${r.added === 1 ? 'color' : 'colors'}.` : 'Nothing new to import.');
-    } catch {
-      onstatus('That file isn’t a saved-colors export.', true);
-    }
-  }
-
 
   function tileTitle(entry) {
     let t = entry.colors.map((h) => '#' + h).join(' + ');
@@ -384,15 +347,6 @@
         </button>
       {/if}
     {/if}
-
-    <div class="backup">
-      {#if entries.length}
-        <button type="button" class="btn small danger" onclick={clearAll}>Clear {label}</button>
-      {/if}
-      <button type="button" class="btn small" onclick={exportAll}>Export all saved colors</button>
-      <button type="button" class="btn small" onclick={openImport}>Import</button>
-      <input bind:this={importInput} type="file" accept="application/json,.json" class="visually-hidden" tabindex="-1" onchange={importFile} />
-    </div>
   </div>
 {/if}
 
@@ -501,6 +455,5 @@
   .name { font-size: 0.8125rem; font-weight: 700; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .hex { font-family: var(--font-label); font-size: 0.8125rem; white-space: pre-line; line-height: 1.2; letter-spacing: 0.04em; color: var(--muted); }
   .saved > .hint { margin: 0; }
-  .actions, .backup { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
-  .backup { padding-top: var(--s1); border-top: 1px solid var(--line); }
+  .actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
 </style>
